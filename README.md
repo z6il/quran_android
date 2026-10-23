@@ -1,77 +1,148 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/quran/quran_android/main/app/src/madani/res/drawable-xxhdpi/icon.png" alt='Quran for Android logo'/>
+<img src="https://raw.githubusercontent.com/z6il/quran_android/main/app/src/madani/res/drawable-xxhdpi/icon.png" alt="Quran app icon"/>
 
-# Quran for Android
+# Quran (z6il edition)
 
-[![Build Status](https://github.com/quran/quran_android/actions/workflows/build.yml/badge.svg)](https://github.com/quran/quran_android/actions/workflows/build.yml)
-[![Version](https://img.shields.io/github/v/release/quran/quran_android?include_prereleases&sort=semver)](https://github.com/quran/quran_android/releases/latest)
-[![Github Downloads](https://img.shields.io/github/downloads/quran/quran_android/total?logo=Github)](https://github.com/quran/quran_android/releases)
+[![Latest release](https://img.shields.io/github/v/release/z6il/quran_android?include_prereleases&sort=semver)](https://github.com/z6il/quran_android/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/z6il/quran_android/total?logo=Github)](https://github.com/z6il/quran_android/releases)
 
-This is a simple (Madani based) Quran app for Android.
+A Madani mushaf Quran app for Android with 22 reciters, built on the open-source
+[Quran for Android](https://github.com/quran/quran_android).
 
-[<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
-      alt='Get it on Google Play'
-      height="80">](https://play.google.com/store/apps/details?id=com.quran.labs.androidquran)
-[<img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png"
-      alt="Get it at IzzyOnDroid"
-      height="80">](https://apt.izzysoft.de/packages/com.quran.labs.androidquran)
-[<img src="https://user-images.githubusercontent.com/69304392/148696068-0cfea65d-b18f-4685-82b5-329a330b1c0d.png"
-      alt='Get it on GitHub'
-      height="80">](https://github.com/quran/quran_android/releases/latest)
+**[Download the latest APK](https://github.com/z6il/quran_android/releases/latest)**
 
-<div align="left">
+</div>
+
+## About this fork
+
+This is a fork of [quran/quran_android](https://github.com/quran/quran_android), the
+open-source code behind the Quran for Android app. All of the reading, search,
+translation and audio features come from that project and its contributors. This
+fork adds reciters and fixes on top of it.
+
+It installs as its own app (`com.z6il.quran`), so it sits alongside the official
+Quran app instead of replacing it. If you want the official app, get it from
+[Google Play](https://play.google.com/store/apps/details?id=com.quran.labs.androidquran)
+or the [upstream releases](https://github.com/quran/quran_android/releases/latest).
+
+## What's different from the original
+
+### Reciters
+
+The open-source code ships with 3 reciters. This fork has 22.
+
+**Gapless** (whole surahs, highlighting follows the verse being recited):
+
+| Reciter | Reciter |
+| --- | --- |
+| Muhammad Siddiq Al-Minshawi | Mahmoud Khalil Al-Husary |
+| Mishary Rashid Al-Afasy | Maher Al-Muaiqly |
+| Saood Ash-Shuraym | Abu Bakr Ash-Shatri |
+| Yasser Ad-Dussary | Nasser Al-Qatami |
+| Fares Abbad | Hani Ar-Rifai |
+| **Abdullah Al-Mousa** (عبدالله الموسى) | |
+
+**Verse by verse:**
+
+| Reciter | Reciter |
+| --- | --- |
+| Abdullah Basfar | Abd Al-Basit Abd As-Samad (murattal) |
+| Abd Al-Basit Abd As-Samad (mujawwad) | Abdur-Rahman As-Sudais |
+| Saad Al-Ghamdi | Ali Al-Hudhaify |
+| Muhammad Ayyoub | Muhammad Jibreel |
+| Mohammad Al-Tablawy | Muhammad Siddiq Al-Minshawi (mujawwad) |
+| Mahmoud Khalil Al-Husary (mujawwad) | |
+
+Gapless verse timings were checked against the real audio lengths, and reciters
+whose timings did not match were left out so highlighting does not drift.
+
+**Abdullah Al-Mousa.** His audio comes from [mp3quran.net](https://mp3quran.net).
+Verse timings come from mp3quran's timing data, except surahs 5 and 17, where that
+data belongs to a different recording. Those two surahs were re-timed against the
+actual audio with forced alignment. The timing database is published under
+[releases](https://github.com/z6il/quran_android/releases/tag/audio-db-v1), and the
+app downloads it from there.
+
+### Fixes
+
+- **Audio update checks.** A filter in `AudioUtils.kt` did the opposite of what its
+  comment said, so the background audio update check skipped exactly the
+  verse-by-verse reciters it should have covered.
+- **Search suggestions** had the official app's package name hard-coded, which broke
+  them in any build with a different package name, including upstream debug builds.
+  They now follow the package name the app is built with.
+- **Launcher shortcuts** open this app rather than the official one.
+
+### Build
+
+- Separate application ID (`com.z6il.quran`).
+- Release builds are made without Firebase (`-PdisableFirebase`), so this app sends
+  no analytics or crash reports.
+
+## Building
+
+You need JDK 21 to build (JDK 25 to run the unit tests) and the Android SDK.
+
+```sh
+# debug build, installs as com.z6il.quran.debug
+./gradlew assembleMadaniDebug
+
+# signed release build, without Firebase
+./gradlew -PdisableFirebase assembleMadaniRelease
+```
+
+Release signing reads `STORE_FILE`, `STORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`
+from Gradle properties, for example in `~/.gradle/gradle.properties`. Keep those out
+of the repository.
+
+In Android Studio, open the top-level directory and choose the `madaniDebug` build
+variant.
+
+## Keeping up with upstream
+
+This fork tracks `quran/quran_android` as the `upstream` remote. To pull in new
+upstream work:
+
+```sh
+git fetch upstream
+git merge upstream/main
+```
+
+Conflicts are most likely in
+`pages/madani/src/main/java/com/quran/data/page/provider/madani/MadaniPageProvider.kt`,
+where the reciter list lives.
+
+## Non-profit use
+
+From the original project: Quran for Android costs money to run. The pages, audio
+and translations are hosted on servers that volunteers pay for every month, and the
+data itself is the work of scholars, organizations and reciters who share it freely
+for the benefit of the ummah.
+
+This fork follows the same rule. It has no ads or in-app purchases, and its code may
+not be used to make money from the app. Please keep any use non-profit.
+
+## License
+
+The code is licensed under [GPL 3](LICENSE), like the original, which means any
+modified version must also be open source. The data (pages, audio, translations)
+is under its authors' own licenses, typically
+[CC BY-NC-ND](https://creativecommons.org/licenses/by-nc-nd/2.0/).
 
 ## Credits
 
-* madani images from [quran images project](https://github.com/quran/quran.com-images) on github.
-* qaloon images used with permission of Nous Memes Editions Et Diffusion (Tunisia).
-* naskh images used with permission of SHL Info Systems.
-* translation, tafsir and Arabic data come from [quranenc](https://quranenc.com) and [King Saud University](https://quran.ksu.edu.sa). a small number of translations also come from [tanzil](http://tanzil.net).
+All credit for the app goes to the [Quran for Android](https://github.com/quran/quran_android)
+project and its [contributors and translators](CONTRIBUTORS.md). May Allah reward them.
 
-## Contributing
+- Madani page images from the [quran images project](https://github.com/quran/quran.com-images).
+- Qaloon images used with permission of Nous Memes Editions Et Diffusion (Tunisia).
+- Naskh images used with permission of SHL Info Systems.
+- Translation, tafsir and Arabic data from [quranenc](https://quranenc.com) and
+  [King Saud University](https://quran.ksu.edu.sa); a few translations from
+  [tanzil](http://tanzil.net).
+- Recitations from [quranicaudio.com](https://quranicaudio.com),
+  [everyayah.com](https://everyayah.com) and [mp3quran.net](https://mp3quran.net).
 
-If you'd like to contribute, please take a look at the [PRs Welcome](https://github.com/quran/quran_android/issues?q=is%3Aissue+is%3Aopen+label%3A%22PRs+Welcome%22) label on the issue tracker. For new features, please open an issue to discuss it before beginning implementation.
-
-Use [`quran_android-code_style.xml`](https://github.com/quran/quran_android/blob/main/quran_android-code_style.xml) for Android Studio / IntelliJ code styles. Import it by copying it to the Android Studio/IntelliJ IDEA codestyles folder. For Android Studio, that folder is located at `~/.AndroidStudio[Version]/config/codestyles` (the root folder name may differ depending on the host machine and Android Studio version, but the rest of the path should be same). After copying the `quran_android-code_style.xml`, go to Code Style preferences screen and choose `quran_android-code_style` from Code Style Schemes.
-
-Please set your Android studio kotlin code style based on [Kotlin Coding Conventions](https://kotlinlang.org/docs/reference/coding-conventions.html). You can configure it from menu Settings | Editor | Code Style | Kotlin, click on "Set from…" link in the upper right corner, and select "Predefined style / Kotlin style guide" from the menu.
-
-May Allah reward all the awesome [Contributors and Translators](https://github.com/quran/quran_android/blob/main/CONTRIBUTORS.md).
-
-
-## Setup
-
-### Command Line
-
-You can build Quran from the command line by running `./gradlew assembleMadaniDebug`.
-
-### Android Studio / IntelliJ
-
-Choose "Import Project," and choose the `build.gradle` file from the top level directory. Under "Build Variants" (a tab on the left side), choose "madaniDebug."
-
-## Using Quran for Android code in other projects
-
-The intention behind open sourcing Quran for Android is two fold - first, to allow developers to help contribute to the app, thus speeding up the development of new features and ideas. Second, to give back to the community and serve as a code reference.
-
-Quran for Android costs money to run - all the data (pages, audio files, and translations) are hosted on servers that people volunteer their money to pay for every month. Moreover, the data itself is the work of various scholars, organizations, or reciters, many of whom provide this data free for usage for the benefit of the ummah.
-
-Therefore, people planning on taking this project and profiting from it (by way of ads, in app purchases, etc) are in fact stealing from the work of the contributors of this project, and from the people who volunteer to pay for the servers (since they increase the bandwidth costs on them instead of covering them themselves).
-
-Please keep use of this code for non-profit purposes only. Also, please note that the project is under the GPL 3 license, which requires that modifications to this code be open sourced as well. Please note that the data is licensed under the various licenses of the data's authors (typically, this is [CC BY-NC-ND](https://creativecommons.org/licenses/by-nc-nd/2.0/), but may differ depending on the source of the data).
-
-
-## Open Source Projects Used
-
-* [AndroidX](https://developer.android.com/jetpack/androidx/)
-* [Kotlin](https://kotlinlang.org)
-* [Material Design Components](https://github.com/material-components/material-components-android)
-* [AndroidSlidingUpPanel](https://github.com/umano/AndroidSlidingUpPanel)
-* [OkHttp](https://github.com/square/okhttp)
-* [RxJava 2](https://github.com/ReactiveX/RxJava)
-* [RxAndroid](https://github.com/ReactiveX/RxAndroid)
-* [Moshi](https://github.com/square/moshi)
-* [Dagger2](https://google.github.io/dagger/)
-* [Timber](https://github.com/JakeWharton/timber)
-* [dnsjava](http://dnsjava.org)
-* [NumberPicker](https://github.com/ShawnLin013/NumberPicker)
+The original project's open-source dependencies include AndroidX, Kotlin, Material
+Components, OkHttp, RxJava, Moshi, Dagger, Timber, dnsjava and NumberPicker.
