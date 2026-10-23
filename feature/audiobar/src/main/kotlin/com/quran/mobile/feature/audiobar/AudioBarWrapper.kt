@@ -12,15 +12,15 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.AbstractComposeView
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.dp
@@ -55,35 +55,32 @@ class AudioBarWrapper @JvmOverloads constructor(
       }
       val eventListeners = remember(audioBarPresenter) { audioBarPresenter.eventListeners() }
 
+      // a floating card above the page, clear of the navigation bar and cutouts
       Card(
-        shape = CardDefaults.shape.topOnly(),
-        modifier = Modifier.fillMaxWidth()
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+          containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            .compositeOver(MaterialTheme.colorScheme.surface),
+          contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(
+            WindowInsets.navigationBars.add(WindowInsets.displayCutout)
+              .only(WindowInsetsSides.Horizontal.plus(WindowInsetsSides.Bottom))
+              .asPaddingValues()
+          )
+          .padding(horizontal = 12.dp, vertical = 10.dp)
       ) {
         AudioBar(
           flow,
           eventListeners,
           modifier = Modifier
-            .padding(
-              WindowInsets.navigationBars.add(WindowInsets.displayCutout)
-                  .only(WindowInsetsSides.Horizontal.plus(WindowInsetsSides.Bottom))
-                .asPaddingValues()
-            )
-            .padding(top = 8.dp)
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
             .heightIn(min = dimensionResource(id = R.dimen.audiobar_height))
         )
       }
-    }
-  }
-
-  private fun Shape.topOnly(): Shape {
-    return if (this is RoundedCornerShape) {
-      this.copy(
-        bottomStart = CornerSize(0.dp),
-        bottomEnd = CornerSize(0.dp)
-      )
-    } else {
-      this
     }
   }
 }

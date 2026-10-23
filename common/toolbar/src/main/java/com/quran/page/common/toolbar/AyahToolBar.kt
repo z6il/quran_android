@@ -1,6 +1,7 @@
 package com.quran.page.common.toolbar
 
 import android.content.Context
+import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import android.view.Menu
 import android.view.MenuInflater
@@ -10,6 +11,7 @@ import android.view.View
 import android.view.View.OnClickListener
 import android.view.View.OnLongClickListener
 import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import androidx.appcompat.widget.PopupMenu
@@ -63,16 +65,24 @@ class AyahToolBar @JvmOverloads constructor(
     val toolBarHeight = resources.getDimensionPixelSize(R.dimen.toolbar_height)
     pipHeight = resources.getDimensionPixelSize(R.dimen.toolbar_pip_height)
     pipWidth = resources.getDimensionPixelSize(R.dimen.toolbar_pip_width)
-    val background = ContextCompat.getColor(context, R.color.toolbar_background)
+    val backgroundColor = ContextCompat.getColor(context, R.color.toolbar_background)
 
     toolBarTotalHeight = resources.getDimensionPixelSize(R.dimen.toolbar_total_height)
 
     menuLayout = LinearLayout(context).apply {
       layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, toolBarHeight)
-      setBackgroundColor(background)
+      // a rounded, raised pill; clipping keeps the button ripples inside the corners
+      background = GradientDrawable().apply {
+        setColor(backgroundColor)
+        cornerRadius = resources.getDimension(R.dimen.toolbar_corner_radius)
+      }
+      elevation = resources.getDimension(R.dimen.toolbar_elevation)
+      clipToOutline = true
     }
     menuLayout.layoutDirection = LAYOUT_DIRECTION_LTR
     addView(menuLayout)
+    // let the menu's shadow fall outside these bounds instead of being cut off square
+    clipChildren = false
 
     pipPosition = SelectedAyahPlacementType.BOTTOM
     toolBarPip = AyahToolBarPip(context)
@@ -283,12 +293,29 @@ class AyahToolBar @JvmOverloads constructor(
 
   private fun showMenu() {
     showMenu(menu)
+    if (!isShowing) {
+      // pop in from slightly smaller, growing out of the pip
+      animate().cancel()
+      alpha = 0f
+      scaleX = 0.92f
+      scaleY = 0.92f
+      pivotX = pipOffset + toolBarPip.measuredWidth / 2f
+      pivotY = if (pipPosition == SelectedAyahPlacementType.TOP) 0f else toolBarTotalHeight.toFloat()
+      animate().alpha(1f).scaleX(1f).scaleY(1f)
+        .setDuration(160)
+        .setInterpolator(DecelerateInterpolator())
+        .start()
+    }
     visibility = VISIBLE
     isShowing = true
   }
 
   private fun hideMenu() {
     isShowing = false
+    animate().cancel()
+    alpha = 1f
+    scaleX = 1f
+    scaleY = 1f
     visibility = GONE
   }
 

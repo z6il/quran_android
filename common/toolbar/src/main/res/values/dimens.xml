@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <dimen name="toolbar_height">42dp</dimen>
-  <dimen name="toolbar_pip_height">12dp</dimen>
-  <dimen name="toolbar_pip_width">14dp</dimen>
-  <dimen name="toolbar_item_width">42dp</dimen>
-  <dimen name="toolbar_total_height">54dp</dimen>
+  <dimen name="toolbar_height">48dp</dimen>
+  <dimen name="toolbar_pip_height">10dp</dimen>
+  <dimen name="toolbar_pip_width">18dp</dimen>
+  <dimen name="toolbar_item_width">48dp</dimen>
+  <dimen name="toolbar_total_height">58dp</dimen>
+  <dimen name="toolbar_corner_radius">14dp</dimen>
+  <dimen name="toolbar_elevation">8dp</dimen>
 </resources>

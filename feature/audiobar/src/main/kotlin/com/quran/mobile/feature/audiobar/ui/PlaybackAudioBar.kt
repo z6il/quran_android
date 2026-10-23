@@ -1,9 +1,12 @@
 package com.quran.mobile.feature.audiobar.ui
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
@@ -28,13 +31,7 @@ internal fun PlayingAudioBar(
   modifier: Modifier = Modifier
 ) {
   AudioBar(state, eventSink, modifier) {
-    IconButton(
-      modifier = Modifier
-        .width(40.dp)
-        .weight(1f),
-      onClick = { playbackEventSink(AudioBarUiEvent.PlayingPlaybackEvent.Pause) }) {
-      Icon(QuranIcons.Pause, contentDescription = "")
-    }
+    MainPlaybackButton(playing = true) { playbackEventSink(AudioBarUiEvent.PlayingPlaybackEvent.Pause) }
   }
 }
 
@@ -46,12 +43,16 @@ internal fun PausedAudioBar(
   modifier: Modifier = Modifier
 ) {
   AudioBar(state = state, eventSink, modifier = modifier) {
-    IconButton(
-      modifier = Modifier
-        .width(40.dp)
-        .weight(1f),
-      onClick = { pausedEventSink(AudioBarUiEvent.PausedPlaybackEvent.Play) }) {
-      Icon(QuranIcons.PlayArrow, contentDescription = "")
+    MainPlaybackButton(playing = false) { pausedEventSink(AudioBarUiEvent.PausedPlaybackEvent.Play) }
+  }
+}
+
+/** The play / pause button: a filled circle, its icon crossfading between states. */
+@Composable
+private fun MainPlaybackButton(playing: Boolean, onClick: () -> Unit) {
+  FilledIconButton(onClick = onClick, modifier = Modifier.size(44.dp)) {
+    Crossfade(targetState = playing, label = "playPause") { isPlaying ->
+      Icon(if (isPlaying) QuranIcons.Pause else QuranIcons.PlayArrow, contentDescription = "")
     }
   }
 }
