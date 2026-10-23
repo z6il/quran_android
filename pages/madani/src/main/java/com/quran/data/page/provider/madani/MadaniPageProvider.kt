@@ -87,7 +87,18 @@ class MadaniPageProvider : PageProvider {
       gapped(17, audioR.string.qari_jibreel, "Muhammad_Jibreel_128kbps"),
       gapped(18, audioR.string.qari_tablawy, "Mohammad_al_Tablaway_128kbps"),
       gapped(19, audioR.string.qari_minshawi_mujawwad, "Minshawy_Mujawwad_192kbps"),
-      gapped(20, audioR.string.qari_husary_mujawwad, "Husary_128kbps_Mujawwad")
+      gapped(20, audioR.string.qari_husary_mujawwad, "Husary_128kbps_Mujawwad"),
+      // audio from mp3quran; timings built from mp3quran's ayah timings and
+      // hosted as a release asset on this fork since quran.com has none.
+      Qari(
+        21,
+        audioR.string.qari_abdullah_mousa_gapless,
+        url = "https://cdn.mp3quran.net/audio/abdullah-mousa/r1/",
+        path = "abdullah_mousa",
+        hasGaplessAlternative = false,
+        db = "abdullah_mousa",
+        dbUrl = "https://github.com/z6il/quran_android/releases/download/audio-db-v1/abdullah_mousa.zip"
+      )
     )
   }
 

@@ -14,7 +14,8 @@ data class QariItem(
   val opusUrl: String? = null,
   val path: String,
   val hasGaplessAlternative: Boolean,
-  val db: String? = null
+  val db: String? = null,
+  val dbUrl: String? = null
 ) : Parcelable {
   @IgnoredOnParcel
   val databaseName = if (db.isNullOrEmpty()) null else db
@@ -41,7 +42,8 @@ data class QariItem(
         opusUrl = qari.opusUrl,
         path = qari.path,
         hasGaplessAlternative = qari.hasGaplessAlternative,
-        db = qari.db
+        db = qari.db,
+        dbUrl = qari.dbUrl
       )
     }
   }

@@ -454,7 +454,7 @@ class QuranFileUtils @Inject constructor(
   }
 
   override fun urlForDatabase(qari: Qari): String {
-    return gaplessDatabaseRootUrl + qari.databaseName + AudioUtils.ZIP_EXTENSION
+    return qari.dbUrl ?: (gaplessDatabaseRootUrl + qari.databaseName + AudioUtils.ZIP_EXTENSION)
   }
 
   fun getQuranImagesBaseDirectory(): File {

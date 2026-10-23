@@ -223,6 +223,7 @@ constructor(
       return null
     }
 
+    qari.dbUrl?.let { return it }
     val dbName = qari.databaseName + AudioUtils.ZIP_EXTENSION
     return quranFileUtils.gaplessDatabaseRootUrl + "/" + dbName
   }

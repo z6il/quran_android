@@ -10,6 +10,8 @@ data class Qari(
   val path: String,
   val hasGaplessAlternative: Boolean,
   val db: String? = null,
+  // full url of the gapless database zip, for databases not hosted alongside the others
+  val dbUrl: String? = null,
 ) {
   val databaseName = if (db.isNullOrEmpty()) null else db
   val isGapless: Boolean = databaseName != null
