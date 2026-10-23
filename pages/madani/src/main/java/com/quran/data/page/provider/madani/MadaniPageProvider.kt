@@ -90,6 +90,8 @@ class MadaniPageProvider : PageProvider {
       gapped(20, audioR.string.qari_husary_mujawwad, "Husary_128kbps_Mujawwad"),
       // audio from mp3quran; timings built from mp3quran's ayah timings and
       // hosted as a release asset on this fork since quran.com has none.
+      // mp3quran replaced sura 17 with a recording its timings don't match, so
+      // that sura plays the earlier recording, re-hosted on this fork.
       Qari(
         21,
         audioR.string.qari_abdullah_mousa_gapless,
@@ -97,7 +99,10 @@ class MadaniPageProvider : PageProvider {
         path = "abdullah_mousa",
         hasGaplessAlternative = false,
         db = "abdullah_mousa",
-        dbUrl = "https://github.com/z6il/quran_android/releases/download/audio-db-v1/abdullah_mousa.zip"
+        dbUrl = "https://github.com/z6il/quran_android/releases/download/audio-db-v1/abdullah_mousa.zip",
+        suraUrls = mapOf(
+          17 to "https://github.com/z6il/quran_android/releases/download/audio-mousa-v1/017.mp3"
+        )
       )
     )
   }

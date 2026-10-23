@@ -3,6 +3,8 @@ package com.quran.labs.androidquran
 import android.app.Application
 import androidx.work.Configuration
 import androidx.work.WorkManager
+import com.quran.data.model.audio.AudioUrlOverrides
+import com.quran.data.source.PageProvider
 import com.quran.labs.androidquran.core.worker.QuranWorkerFactory
 import com.quran.labs.androidquran.di.component.application.ApplicationComponent
 import com.quran.labs.androidquran.util.QuranSettings
@@ -23,6 +25,7 @@ open class QuranApplication : Application(), QuranApplicationComponentProvider {
   @Inject lateinit var quranWorkerFactory: QuranWorkerFactory
   @Inject lateinit var bookmarksWidgetSubscriber: BookmarksWidgetSubscriber
   @Inject lateinit var quranSettings: QuranSettings
+  @Inject lateinit var pageProvider: PageProvider
 
   override fun provideQuranApplicationComponent(): QuranApplicationComponent {
     return applicationComponent
@@ -34,6 +37,7 @@ open class QuranApplication : Application(), QuranApplicationComponentProvider {
     applicationComponent = initializeInjector()
     applicationComponent.inject(this)
     initializeWorkManager()
+    AudioUrlOverrides.register(pageProvider.getQaris())
     bookmarksWidgetSubscriber.subscribeBookmarksWidgetIfNecessary()
 
     // theme setup

@@ -3,6 +3,7 @@ package com.quran.labs.androidquran.service.download
 import com.quran.data.core.QuranInfo
 import com.quran.data.model.SuraAyah
 import com.quran.data.model.VerseRange
+import com.quran.data.model.audio.AudioUrlOverrides
 import com.quran.labs.androidquran.service.util.QuranDownloadNotifier
 import com.quran.labs.androidquran.service.util.QuranDownloadNotifier.NotificationDetails
 import timber.log.Timber
@@ -59,7 +60,7 @@ class GaplessDownloadStrategy(
         Timber.d("gapless asking to download %s to %s", url, destDir)
         val filename = url.substringAfterLast("/")
         val file = File(destDir, filename)
-        if (file.exists() || downloaderLambda(url, destDir, filename, details)) {
+        if (file.exists() || downloaderLambda(AudioUrlOverrides.resolve(url), destDir, filename, details)) {
           notifier.notifyFileDownloaded(details, filename)
           details.currentFile++
         } else {

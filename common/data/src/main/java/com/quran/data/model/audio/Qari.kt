@@ -12,6 +12,8 @@ data class Qari(
   val db: String? = null,
   // full url of the gapless database zip, for databases not hosted alongside the others
   val dbUrl: String? = null,
+  // replacement mp3 urls for individual suras, see AudioUrlOverrides
+  val suraUrls: Map<Int, String> = emptyMap(),
 ) {
   val databaseName = if (db.isNullOrEmpty()) null else db
   val isGapless: Boolean = databaseName != null

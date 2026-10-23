@@ -7,8 +7,9 @@
 [![Latest release](https://img.shields.io/github/v/release/z6il/quran_android?include_prereleases&sort=semver)](https://github.com/z6il/quran_android/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/z6il/quran_android/total?logo=Github)](https://github.com/z6il/quran_android/releases)
 
-A Madani mushaf Quran app for Android with 22 reciters, built on the open-source
-[Quran for Android](https://github.com/quran/quran_android).
+A Madani mushaf Quran app for Android, built on the open-source
+[Quran for Android](https://github.com/quran/quran_android), with Abdullah Al-Mousa
+(عبدالله الموسى) added as a reciter.
 
 **[Download the latest APK](https://github.com/z6il/quran_android/releases/latest)**
 
@@ -19,7 +20,7 @@ A Madani mushaf Quran app for Android with 22 reciters, built on the open-source
 This is a fork of [quran/quran_android](https://github.com/quran/quran_android), the
 open-source code behind the Quran for Android app. All of the reading, search,
 translation and audio features come from that project and its contributors. This
-fork adds reciters and fixes on top of it.
+fork adds a reciter and fixes on top of it.
 
 It installs as its own app (`com.z6il.quran`), so it sits alongside the official
 Quran app instead of replacing it. If you want the official app, get it from
@@ -28,11 +29,33 @@ or the [upstream releases](https://github.com/quran/quran_android/releases/lates
 
 ## What's different from the original
 
-### Reciters
+### New reciter: Abdullah Al-Mousa (عبدالله الموسى)
 
-The open-source code ships with 3 reciters. This fork has 22.
+Abdullah Al-Mousa is the reciter this fork adds. He plays gapless (whole surahs, with
+highlighting that follows the verse being recited).
 
-**Gapless** (whole surahs, highlighting follows the verse being recited):
+- Audio comes from [mp3quran.net](https://mp3quran.net), and verse timings from
+  mp3quran's timing data.
+- **Surah 17:** mp3quran replaced its recording in September 2026 without updating
+  the timings, so this fork plays the earlier recording, which the timings were made
+  for. It's re-hosted under
+  [releases](https://github.com/z6il/quran_android/releases/tag/audio-mousa-v1). Its
+  timings were cross-checked against two independent sources.
+- **Surah 5:** mp3quran also replaced this recording, and the earlier one is missing
+  verses 11–17, so it can't be used. This surah plays mp3quran's current recording,
+  re-timed against the audio with forced alignment. A few verse changes may be off by
+  a second or two.
+- The timing database is published under
+  [releases](https://github.com/z6il/quran_android/releases/tag/audio-db-v1), and the
+  app downloads it from there.
+
+### Reciters from the official app
+
+The open-source code includes only some of the official app's reciters; the full list
+in the Play Store app comes from a part of its code that isn't public. This fork
+restores these official-app reciters, using the same public audio sources:
+
+**Gapless:**
 
 | Reciter | Reciter |
 | --- | --- |
@@ -41,7 +64,6 @@ The open-source code ships with 3 reciters. This fork has 22.
 | Saood Ash-Shuraym | Abu Bakr Ash-Shatri |
 | Yasser Ad-Dussary | Nasser Al-Qatami |
 | Fares Abbad | Hani Ar-Rifai |
-| **Abdullah Al-Mousa** (عبدالله الموسى) | |
 
 **Verse by verse:**
 
@@ -56,13 +78,6 @@ The open-source code ships with 3 reciters. This fork has 22.
 
 Gapless verse timings were checked against the real audio lengths, and reciters
 whose timings did not match were left out so highlighting does not drift.
-
-**Abdullah Al-Mousa.** His audio comes from [mp3quran.net](https://mp3quran.net).
-Verse timings come from mp3quran's timing data, except surahs 5 and 17, where that
-data belongs to a different recording. Those two surahs were re-timed against the
-actual audio with forced alignment. The timing database is published under
-[releases](https://github.com/z6il/quran_android/releases/tag/audio-db-v1), and the
-app downloads it from there.
 
 ### Fixes
 
