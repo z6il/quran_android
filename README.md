@@ -39,12 +39,11 @@ highlighting that follows the verse being recited).
 - **Surah 17:** mp3quran replaced its recording in September 2026 without updating
   the timings, so this fork plays the earlier recording, which the timings were made
   for. It's re-hosted under
-  [releases](https://github.com/z6il/quran_android/releases/tag/audio-mousa-v1). Its
-  timings were cross-checked against two independent sources.
+  [releases](https://github.com/z6il/quran_android/releases/tag/audio-mousa-v1). Every
+  verse change was checked by ear against this recording.
 - **Surah 5:** mp3quran also replaced this recording, and the earlier one is missing
   verses 11–17, so it can't be used. This surah plays mp3quran's current recording,
-  re-timed against the audio with forced alignment. A few verse changes may be off by
-  a second or two.
+  with every verse change marked by ear against it.
 - The timing database is published under
   [releases](https://github.com/z6il/quran_android/releases/tag/audio-db-v1), and the
   app downloads it from there.
