@@ -2,6 +2,8 @@
 <resources>
 
   <style name="Quran" parent="Theme.AppCompat">
+    <item name="android:windowAnimationStyle">@style/QuranWindowAnimation</item>
+    <item name="alertDialogTheme">@style/QuranDialogTheme</item>
     <item name="colorAccent">@color/accent_color</item>
     <item name="spinnerStyle">?attr/actionDropDownStyle</item>
     <item name="spinnerDropDownItemStyle">@style/SherlockDropDownItem</item>
@@ -9,6 +11,8 @@
   </style>
 
   <style name="QuranToolBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <item name="android:windowAnimationStyle">@style/QuranWindowAnimation</item>
+    <item name="alertDialogTheme">@style/QuranDialogTheme</item>
     <item name="android:windowBackground">@color/surface</item>
     <item name="colorAccent">@color/accent_color</item>
     <item name="windowActionModeOverlay">true</item>
@@ -18,6 +22,8 @@
   </style>
 
   <style name="QuranToolBarDayNight" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <item name="android:windowAnimationStyle">@style/QuranWindowAnimation</item>
+    <item name="alertDialogTheme">@style/QuranDialogTheme</item>
     <item name="android:windowBackground">@color/surface</item>
     <item name="actionModeBackground">@color/toolbar</item>
     <item name="colorAccent">@color/accent_color</item>

@@ -4,8 +4,11 @@
   <color name="toolbar_text">#ffffffff</color>
   <color name="toolbar_icon_tint">#ffffffff</color>
   <color name="accent_color">#ffb2dfdb</color>
-  <color name="header_background">#ff424242</color>
-  <color name="header_text_color">@color/sura_number_color</color>
+  <color name="header_background">#ff2a2e2e</color>
+  <color name="header_text_color">#ff80deea</color>
+  <color name="number_badge_background">#2e4dd9e4</color>
+  <color name="number_badge_text">#ff80deea</color>
+  <color name="dialog_background">#ff2a2d2d</color>
   <color name="sura_number_color">#7fffffff</color>
   <color name="surface">#ff212121</color>
   <color name="secondary_dark_background">#ff303030</color>

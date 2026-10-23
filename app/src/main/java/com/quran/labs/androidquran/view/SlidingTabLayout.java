@@ -38,7 +38,6 @@ import androidx.viewpager.widget.ViewPager;
 
 import com.quran.labs.androidquran.R;
 
-import java.util.Locale;
 
 /**
  * To be used with ViewPager to provide a tab indicator component which give constant feedback as to
@@ -76,7 +75,7 @@ public class SlidingTabLayout extends HorizontalScrollView {
 
   private static final int TITLE_OFFSET_DIPS = 24;
   private static final int TAB_VIEW_PADDING_DIPS = 16;
-  private static final int TAB_VIEW_TEXT_SIZE_SP = 12;
+  private static final int TAB_VIEW_TEXT_SIZE_SP = 14;
 
   private final int mTitleOffset;
   private final int mTabPadding;
@@ -113,7 +112,7 @@ public class SlidingTabLayout extends HorizontalScrollView {
     mTabPadding = (int) (TAB_VIEW_PADDING_DIPS * density);
 
     mSelectedTabColor = ContextCompat.getColor(context, R.color.color_control_activated);
-    mUnselectedTabColor = ContextCompat.getColor(context, R.color.color_control_normal);
+    mUnselectedTabColor = ContextCompat.getColor(context, R.color.sura_details_color);
 
     mTabStrip = new SlidingTabStrip(context);
     mTabStrip.setSelectedIndicatorColors(ContextCompat.getColor(context, R.color.indicator_color));
@@ -184,7 +183,7 @@ public class SlidingTabLayout extends HorizontalScrollView {
     TextView textView = new TextView(context);
     textView.setGravity(Gravity.CENTER);
     textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, TAB_VIEW_TEXT_SIZE_SP);
-    textView.setTypeface(Typeface.DEFAULT_BOLD);
+    textView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
     textView.setSingleLine();
     textView.setTextColor(mUnselectedTabColor);
 
@@ -194,7 +193,7 @@ public class SlidingTabLayout extends HorizontalScrollView {
     getContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackground,
         outValue, true);
     textView.setBackgroundResource(outValue.resourceId);
-    textView.setAllCaps(true);
+    textView.setAllCaps(false);
 
     int padding = mTabPadding;
     textView.setPadding(padding, padding, padding, padding);
@@ -211,13 +210,12 @@ public class SlidingTabLayout extends HorizontalScrollView {
         TypedValue.COMPLEX_UNIT_SP, TAB_VIEW_TEXT_SIZE_SP, metrics);
     final TextPaint paint = new TextPaint();
     paint.setTextSize(fontSize);
-    paint.setTypeface(Typeface.DEFAULT_BOLD);
+    paint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
 
     int targetWidth = 0;
     final int tabs = adapter.getCount();
     for (int i = 0; i < tabs; i++) {
       String str = adapter.getPageTitle(i).toString();
-      str = str.toUpperCase(Locale.getDefault());
 
       int width = (int) paint.measureText(str);
       width = width + 2 * mTabPadding;

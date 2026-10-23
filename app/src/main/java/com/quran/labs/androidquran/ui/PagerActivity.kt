@@ -75,6 +75,7 @@ import com.quran.labs.androidquran.data.Constants
 import com.quran.labs.androidquran.data.QuranDataProvider
 import com.quran.labs.androidquran.data.QuranDisplayData
 import com.quran.labs.androidquran.di.component.activity.PagerActivityComponent
+import com.quran.labs.androidquran.feature.khatmah.KhatmahTracker
 import com.quran.labs.androidquran.feature.reading.bridge.AudioStatusRepositoryBridge
 import com.quran.labs.androidquran.feature.reading.bridge.DownloadBridge
 import com.quran.labs.androidquran.feature.reading.bridge.ReadingEventPresenterBridge
@@ -226,6 +227,7 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
 
   @Inject lateinit var bookmarksDao: BookmarksDao
   @Inject lateinit var recentPagePresenter: RecentPagePresenter
+  @Inject lateinit var khatmahTracker: KhatmahTracker
   @Inject lateinit var readingBookmarkPresenter: ReadingBookmarkPresenter
   @Inject lateinit var quranSettings: QuranSettings
   @Inject lateinit var quranNaming: QuranNaming
@@ -890,6 +892,7 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
     audioPresenter.bind(this)
     recentPagePresenter.bind(currentPageFlow)
     readingBookmarkPresenter.bind(currentPageFlow, this)
+    khatmahTracker.bind(currentPageFlow)
 
     if (shouldReconnect) {
       foregroundDisposable.add(
@@ -1091,6 +1094,7 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
     promptDialog = null
     recentPagePresenter.unbind()
     readingBookmarkPresenter.unbind(this)
+    khatmahTracker.unbind()
     quranSettings.wasShowingTranslation = pagerAdapter.isShowingTranslation
 
     super.onPause()

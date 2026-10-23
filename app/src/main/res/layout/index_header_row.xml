@@ -3,7 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="48dp"
+    android:layout_height="44dp"
     android:paddingLeft="16dp"
     android:paddingRight="16dp"
     android:orientation="horizontal"
@@ -14,8 +14,10 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_vertical"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.04"
         android:textColor="@color/header_text_color"
-        android:textSize="16sp"
+        android:textSize="14sp"
         tools:text="Juz' 1"/>
 
     <TextView
@@ -23,7 +25,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_vertical"
-        android:textColor="@color/sura_number_color"
-        android:textSize="16sp"
+        android:textColor="@color/sura_details_color"
+        android:textSize="13sp"
         tools:text="1"/>
 </com.quran.labs.androidquran.view.QuranHeaderView>

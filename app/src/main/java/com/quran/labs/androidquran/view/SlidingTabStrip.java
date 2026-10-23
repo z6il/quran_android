@@ -20,6 +20,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.View;
@@ -36,6 +37,7 @@ class SlidingTabStrip extends LeftToRightLinearLayout {
 
   private final int mSelectedIndicatorThickness;
   private final Paint mSelectedIndicatorPaint;
+  private final RectF mIndicatorRect = new RectF();
 
   private int mSelectedPosition;
   private float mSelectionOffset;
@@ -68,7 +70,7 @@ class SlidingTabStrip extends LeftToRightLinearLayout {
     mBottomBorderPaint.setColor(defaultBottomBorderColor);
 
     mSelectedIndicatorThickness = (int) (SELECTED_INDICATOR_THICKNESS_DIPS * density);
-    mSelectedIndicatorPaint = new Paint();
+    mSelectedIndicatorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   }
 
   void setCustomTabColorizer(SlidingTabLayout.TabColorizer customTabColorizer) {
@@ -120,8 +122,11 @@ class SlidingTabStrip extends LeftToRightLinearLayout {
 
       mSelectedIndicatorPaint.setColor(color);
 
-      canvas.drawRect(left, height - mSelectedIndicatorThickness, right,
-          height, mSelectedIndicatorPaint);
+      // a rounded bar under the middle half of the tab
+      final float inset = (right - left) / 4f;
+      mIndicatorRect.set(left + inset, height - mSelectedIndicatorThickness, right - inset, height);
+      canvas.drawRoundRect(mIndicatorRect, mSelectedIndicatorThickness, mSelectedIndicatorThickness,
+          mSelectedIndicatorPaint);
     }
 
     // Thin underline along the entire bottom edge

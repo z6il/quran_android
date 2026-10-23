@@ -20,6 +20,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ActionMode
 import androidx.appcompat.widget.SearchView
 import androidx.appcompat.widget.Toolbar
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
@@ -40,7 +46,11 @@ import com.quran.labs.androidquran.QuranPreferenceActivity
 import com.quran.labs.androidquran.R
 import com.quran.labs.androidquran.SearchActivity
 import com.quran.labs.androidquran.ShortcutsActivity
+import com.quran.labs.androidquran.common.ui.core.QuranTheme
 import com.quran.labs.androidquran.data.Constants
+import com.quran.labs.androidquran.feature.khatmah.KhatmahActivity
+import com.quran.labs.androidquran.feature.khatmah.KhatmahCard
+import com.quran.labs.androidquran.feature.khatmah.KhatmahStore
 import com.quran.labs.androidquran.feature.reading.model.LatestPageTracker
 import com.quran.labs.androidquran.presenter.data.QuranIndexEventLogger
 import com.quran.labs.androidquran.presenter.translation.TranslationManagerPresenter
@@ -136,6 +146,12 @@ class QuranActivity : AppCompatActivity(),
   lateinit var quranIndexEventLogger: QuranIndexEventLogger
   @Inject
   lateinit var extraScreens: Set<@JvmSuppressWildcards ExtraScreenProvider>
+  @Inject
+  lateinit var khatmahStore: KhatmahStore
+
+  private val openKhatmah = registerForActivityResult(KhatmahActivity.Open()) { continueReading ->
+    if (continueReading) jumpToLastPage()
+  }
 
   private var jumpToPageOnResume: Int? = null
 
@@ -182,6 +198,23 @@ class QuranActivity : AppCompatActivity(),
     pager.adapter = pagerAdapter
     val indicator = findViewById<SlidingTabLayout>(R.id.indicator)
     indicator.setViewPager(pager)
+
+    findViewById<ComposeView>(R.id.khatmah_card).setContent {
+      QuranTheme {
+        val progress by khatmahStore.progress.collectAsState()
+        KhatmahCard(
+          progress = progress,
+          onOpen = {
+            lifecycleScope.launch {
+              val page = latestPage()
+              openKhatmah.launch(if (page == Constants.NO_PAGE) 1 else page)
+            }
+          },
+          onContinue = { jumpToLastPage() },
+          modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+        )
+      }
+    }
     jumpToPageOnResume = if (isRtl) {
       TITLES.size - 1
     } else {
@@ -214,6 +247,8 @@ class QuranActivity : AppCompatActivity(),
 
   public override fun onResume() {
     super.onResume()
+    // pages read while away, or a new day, change the khatmah card
+    khatmahStore.refresh()
     val isRtl = isRtl()
     if (isRtl != this.isRtl) {
       val i = intent

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="khatmah_title">Khatmah</string>
+  <string name="khatmah_start_cta">Start a khatmah</string>
+  <string name="khatmah_start_cta_detail">Pick how many days, and get a daily target.</string>
+  <string name="khatmah_day_of">Day %1$d of %2$d</string>
+  <string name="khatmah_today_progress">Today: %1$d of %2$d pages</string>
+  <string name="khatmah_today_done">Today\'s reading is done</string>
+  <string name="khatmah_on_track">On track</string>
+  <plurals name="khatmah_ahead">
+    <item quantity="one">%d page ahead</item>
+    <item quantity="other">%d pages ahead</item>
+  </plurals>
+  <plurals name="khatmah_behind">
+    <item quantity="one">%d page behind</item>
+    <item quantity="other">%d pages behind</item>
+  </plurals>
+  <plurals name="khatmah_streak_days">
+    <item quantity="one">%d day</item>
+    <item quantity="other">%d days</item>
+  </plurals>
+  <string name="khatmah_streak">Streak</string>
+  <string name="khatmah_best_streak">Best %d</string>
+  <string name="khatmah_continue">Continue reading</string>
+  <string name="khatmah_pages_read">%1$d of %2$d pages read</string>
+  <plurals name="khatmah_pages_left">
+    <item quantity="one">%d page left</item>
+    <item quantity="other">%d pages left</item>
+  </plurals>
+  <string name="khatmah_time_up">The plan\'s days are up. Finish the rest at your own pace.</string>
+  <string name="khatmah_complete">Khatmah complete</string>
+  <string name="khatmah_complete_detail">May Allah accept it from you.</string>
+  <string name="khatmah_setup_title">New khatmah</string>
+  <string name="khatmah_duration">Finish in</string>
+  <plurals name="khatmah_days">
+    <item quantity="one">%d day</item>
+    <item quantity="other">%d days</item>
+  </plurals>
+  <string name="khatmah_custom">Custom</string>
+  <string name="khatmah_start_from">Start from</string>
+  <string name="khatmah_from_beginning">The beginning, page 1</string>
+  <string name="khatmah_from_current">Where I stopped, page %d</string>
+  <plurals name="khatmah_per_day">
+    <item quantity="one">About %d page a day</item>
+    <item quantity="other">About %d pages a day</item>
+  </plurals>
+  <string name="khatmah_start">Start khatmah</string>
+  <string name="khatmah_new">Start a new khatmah</string>
+  <string name="khatmah_end_plan">End this khatmah</string>
+  <string name="khatmah_end_confirm">End this khatmah? Your streak is kept.</string>
+  <string name="khatmah_end_yes">End</string>
+  <string name="khatmah_cancel">Cancel</string>
+  <string name="khatmah_history">Last 5 weeks</string>
+  <string name="khatmah_how_counts">A page counts once it stays on screen for 5 seconds.</string>
+  <string name="khatmah_less">Less</string>
+  <string name="khatmah_more">More</string>
+  <string name="khatmah_back">Back</string>
+</resources>

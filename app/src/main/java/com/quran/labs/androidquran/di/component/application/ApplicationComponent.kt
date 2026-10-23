@@ -17,6 +17,7 @@ import com.quran.labs.androidquran.di.module.application.ApplicationModule
 import com.quran.labs.androidquran.di.module.application.DatabaseModule
 import com.quran.labs.androidquran.di.module.application.PageAggregationModule
 import com.quran.labs.androidquran.di.module.widgets.BookmarksWidgetUpdaterModule
+import com.quran.labs.androidquran.feature.khatmah.KhatmahActivity
 import com.quran.labs.androidquran.pageselect.PageSelectActivity
 import com.quran.labs.androidquran.service.AudioService
 import com.quran.labs.androidquran.service.QuranDownloadService
@@ -74,6 +75,7 @@ interface ApplicationComponent : QuranApplicationComponent {
   fun inject(quranImportActivity: QuranImportActivity)
   fun inject(quranForwarderActivity: QuranForwarderActivity)
   fun inject(searchActivity: SearchActivity)
+  fun inject(khatmahActivity: KhatmahActivity)
   fun inject(pageSelectActivity: PageSelectActivity)
   fun inject(showJumpFragmentActivity: ShowJumpFragmentActivity)
   fun inject(bookmarkListActivity: BookmarkListActivity)

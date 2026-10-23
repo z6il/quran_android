@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="khatmah_title">الختمة</string>
+  <string name="khatmah_start_cta">ابدأ ختمة</string>
+  <string name="khatmah_start_cta_detail">اختر عدد الأيام واحصل على وِرد يومي.</string>
+  <string name="khatmah_day_of">اليوم %1$d من %2$d</string>
+  <string name="khatmah_today_progress">اليوم: %1$d من %2$d صفحة</string>
+  <string name="khatmah_today_done">أتممت وِرد اليوم</string>
+  <string name="khatmah_on_track">على الموعد</string>
+  <plurals name="khatmah_ahead">
+    <item quantity="zero">متقدّم %d صفحة</item>
+    <item quantity="one">متقدّم صفحة واحدة</item>
+    <item quantity="two">متقدّم صفحتين</item>
+    <item quantity="few">متقدّم %d صفحات</item>
+    <item quantity="many">متقدّم %d صفحة</item>
+    <item quantity="other">متقدّم %d صفحة</item>
+  </plurals>
+  <plurals name="khatmah_behind">
+    <item quantity="zero">متأخّر %d صفحة</item>
+    <item quantity="one">متأخّر صفحة واحدة</item>
+    <item quantity="two">متأخّر صفحتين</item>
+    <item quantity="few">متأخّر %d صفحات</item>
+    <item quantity="many">متأخّر %d صفحة</item>
+    <item quantity="other">متأخّر %d صفحة</item>
+  </plurals>
+  <plurals name="khatmah_streak_days">
+    <item quantity="zero">%d يوم</item>
+    <item quantity="one">يوم واحد</item>
+    <item quantity="two">يومان</item>
+    <item quantity="few">%d أيام</item>
+    <item quantity="many">%d يومًا</item>
+    <item quantity="other">%d يوم</item>
+  </plurals>
+  <string name="khatmah_streak">أيام متتالية</string>
+  <string name="khatmah_best_streak">الأفضل %d</string>
+  <string name="khatmah_continue">تابع القراءة</string>
+  <string name="khatmah_pages_read">قرأت %1$d من %2$d صفحة</string>
+  <plurals name="khatmah_pages_left">
+    <item quantity="zero">بقي %d صفحة</item>
+    <item quantity="one">بقيت صفحة واحدة</item>
+    <item quantity="two">بقيت صفحتان</item>
+    <item quantity="few">بقيت %d صفحات</item>
+    <item quantity="many">بقيت %d صفحة</item>
+    <item quantity="other">بقيت %d صفحة</item>
+  </plurals>
+  <string name="khatmah_time_up">انتهت أيام الخطة. أكمل الباقي على مهلك.</string>
+  <string name="khatmah_complete">تمّت الختمة</string>
+  <string name="khatmah_complete_detail">تقبّل الله منك.</string>
+  <string name="khatmah_setup_title">ختمة جديدة</string>
+  <string name="khatmah_duration">أختم خلال</string>
+  <plurals name="khatmah_days">
+    <item quantity="zero">%d يوم</item>
+    <item quantity="one">يوم واحد</item>
+    <item quantity="two">يومين</item>
+    <item quantity="few">%d أيام</item>
+    <item quantity="many">%d يومًا</item>
+    <item quantity="other">%d يوم</item>
+  </plurals>
+  <string name="khatmah_custom">مدة أخرى</string>
+  <string name="khatmah_start_from">ابدأ من</string>
+  <string name="khatmah_from_beginning">البداية، صفحة ١</string>
+  <string name="khatmah_from_current">حيث توقفت، صفحة %d</string>
+  <plurals name="khatmah_per_day">
+    <item quantity="zero">نحو %d صفحة يوميًا</item>
+    <item quantity="one">نحو صفحة واحدة يوميًا</item>
+    <item quantity="two">نحو صفحتين يوميًا</item>
+    <item quantity="few">نحو %d صفحات يوميًا</item>
+    <item quantity="many">نحو %d صفحة يوميًا</item>
+    <item quantity="other">نحو %d صفحة يوميًا</item>
+  </plurals>
+  <string name="khatmah_start">ابدأ الختمة</string>
+  <string name="khatmah_new">ابدأ ختمة جديدة</string>
+  <string name="khatmah_end_plan">إنهاء هذه الختمة</string>
+  <string name="khatmah_end_confirm">إنهاء هذه الختمة؟ سيبقى سجل أيامك المتتالية.</string>
+  <string name="khatmah_end_yes">إنهاء</string>
+  <string name="khatmah_cancel">إلغاء</string>
+  <string name="khatmah_history">آخر ٥ أسابيع</string>
+  <string name="khatmah_how_counts">تُحتسب الصفحة إذا بقيت على الشاشة ٥ ثوانٍ.</string>
+  <string name="khatmah_less">أقل</string>
+  <string name="khatmah_more">أكثر</string>
+  <string name="khatmah_back">رجوع</string>
+</resources>
