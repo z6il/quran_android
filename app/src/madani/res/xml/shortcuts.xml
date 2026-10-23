@@ -8,7 +8,7 @@
       android:shortcutLongLabel="@string/menu_jump_last_page">
     <intent
         android:action="com.quran.labs.androidquran.last_page"
-        android:targetPackage="com.quran.labs.androidquran"
+        android:targetPackage="com.z6il.quran"
         android:targetClass="com.quran.labs.androidquran.ShortcutsActivity"
         />
   </shortcut>
@@ -20,7 +20,7 @@
       android:shortcutLongLabel="@string/menu_jump">
     <intent
         android:action="com.quran.labs.androidquran.jump_to"
-        android:targetPackage="com.quran.labs.androidquran"
+        android:targetPackage="com.z6il.quran"
         android:targetClass="com.quran.labs.androidquran.ShortcutsActivity"
       />
   </shortcut>
