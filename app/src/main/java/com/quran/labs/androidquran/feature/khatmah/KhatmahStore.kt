@@ -62,9 +62,21 @@ class KhatmahStore @Inject constructor(
   fun startPlan(days: Int, startPage: Int, today: Long = localEpochDay()) {
     val total = quranInfo.numberOfPages
     prefs.edit {
-      putString(KEY_PLAN, listOf(today, days, startPage.coerceIn(1, total), total).joinToString(","))
+      putString(KEY_PLAN, encodePlan(KhatmahPlan(today, days, startPage.coerceIn(1, total), total)))
       remove(KEY_PLAN_PAGES)
     }
+    mutableProgress.value = compute(today)
+  }
+
+  @Synchronized
+  fun pausePlan(today: Long = localEpochDay()) = updatePlan(today) { it.paused(today) }
+
+  @Synchronized
+  fun resumePlan(today: Long = localEpochDay()) = updatePlan(today) { it.resumed(today) }
+
+  private fun updatePlan(today: Long, change: (KhatmahPlan) -> KhatmahPlan) {
+    val plan = plan() ?: return
+    prefs.edit { putString(KEY_PLAN, encodePlan(change(plan))) }
     mutableProgress.value = compute(today)
   }
 
@@ -77,16 +89,7 @@ class KhatmahStore @Inject constructor(
     mutableProgress.value = compute()
   }
 
-  private fun plan(): KhatmahPlan? {
-    val parts = prefs.getString(KEY_PLAN, null)?.split(",") ?: return null
-    if (parts.size != 4) return null
-    return KhatmahPlan(
-      startDay = parts[0].toLongOrNull() ?: return null,
-      days = parts[1].toIntOrNull()?.takeIf { it > 0 } ?: return null,
-      startPage = parts[2].toIntOrNull() ?: return null,
-      totalPages = parts[3].toIntOrNull() ?: return null
-    )
-  }
+  private fun plan(): KhatmahPlan? = decodePlan(prefs.getString(KEY_PLAN, null))
 
   private fun compute(today: Long = localEpochDay()): KhatmahProgress {
     val readByDay = prefs.all.keys
@@ -123,5 +126,22 @@ class KhatmahStore @Inject constructor(
       value?.split(",")?.mapNotNull { it.toIntOrNull() }?.toSet().orEmpty()
 
     internal fun encodePages(pages: Set<Int>): String = pages.sorted().joinToString(",")
+
+    /** startDay,days,startPage,totalPages[,pausedSince] */
+    internal fun encodePlan(plan: KhatmahPlan): String =
+      listOfNotNull(plan.startDay, plan.days, plan.startPage, plan.totalPages, plan.pausedSince)
+        .joinToString(",")
+
+    internal fun decodePlan(value: String?): KhatmahPlan? {
+      val parts = value?.split(",") ?: return null
+      if (parts.size !in 4..5) return null
+      return KhatmahPlan(
+        startDay = parts[0].toLongOrNull() ?: return null,
+        days = parts[1].toIntOrNull()?.takeIf { it > 0 } ?: return null,
+        startPage = parts[2].toIntOrNull() ?: return null,
+        totalPages = parts[3].toIntOrNull() ?: return null,
+        pausedSince = parts.getOrNull(4)?.toLongOrNull()
+      )
+    }
   }
 }

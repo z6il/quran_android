@@ -211,6 +211,7 @@ class QuranActivity : AppCompatActivity(),
             }
           },
           onContinue = { jumpToLastPage() },
+          onResume = { khatmahStore.resumePlan() },
           modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
         )
       }

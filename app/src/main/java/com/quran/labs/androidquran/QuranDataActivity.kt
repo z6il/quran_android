@@ -31,7 +31,6 @@ import com.quran.labs.androidquran.service.util.ServiceIntentHelper
 import com.quran.labs.androidquran.ui.PagerActivity
 import com.quran.labs.androidquran.ui.QuranActivity
 import com.quran.labs.androidquran.ui.helpers.QuranNavigator
-import com.quran.labs.androidquran.ui.whatsnew.AnnouncementActivity
 import com.quran.labs.androidquran.util.QuranFileUtils
 import com.quran.labs.androidquran.util.QuranScreenInfo
 import com.quran.labs.androidquran.util.QuranSettings
@@ -493,14 +492,9 @@ class QuranDataActivity : AppCompatActivity(), SimpleDownloadListener, OnRequest
       if (intent?.action == ACTION_OPEN_PAGE) {
         jumpToRequestedPage(intent)
       } else {
-        val isNormalLaunch = intent?.action == null || intent?.action == Intent.ACTION_MAIN
-        val destination = targetIntent()
-        val nextIntent = if (isNormalLaunch && AnnouncementActivity.shouldShow(quranSettings)) {
-          AnnouncementActivity.createIntent(this, destination)
-        } else {
-          destination
-        }
-        startActivity(nextIntent)
+        // this fork skips upstream's "what's new" announcements: they describe the
+        // official app (e.g. its icon change), not this one
+        startActivity(targetIntent())
       }
       finish()
     }

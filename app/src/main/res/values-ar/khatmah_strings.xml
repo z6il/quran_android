@@ -79,4 +79,8 @@
   <string name="khatmah_less">أقل</string>
   <string name="khatmah_more">أكثر</string>
   <string name="khatmah_back">رجوع</string>
+  <string name="khatmah_pause">إيقاف مؤقت</string>
+  <string name="khatmah_resume">استئناف</string>
+  <string name="khatmah_paused">متوقفة مؤقتًا</string>
+  <string name="khatmah_paused_detail">أيام الخطة متوقفة. استأنف متى شئت، ويتأخر موعد الختم بعدد أيام التوقف.</string>
 </resources>

@@ -33,6 +33,8 @@ class KhatmahActivity : AppCompatActivity() {
             latestPage = latestPage,
             onStart = { days, startPage -> khatmahStore.startPlan(days, startPage) },
             onEnd = { khatmahStore.endPlan() },
+            onPause = { khatmahStore.pausePlan() },
+            onResume = { khatmahStore.resumePlan() },
             onContinue = {
               setResult(RESULT_CONTINUE_READING)
               finish()

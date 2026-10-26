@@ -55,4 +55,8 @@
   <string name="khatmah_less">Less</string>
   <string name="khatmah_more">More</string>
   <string name="khatmah_back">Back</string>
+  <string name="khatmah_pause">Pause</string>
+  <string name="khatmah_resume">Resume</string>
+  <string name="khatmah_paused">Paused</string>
+  <string name="khatmah_paused_detail">The plan\'s days are on hold. Resume when you\'re ready and your end date moves back by the days paused.</string>
 </resources>

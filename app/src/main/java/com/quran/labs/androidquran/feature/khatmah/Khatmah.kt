@@ -6,18 +6,28 @@ import kotlin.math.roundToInt
 
 /**
  * A plan to read pages [startPage]..[totalPages] over [days] days, starting on [startDay]
- * (a local epoch day, see [localEpochDay]).
+ * (a local epoch day, see [localEpochDay]). While [pausedSince] is set the plan's clock is
+ * stopped at that day; resuming moves [startDay] forward by the days spent paused.
  */
 data class KhatmahPlan(
   val startDay: Long,
   val days: Int,
   val startPage: Int,
-  val totalPages: Int
+  val totalPages: Int,
+  val pausedSince: Long? = null
 ) {
   val pageCount: Int get() = totalPages - startPage + 1
   val lastDay: Long get() = startDay + days - 1
+  val isPaused: Boolean get() = pausedSince != null
 
   fun contains(page: Int) = page in startPage..totalPages
+
+  fun paused(today: Long): KhatmahPlan = if (isPaused) this else copy(pausedSince = today)
+
+  fun resumed(today: Long): KhatmahPlan {
+    val since = pausedSince ?: return this
+    return copy(startDay = startDay + (today - since).coerceAtLeast(0), pausedSince = null)
+  }
 }
 
 data class KhatmahProgress(
@@ -41,7 +51,8 @@ data class KhatmahProgress(
   val history: List<Int>
 ) {
   val isComplete: Boolean get() = plan != null && pagesRead >= plan.pageCount
-  val todayDone: Boolean get() = plan != null && todayPages >= dailyTarget
+  val isPaused: Boolean get() = plan?.isPaused == true
+  val todayDone: Boolean get() = plan != null && !isPaused && todayPages >= dailyTarget
 
   companion object {
     const val HISTORY_DAYS = 35
@@ -81,10 +92,13 @@ object KhatmahMath {
     // pages of the plan first read today: today's reading minus what was already done before
     val todayInPlan = todayAll.count { plan.contains(it) }
     val readBeforeToday = (read - todayInPlan).coerceAtLeast(0)
-    val dayNumber = (today - plan.startDay + 1).coerceIn(1, plan.days.toLong()).toInt()
-    val daysLeft = (plan.lastDay - today + 1).coerceIn(0, plan.days.toLong()).toInt()
+    // a paused plan's clock stays on the day it was paused
+    val planDay = plan.pausedSince ?: today
+    val dayNumber = (planDay - plan.startDay + 1).coerceIn(1, plan.days.toLong()).toInt()
+    val daysLeft = (plan.lastDay - planDay + 1).coerceIn(0, plan.days.toLong()).toInt()
     val remainingAtDayStart = (plan.pageCount - readBeforeToday).coerceAtLeast(0)
     val dailyTarget = when {
+      plan.isPaused -> 0
       remainingAtDayStart == 0 -> 0
       daysLeft <= 0 -> remainingAtDayStart
       else -> ceil(remainingAtDayStart / daysLeft.toDouble()).toInt()

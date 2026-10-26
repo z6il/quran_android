@@ -194,6 +194,10 @@ private fun AnimatedNumber(
 private fun PaceChip(progress: KhatmahProgress) {
   val ahead = progress.aheadBy
   val (text, container, onContainer) = when {
+    progress.isPaused -> Triple(
+      stringResource(R.string.khatmah_paused),
+      MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer
+    )
     abs(ahead) <= 1 -> Triple(
       stringResource(R.string.khatmah_on_track),
       MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer
@@ -248,6 +252,14 @@ private fun TodayBar(progress: KhatmahProgress, modifier: Modifier = Modifier) {
 
 @Composable
 private fun TodayLine(progress: KhatmahProgress) {
+  if (progress.isPaused) {
+    Text(
+      stringResource(R.string.khatmah_paused_detail),
+      style = MaterialTheme.typography.bodyMedium,
+      color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    return
+  }
   AnimatedContent(progress.todayDone, label = "todayLine") { done ->
     Text(
       if (done) stringResource(R.string.khatmah_today_done)
@@ -265,6 +277,7 @@ fun KhatmahCard(
   progress: KhatmahProgress,
   onOpen: () -> Unit,
   onContinue: () -> Unit,
+  onResume: () -> Unit,
   modifier: Modifier = Modifier
 ) {
   Card(
@@ -348,15 +361,26 @@ fun KhatmahCard(
                 )
                 PaceChip(progress)
               }
-              TodayLine(progress)
-              TodayBar(progress)
+              // the pace chip already says "Paused"
+              if (!progress.isPaused) {
+                TodayLine(progress)
+                TodayBar(progress)
+              }
             }
             StreakBadge(progress.streak)
           }
-          FilledTonalButton(onClick = onContinue, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
-            Icon(QuranIcons.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.khatmah_continue))
+          if (progress.isPaused) {
+            FilledTonalButton(onClick = onResume, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
+              Icon(QuranIcons.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+              Spacer(Modifier.width(8.dp))
+              Text(stringResource(R.string.khatmah_resume))
+            }
+          } else {
+            FilledTonalButton(onClick = onContinue, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
+              Icon(QuranIcons.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
+              Spacer(Modifier.width(8.dp))
+              Text(stringResource(R.string.khatmah_continue))
+            }
           }
         }
       }
@@ -514,7 +538,7 @@ private fun StartOption(label: String, selected: Boolean, onSelect: () -> Unit) 
 }
 
 /** The khatmah screen: progress and stats when a plan is running, setup otherwise. */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun KhatmahScreen(
   progress: KhatmahProgress,
@@ -522,6 +546,8 @@ fun KhatmahScreen(
   latestPage: Int,
   onStart: (days: Int, startPage: Int) -> Unit,
   onEnd: () -> Unit,
+  onPause: () -> Unit,
+  onResume: () -> Unit,
   onContinue: () -> Unit,
   onBack: () -> Unit
 ) {
@@ -560,13 +586,21 @@ fun KhatmahScreen(
           Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
               TodayLine(progress)
-              TodayBar(progress)
+              if (!progress.isPaused) TodayBar(progress)
             }
           }
-          Button(onClick = onContinue, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
-            Icon(QuranIcons.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.khatmah_continue))
+          if (progress.isPaused) {
+            Button(onClick = onResume, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
+              Icon(QuranIcons.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+              Spacer(Modifier.width(8.dp))
+              Text(stringResource(R.string.khatmah_resume))
+            }
+          } else {
+            Button(onClick = onContinue, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
+              Icon(QuranIcons.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
+              Spacer(Modifier.width(8.dp))
+              Text(stringResource(R.string.khatmah_continue))
+            }
           }
         }
       }
@@ -626,9 +660,16 @@ fun KhatmahScreen(
               }
             }
           } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
               OutlinedButton(onClick = { setupWhileRunning = true }, shape = RoundedCornerShape(8.dp)) {
                 Text(stringResource(R.string.khatmah_new))
+              }
+              if (!progress.isComplete && !progress.isPaused) {
+                OutlinedButton(onClick = onPause, shape = RoundedCornerShape(8.dp)) {
+                  Icon(QuranIcons.Pause, contentDescription = null, modifier = Modifier.size(18.dp))
+                  Spacer(Modifier.width(6.dp))
+                  Text(stringResource(R.string.khatmah_pause))
+                }
               }
               if (!progress.isComplete) {
                 TextButton(onClick = { confirmEnd = true }) {

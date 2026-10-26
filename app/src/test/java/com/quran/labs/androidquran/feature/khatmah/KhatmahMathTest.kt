@@ -117,6 +117,36 @@ class KhatmahMathTest {
   }
 
   @Test
+  fun pausedPlanStopsTheClock() {
+    val paused = plan.paused(start + 4) // paused on day 5
+    val p = KhatmahMath.progress(paused, start + 9, emptyMap(), emptySet(), 0)
+    assertThat(p.isPaused).isTrue()
+    assertThat(p.dayNumber).isEqualTo(5)
+    assertThat(p.daysLeft).isEqualTo(26)
+    assertThat(p.dailyTarget).isEqualTo(0)
+    assertThat(p.todayDone).isFalse()
+  }
+
+  @Test
+  fun resumingShiftsThePlanByTheDaysPaused() {
+    val resumed = plan.paused(start + 4).resumed(start + 9)
+    assertThat(resumed.isPaused).isFalse()
+    assertThat(resumed.startDay).isEqualTo(start + 5)
+    val p = KhatmahMath.progress(resumed, start + 9, emptyMap(), emptySet(), 0)
+    assertThat(p.dayNumber).isEqualTo(5) // picks up on the day it was paused
+    assertThat(p.daysLeft).isEqualTo(26)
+  }
+
+  @Test
+  fun planRoundTripsWithAndWithoutPause() {
+    assertThat(KhatmahStore.decodePlan(KhatmahStore.encodePlan(plan))).isEqualTo(plan)
+    val paused = plan.paused(start + 3)
+    assertThat(KhatmahStore.decodePlan(KhatmahStore.encodePlan(paused))).isEqualTo(paused)
+    // plans saved before pause existed have four fields
+    assertThat(KhatmahStore.decodePlan("20000,30,1,604")).isEqualTo(plan)
+  }
+
+  @Test
   fun pagesRoundTrip() {
     assertThat(KhatmahStore.decodePages(KhatmahStore.encodePages(setOf(3, 1, 604)))).containsExactly(1, 3, 604)
     assertThat(KhatmahStore.decodePages(null)).isEmpty()
