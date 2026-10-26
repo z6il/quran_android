@@ -19,23 +19,22 @@
  * Android -> page: setGraph(json), focusNode(id), clearFocus(), resetView(), setFilter(json)
  * page -> Android: Android.ready(), Android.select(id), Android.deselect()
  *
- * graph: { nodes: [{id, kind: "idea"|"ayah"|"hadith", label}],
+ * graph: { nodes: [{id, kind: "idea"|"ayah"|"hadith"|"note", label}],
  *          links: [{source, target, relation: "explains"|"supports"|"related"|"contrasts"}] }
  */
-const KIND_COLOR = { idea: 0x26c6da, ayah: 0xffc857, hadith: 0xb388ff };
-const KIND_CSS = { idea: '#26c6da', ayah: '#ffc857', hadith: '#b388ff' };
-const KIND_SIZE = { idea: 8, ayah: 5, hadith: 5 };
+const KIND_COLOR = { idea: 0x26c6da, ayah: 0xffc857, hadith: 0xb388ff, note: 0xff8a65 };
+const KIND_CSS = { idea: '#26c6da', ayah: '#ffc857', hadith: '#b388ff', note: '#ff8a65' };
+const KIND_SIZE = { idea: 8, ayah: 5, hadith: 5, note: 5 };
 const RELATION_COLOR = { explains: 0x4dd0e1, supports: 0x69f0ae, related: 0x8c9eff, contrasts: 0xff5252 };
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x061012);
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x061012, 0.0007);
-const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 4000);
+const camera = new THREE.PerspectiveCamera(55, 1, 1, 4000);
 camera.position.set(0, 0, 300);
 scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 const light = new THREE.PointLight(0xffffff, 0.9);
@@ -111,7 +110,7 @@ const CYLINDER = new THREE.CylinderGeometry(1, 1, 1, 10, 1, true);
 const UP = new THREE.Vector3(0, 1, 0);
 
 let nodes = [], links = [], byId = {}, settle = 0, born = 0;
-let focused = null, fly = null, filter = { ayah: true, hadith: true };
+let focused = null, fly = null, filter = { ayah: true, hadith: true, note: true };
 
 function clear() {
   for (const n of nodes) scene.remove(n.group);
@@ -301,17 +300,27 @@ renderer.domElement.addEventListener('pointerup', e => {
   }
 });
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  if (shift) camera.setViewOffset(window.innerWidth, window.innerHeight, 0, window.innerHeight * shift, window.innerWidth, window.innerHeight);
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+// the page can run before the view is laid out (0x0, seen on fast phones), so the size is
+// checked every frame and nothing moves or draws until there is one
+let W = 0, H = 0;
+function fitSize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  if (w !== W || h !== H) {
+    W = w; H = h;
+    if (w > 0 && h > 0) {
+      camera.aspect = w / h;
+      if (shift) camera.setViewOffset(w, h, 0, h * shift, w, h); else camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+  }
+  return W > 0 && H > 0;
+}
 
 const a = new THREE.Vector3(), b = new THREE.Vector3(), dir = new THREE.Vector3(), off = new THREE.Vector3();
 let t = 0;
 (function loop() {
   requestAnimationFrame(loop);
+  if (!fitSize()) return;
   step();
   t += 0.016;
   born++;
@@ -352,6 +361,7 @@ let t = 0;
     camera.setViewOffset(w, h, 0, h * shift, w, h);
   }
   controls.update();
+  if (!isFinite(camera.position.lengthSq())) { camera.position.set(0, 0, 300); controls.target.set(0, 0, 0); }
   renderer.render(scene, camera);
 })();
 

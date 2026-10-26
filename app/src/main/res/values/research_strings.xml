@@ -52,4 +52,24 @@
   <string name="research_map_connections">Connected to</string>
   <string name="research_open">Open</string>
   <string name="research_close">Close</string>
+  <string name="research_comment">Comment</string>
+  <string name="research_comment_hint">Why is this here? What does it show?</string>
+  <string name="research_save">Save</string>
+  <string name="research_share">Share</string>
+  <string name="research_share_all">Share all ideas</string>
+  <string name="research_import">Import ideas</string>
+  <string name="research_your_name">Your name</string>
+  <string name="research_your_name_hint">Ideas you share carry this name, so whoever imports them sees who wrote them.</string>
+  <string name="research_more">More</string>
+  <string name="research_by">by @%1$s</string>
+  <string name="research_import_confirm">Add %1$d ideas from this file?</string>
+  <string name="research_import_confirm_by">Add %1$d ideas shared by @%2$s?</string>
+  <string name="research_imported">Added %1$d ideas</string>
+  <string name="research_import_invalid">This isn\'t a research file from this app.</string>
+  <string name="research_share_text">%1$d ideas from my Quran research, by @%2$s. Open the file with the Quran app to add them.</string>
+  <string name="research_add_note">Note</string>
+  <string name="research_note_text">What did they say or find?</string>
+  <string name="research_note_source">Source</string>
+  <string name="research_note_source_hint">Scholar, book, page, or your own</string>
+  <string name="research_map_notes">Notes</string>
 </resources>

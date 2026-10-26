@@ -82,11 +82,13 @@ private val CardBackground = Color(0xFF0E1F22)
 private val IdeaColor = Color(0xFF26C6DA)
 private val AyahColor = Color(0xFFFFC857)
 private val HadithColor = Color(0xFFB388FF)
+private val NoteColor = Color(0xFFFF8A65)
 
 private fun kindColor(target: LinkTarget) = when (target) {
   is LinkTarget.Idea -> IdeaColor
   is LinkTarget.Ayah -> AyahColor
   is LinkTarget.Hadith -> HadithColor
+  is LinkTarget.Note -> NoteColor
 }
 
 /** brighter relation colours for the dark map, matching the page's */
@@ -98,7 +100,7 @@ private fun mapRelationColor(relation: Relation) = when (relation) {
 }
 
 internal data class MapNode(val id: String, val target: LinkTarget, val label: String)
-internal data class MapEdge(val source: String, val target: String, val relation: Relation)
+internal data class MapEdge(val source: String, val target: String, val relation: Relation, val note: String = "")
 
 internal data class MapGraph(val nodes: List<MapNode>, val edges: List<MapEdge>) {
   val byId = nodes.associateBy { it.id }
@@ -111,6 +113,10 @@ internal data class MapGraph(val nodes: List<MapNode>, val edges: List<MapEdge>)
       else -> null
     }
   }
+
+  /** the comments ideas left on their links to [id]: idea title to comment */
+  fun comments(id: String): List<Pair<String, String>> =
+    edges.filter { it.target == id && it.note.isNotBlank() }.mapNotNull { e -> byId[e.source]?.let { it.label to e.note } }
 
   fun toJson(): JSONObject = JSONObject()
     .put("nodes", JSONArray(nodes.map { JSONObject().put("id", it.id).put("kind", it.target.kind).put("label", it.label) }))
@@ -129,6 +135,7 @@ internal suspend fun buildGraph(store: ResearchStore, text: ResearchText, untitl
     nodes[nodeId(target)] = MapNode(nodeId(target), target, title)
   }
   val links = store.allLinks()
+  val notes = store.notes()
   links.forEach { link ->
     val t = link.target
     if (nodeId(t) !in nodes) {
@@ -136,6 +143,8 @@ internal suspend fun buildGraph(store: ResearchStore, text: ResearchText, untitl
         is LinkTarget.Ayah -> text.suraName(t.sura) + " " + t.ref
         is LinkTarget.Hadith -> text.collectionName(t.collection) + " " + t.number
         is LinkTarget.Idea -> return@forEach // a link to a deleted idea
+        is LinkTarget.Note -> notes[t.uid]?.let { n -> n.source.ifBlank { n.text }.let { if (it.length > 30) it.take(29) + "…" else it } }
+          ?: return@forEach
       }
       nodes[nodeId(t)] = MapNode(nodeId(t), t, label)
     }
@@ -143,7 +152,7 @@ internal suspend fun buildGraph(store: ResearchStore, text: ResearchText, untitl
   val edges = links.mapNotNull { link ->
     val source = nodeId(LinkTarget.Idea(link.ideaId))
     val target = nodeId(link.target)
-    if (source in nodes && target in nodes) MapEdge(source, target, link.relation) else null
+    if (source in nodes && target in nodes) MapEdge(source, target, link.relation, link.note) else null
   }
   return MapGraph(nodes.values.toList(), edges)
 }
@@ -167,6 +176,7 @@ fun ResearchMap(
   var selectedId by remember { mutableStateOf<String?>(null) }
   var showVerses by remember { mutableStateOf(true) }
   var showHadith by remember { mutableStateOf(true) }
+  var showNotes by remember { mutableStateOf(true) }
   var hint by remember { mutableStateOf(true) }
   val main = remember { Handler(Looper.getMainLooper()) }
 
@@ -181,12 +191,12 @@ fun ResearchMap(
     val g = graph ?: return@LaunchedEffect
     if (pageReady) {
       js("setGraph(${JSONObject.quote(g.toJson().toString())})")
-      js("setFilter('{\"ayah\":$showVerses,\"hadith\":$showHadith}')")
+      js(filterJs(showVerses, showHadith, showNotes))
       selectedId?.let { if (it in g.byId) select(it) else selectedId = null }
     }
   }
-  LaunchedEffect(showVerses, showHadith, pageReady) {
-    if (pageReady) js("setFilter('{\"ayah\":$showVerses,\"hadith\":$showHadith}')")
+  LaunchedEffect(showVerses, showHadith, showNotes, pageReady) {
+    if (pageReady) js(filterJs(showVerses, showHadith, showNotes))
   }
   LaunchedEffect(Unit) {
     delay(6000)
@@ -261,6 +271,9 @@ fun ResearchMap(
           KindChip(HadithColor, stringResource(R.string.research_map_hadith), g.nodes.count { it.target is LinkTarget.Hadith }, showHadith) {
             showHadith = !showHadith
           }
+          KindChip(NoteColor, stringResource(R.string.research_map_notes), g.nodes.count { it.target is LinkTarget.Note }, showNotes) {
+            showNotes = !showNotes
+          }
         }
         if (g.edges.isEmpty()) {
           Text(
@@ -300,6 +313,7 @@ fun ResearchMap(
             NodeCard(
               node = shown,
               neighbours = g.neighbours(shown.id),
+              comments = g.comments(shown.id),
               store = store,
               text = text,
               hadith = hadith,
@@ -318,6 +332,9 @@ fun ResearchMap(
     }
   }
 }
+
+private fun filterJs(verses: Boolean, hadith: Boolean, notes: Boolean) =
+  "setFilter('{\"ayah\":$verses,\"hadith\":$hadith,\"note\":$notes}')"
 
 @Composable
 private fun KindChip(color: Color, label: String, count: Int, on: Boolean, onClick: (() -> Unit)?) {
@@ -367,6 +384,7 @@ private fun RelationLegend() {
 private fun NodeCard(
   node: MapNode,
   neighbours: List<Pair<MapNode, Relation>>,
+  comments: List<Pair<String, String>>,
   store: ResearchStore,
   text: ResearchText,
   hadith: suspend (LinkTarget.Hadith) -> HadithEntry?,
@@ -381,6 +399,7 @@ private fun NodeCard(
       is LinkTarget.Ayah -> text.verseText(t) to ""
       is LinkTarget.Hadith -> hadith(t)?.let { it.displayText to it.grade } ?: ("" to "")
       is LinkTarget.Idea -> (store.idea(t.id)?.body ?: "") to ""
+      is LinkTarget.Note -> store.notes()[t.uid]?.let { it.text to it.source } ?: ("" to "")
     }
   }
   Surface(
@@ -400,6 +419,7 @@ private fun NodeCard(
               is LinkTarget.Idea -> R.string.research_add_idea
               is LinkTarget.Ayah -> R.string.research_add_verse
               is LinkTarget.Hadith -> R.string.research_add_hadith
+              is LinkTarget.Note -> R.string.research_add_note
             }
           ).uppercase(),
           color = color,
@@ -422,7 +442,7 @@ private fun NodeCard(
       )
       val (main, grade) = body ?: ("" to "")
       if (main.isNotBlank()) {
-        val arabic = node.target !is LinkTarget.Idea
+        val arabic = node.target is LinkTarget.Ayah || node.target is LinkTarget.Hadith
         Text(
           main,
           color = Color.White.copy(alpha = 0.9f),
@@ -434,7 +454,19 @@ private fun NodeCard(
         )
       }
       if (grade.isNotBlank()) {
-        Text(grade, color = HadithColor, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
+        Text(grade, color = color, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
+      }
+      comments.forEach { (idea, note) ->
+        Row(
+          Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = 0.06f)).padding(10.dp),
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+          Icon(QuranIcons.Chat, contentDescription = null, tint = color, modifier = Modifier.size(16.dp).padding(top = 2.dp))
+          Column {
+            Text(note, color = Color.White, style = MaterialTheme.typography.bodyMedium)
+            Text(idea, color = Color.White.copy(alpha = 0.5f), style = MaterialTheme.typography.labelSmall)
+          }
+        }
       }
       if (neighbours.isNotEmpty()) {
         Text(

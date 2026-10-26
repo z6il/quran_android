@@ -115,7 +115,21 @@
         android:name=".feature.research.ResearchActivity"
         android:theme="@style/QuranToolBarDayNight"
         android:windowSoftInputMode="adjustResize"
-        android:exported="false" />
+        android:launchMode="singleTop"
+        android:exported="true">
+      <!-- research files shared from another phone -->
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="content" android:mimeType="application/json" />
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.SEND" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="application/json" />
+      </intent-filter>
+    </activity>
 
     <activity
         android:name=".SearchActivity"

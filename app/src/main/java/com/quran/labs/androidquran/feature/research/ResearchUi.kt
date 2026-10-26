@@ -10,12 +10,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -33,6 +36,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -102,6 +107,17 @@ private val Delete by lazy {
   icon("Delete", "M6,19c0,1.1 0.9,2 2,2h8c1.1,0 2,-0.9 2,-2V7H6v12zM19,4h-3.5l-1,-1h-5l-1,1H5v2h14V4z")
 }
 private val Plus by lazy { icon("Add", "M19,13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z") }
+internal val Quote by lazy { icon("Quote", "M6,17h3l2,-4V7H5v6h3zM14,17h3l2,-4V7h-6v6h3z") }
+internal val Share by lazy {
+  icon("Share", "M18,16.08c-0.76,0 -1.44,0.3 -1.96,0.77L8.91,12.7c0.05,-0.23 0.09,-0.46 0.09,-0.7s-0.04,-0.47 -0.09,-0.7l7.05,-4.11" +
+    "c0.54,0.5 1.25,0.81 2.04,0.81 1.66,0 3,-1.34 3,-3s-1.34,-3 -3,-3 -3,1.34 -3,3c0,0.24 0.04,0.47 0.09,0.7L8.04,9.81C7.5,9.31 6.79,9 6,9" +
+    "c-1.66,0 -3,1.34 -3,3s1.34,3 3,3c0.79,0 1.5,-0.31 2.04,-0.81l7.12,4.16c-0.05,0.21 -0.08,0.43 -0.08,0.65 0,1.61 1.31,2.92 2.92,2.92" +
+    "1.61,0 2.92,-1.31 2.92,-2.92s-1.31,-2.92 -2.92,-2.92z")
+}
+private val MoreVert by lazy {
+  icon("More", "M12,8c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2 -2,0.9 -2,2 0.9,2 2,2zM12,10c-1.1,0 -2,0.9 -2,2s0.9,2 2,2 2,-0.9 2,-2 -0.9,-2 -2,-2z" +
+    "M12,16c-1.1,0 -2,0.9 -2,2s0.9,2 2,2 2,-0.9 2,-2 -0.9,-2 -2,-2z")
+}
 internal val Recenter by lazy {
   icon("Recenter", "M12,8c-2.21,0 -4,1.79 -4,4s1.79,4 4,4 4,-1.79 4,-4 -1.79,-4 -4,-4zM5,15L3,15v4c0,1.1 0.9,2 2,2h4v-2L5,19v-4z" +
     "M5,5h4L9,3L5,3c-1.1,0 -2,0.9 -2,2v4h2L5,5zM19,3h-4v2h4v4h2L21,5c0,-1.1 -0.9,-2 -2,-2zM19,19h-4v2h4c1.1,0 2,-0.9 2,-2v-4h-2v4z")
@@ -179,6 +195,70 @@ private fun RelationPicker(selected: Relation, onSelect: (Relation) -> Unit) {
   }
 }
 
+/** "by @name" on ideas someone else shared */
+@Composable
+private fun AuthorLabel(author: String) {
+  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Icon(QuranIcons.Person, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(14.dp))
+    Text(
+      stringResource(R.string.research_by, author),
+      style = MaterialTheme.typography.labelMedium,
+      color = MaterialTheme.colorScheme.tertiary
+    )
+  }
+}
+
+/** Asks for the name ideas are shared under. */
+@Composable
+fun AuthorNameDialog(current: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+  var name by rememberSaveable { mutableStateOf(current) }
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text(stringResource(R.string.research_your_name)) },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(R.string.research_your_name_hint), style = MaterialTheme.typography.bodyMedium)
+        OutlinedTextField(
+          value = name, onValueChange = { name = it.removePrefix("@").take(40) }, singleLine = true,
+          prefix = { Text("@") }, modifier = Modifier.fillMaxWidth()
+        )
+      }
+    },
+    confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim()) }) { Text(stringResource(R.string.research_save)) } },
+    dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.research_cancel)) } }
+  )
+}
+
+/** What a shared file holds, before it's added. */
+@Composable
+fun ImportDialog(bundle: ResearchBundle, onImport: () -> Unit, onDismiss: () -> Unit) {
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    icon = { Icon(LightBulb, contentDescription = null) },
+    title = { Text(stringResource(R.string.research_import)) },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+          if (bundle.author.isBlank()) stringResource(R.string.research_import_confirm, bundle.ideas.size)
+          else stringResource(R.string.research_import_confirm_by, bundle.ideas.size, bundle.author)
+        )
+        Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          bundle.ideas.forEach { idea ->
+            Text(
+              "• " + idea.title.ifBlank { stringResource(R.string.research_untitled) } +
+                (if (idea.links.isNotEmpty()) "  (${idea.links.size})" else ""),
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
+        }
+      }
+    },
+    confirmButton = { TextButton(onClick = onImport) { Text(stringResource(R.string.research_add)) } },
+    dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.research_cancel)) } }
+  )
+}
+
 @Composable
 private fun CountBadge(icon: ImageVector, count: Int) {
   if (count <= 0) return
@@ -208,10 +288,14 @@ fun IdeasScreen(
   onCreate: (String) -> Unit,
   onLibrary: () -> Unit,
   onMap: () -> Unit,
+  onShareAll: () -> Unit,
+  onImport: () -> Unit,
+  onName: () -> Unit,
   onBack: () -> Unit
 ) {
   var query by rememberSaveable { mutableStateOf("") }
   var creating by rememberSaveable { mutableStateOf(false) }
+  var menu by remember { mutableStateOf(false) }
   val shown = remember(ideas, query) {
     val q = query.trim()
     if (q.isEmpty()) ideas
@@ -222,6 +306,27 @@ fun IdeasScreen(
       TopBar(stringResource(R.string.research_title), onBack) {
         IconButton(onClick = onMap) { Icon(Graph, contentDescription = stringResource(R.string.research_map)) }
         IconButton(onClick = onLibrary) { Icon(Library, contentDescription = stringResource(R.string.research_hadith_library)) }
+        Box {
+          IconButton(onClick = { menu = true }) { Icon(MoreVert, contentDescription = stringResource(R.string.research_more)) }
+          DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(
+              text = { Text(stringResource(R.string.research_share_all)) },
+              leadingIcon = { Icon(Share, contentDescription = null) },
+              enabled = ideas.isNotEmpty(),
+              onClick = { menu = false; onShareAll() }
+            )
+            DropdownMenuItem(
+              text = { Text(stringResource(R.string.research_import)) },
+              leadingIcon = { Icon(Library, contentDescription = null) },
+              onClick = { menu = false; onImport() }
+            )
+            DropdownMenuItem(
+              text = { Text(stringResource(R.string.research_your_name)) },
+              leadingIcon = { Icon(QuranIcons.Person, contentDescription = null) },
+              onClick = { menu = false; onName() }
+            )
+          }
+        }
       }
     },
     floatingActionButton = {
@@ -266,6 +371,7 @@ fun IdeasScreen(
         ) {
           Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(s.idea.title.ifBlank { stringResource(R.string.research_untitled) }, style = MaterialTheme.typography.titleMedium)
+            if (s.idea.author.isNotBlank()) AuthorLabel(s.idea.author)
             if (s.idea.body.isNotBlank()) {
               Text(s.idea.body, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -274,6 +380,7 @@ fun IdeasScreen(
               CountBadge(QuranIcons.MenuBook, s.ayat)
               CountBadge(Library, s.hadith)
               CountBadge(LightBulb, s.ideas)
+              CountBadge(Quote, s.notes)
               FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f)) {
                 s.idea.tags.take(4).forEach { tag ->
                   Text("#$tag", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -308,14 +415,19 @@ fun IdeasScreen(
 fun IdeaScreen(
   idea: Idea,
   links: List<IdeaLink>,
+  notes: Map<String, NoteSource>,
   otherIdeas: List<Idea>,
   text: ResearchText,
   hadith: suspend (LinkTarget.Hadith) -> HadithEntry?,
   onSave: (title: String, body: String, tags: List<String>) -> Unit,
   onAddLink: (LinkTarget, Relation) -> Unit,
+  onAddNote: (text: String, source: String, Relation) -> Unit,
+  onEditNote: (uid: String, text: String, source: String) -> Unit,
   onRemoveLink: (IdeaLink) -> Unit,
+  onEditLink: (IdeaLink, Relation, String) -> Unit,
   onPickHadith: () -> Unit,
   onOpenTarget: (LinkTarget) -> Unit,
+  onShare: () -> Unit,
   onDelete: () -> Unit,
   onBack: () -> Unit
 ) {
@@ -325,6 +437,9 @@ fun IdeaScreen(
   var addingVerse by rememberSaveable { mutableStateOf(false) }
   var linkingIdea by rememberSaveable { mutableStateOf(false) }
   var confirmDelete by rememberSaveable { mutableStateOf(false) }
+  var editingLink by rememberSaveable { mutableStateOf<Long?>(null) }
+  var addingNote by rememberSaveable { mutableStateOf(false) }
+  var editingNote by rememberSaveable { mutableStateOf<String?>(null) }
 
   // save as the reader types, once they pause
   LaunchedEffect(idea.id) {
@@ -341,12 +456,17 @@ fun IdeaScreen(
         onSave(title, body, parseTags(tags))
         onBack()
       }) {
+        IconButton(onClick = {
+          onSave(title, body, parseTags(tags))
+          onShare()
+        }) { Icon(Share, contentDescription = stringResource(R.string.research_share)) }
         IconButton(onClick = { confirmDelete = true }) { Icon(Delete, contentDescription = stringResource(R.string.research_delete)) }
       }
     },
     containerColor = MaterialTheme.colorScheme.surface
   ) { padding ->
     LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 32.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+      if (idea.author.isNotBlank()) item { AuthorLabel(idea.author) }
       item {
         OutlinedTextField(value = title, onValueChange = { title = it }, singleLine = true,
           label = { Text(stringResource(R.string.research_idea_title)) }, modifier = Modifier.fillMaxWidth())
@@ -378,19 +498,44 @@ fun IdeaScreen(
             Icon(LightBulb, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.research_add_idea))
           }
+          OutlinedButton(onClick = { addingNote = true }, shape = RoundedCornerShape(8.dp)) {
+            Icon(Quote, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.research_add_note))
+          }
         }
       }
       if (links.isEmpty()) {
         item { Text(stringResource(R.string.research_nothing_linked), color = MaterialTheme.colorScheme.onSurfaceVariant) }
       }
       items(links, key = { it.id }) { link ->
-        LinkCard(link, text, hadith, otherIdeas, onOpen = { onOpenTarget(link.target) }, onRemove = { onRemoveLink(link) })
+        val target = link.target
+        LinkCard(
+          link, text, hadith, otherIdeas,
+          note = (target as? LinkTarget.Note)?.let { notes[it.uid] },
+          // a note is edited here; everything else opens
+          onOpen = { if (target is LinkTarget.Note) editingNote = target.uid else onOpenTarget(target) },
+          onComment = { editingLink = link.id },
+          onRemove = { onRemoveLink(link) }
+        )
       }
     }
   }
 
   if (addingVerse) AddVerseDialog(text, onAdd = { target, relation -> addingVerse = false; onAddLink(target, relation) }, onDismiss = { addingVerse = false })
   if (linkingIdea) LinkIdeaDialog(otherIdeas, onAdd = { target, relation -> linkingIdea = false; onAddLink(target, relation) }, onDismiss = { linkingIdea = false })
+  if (addingNote) {
+    NoteDialog(null, onSave = { t, s, r -> addingNote = false; onAddNote(t, s, r) }, onDismiss = { addingNote = false })
+  }
+  editingNote?.let { uid ->
+    NoteDialog(notes[uid], onSave = { t, s, _ -> editingNote = null; onEditNote(uid, t, s) }, onDismiss = { editingNote = null })
+  }
+  links.firstOrNull { it.id == editingLink }?.let { link ->
+    LinkNoteDialog(
+      link,
+      onSave = { relation, note -> editingLink = null; onEditLink(link, relation, note) },
+      onDismiss = { editingLink = null }
+    )
+  }
   if (confirmDelete) {
     AlertDialog(
       onDismissRequest = { confirmDelete = false },
@@ -407,7 +552,9 @@ private fun LinkCard(
   text: ResearchText,
   hadith: suspend (LinkTarget.Hadith) -> HadithEntry?,
   ideas: List<Idea>,
+  note: NoteSource?,
   onOpen: () -> Unit,
+  onComment: () -> Unit,
   onRemove: () -> Unit
 ) {
   val target = link.target
@@ -415,12 +562,14 @@ private fun LinkCard(
     is LinkTarget.Ayah -> text.suraName(target.sura) + " " + target.ref.substringAfter(':').let { "${target.sura}:$it" }
     is LinkTarget.Hadith -> text.collectionName(target.collection) + " " + target.number
     is LinkTarget.Idea -> ideas.firstOrNull { it.id == target.id }?.title ?: ""
+    is LinkTarget.Note -> note?.source?.takeIf { it.isNotBlank() } ?: stringResource(R.string.research_add_note)
   }
-  val preview by produceState<String?>(null, target) {
+  val preview by produceState<String?>(null, target, note) {
     value = when (target) {
       is LinkTarget.Ayah -> text.verseText(target)
       is LinkTarget.Hadith -> hadith(target)?.displayText
       is LinkTarget.Idea -> ideas.firstOrNull { it.id == target.id }?.body
+      is LinkTarget.Note -> note?.text
     }
   }
   val arabic = arabicFont()
@@ -430,16 +579,24 @@ private fun LinkCard(
     colors = CardDefaults.cardColors(containerColor = cardColor(), contentColor = MaterialTheme.colorScheme.onSurface),
     modifier = Modifier.fillMaxWidth()
   ) {
-    Row(Modifier.padding(start = 0.dp)) {
-      Box(Modifier.width(4.dp).height(96.dp).background(relationColor(link.relation)))
+    Row(Modifier.height(IntrinsicSize.Min)) {
+      Box(Modifier.width(4.dp).fillMaxHeight().background(relationColor(link.relation)))
       Column(Modifier.weight(1f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           Icon(
-            when (target) { is LinkTarget.Ayah -> QuranIcons.MenuBook; is LinkTarget.Hadith -> Library; is LinkTarget.Idea -> LightBulb },
+            when (target) {
+              is LinkTarget.Ayah -> QuranIcons.MenuBook
+              is LinkTarget.Hadith -> Library
+              is LinkTarget.Idea -> LightBulb
+              is LinkTarget.Note -> Quote
+            },
             contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp)
           )
           Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
           RelationChip(link.relation)
+          IconButton(onClick = onComment, modifier = Modifier.size(32.dp)) {
+            Icon(QuranIcons.Chat, contentDescription = stringResource(R.string.research_comment), modifier = Modifier.size(18.dp))
+          }
           IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
             Icon(QuranIcons.Close, contentDescription = stringResource(R.string.research_remove_link), modifier = Modifier.size(18.dp))
           }
@@ -448,18 +605,96 @@ private fun LinkCard(
         if (!p.isNullOrBlank()) {
           Text(
             p,
-            maxLines = 3,
+            maxLines = if (target is LinkTarget.Note) 6 else 3,
             overflow = TextOverflow.Ellipsis,
             style = if (target is LinkTarget.Idea) MaterialTheme.typography.bodyMedium
+            else if (target is LinkTarget.Note) MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Content)
             else TextStyle(fontFamily = arabic, fontSize = 18.sp, lineHeight = 30.sp, textDirection = TextDirection.Rtl),
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
         } else if (target is LinkTarget.Hadith && preview == null) {
           Spacer(Modifier.height(4.dp))
         }
+        if (link.note.isNotBlank()) {
+          // the reader's own comment on why this is here
+          Row(
+            Modifier
+              .fillMaxWidth()
+              .clip(RoundedCornerShape(8.dp))
+              .background(relationColor(link.relation).copy(alpha = 0.08f))
+              .clickable(onClick = onComment)
+              .padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+          ) {
+            Icon(QuranIcons.Chat, contentDescription = null, tint = relationColor(link.relation), modifier = Modifier.size(16.dp).padding(top = 2.dp))
+            Text(link.note, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+          }
+        }
       }
     }
   }
+}
+
+/** A note source: what someone said or found, and where it's from. [note] null to add one. */
+@Composable
+private fun NoteDialog(note: NoteSource?, onSave: (text: String, source: String, Relation) -> Unit, onDismiss: () -> Unit) {
+  var text by rememberSaveable { mutableStateOf(note?.text.orEmpty()) }
+  var source by rememberSaveable { mutableStateOf(note?.source.orEmpty()) }
+  var relation by rememberSaveable { mutableStateOf(Relation.SUPPORTS) }
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    icon = { Icon(Quote, contentDescription = null) },
+    title = { Text(stringResource(R.string.research_add_note)) },
+    text = {
+      Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        OutlinedTextField(
+          value = text, onValueChange = { text = it }, minLines = 4,
+          label = { Text(stringResource(R.string.research_note_text)) },
+          modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+          value = source, onValueChange = { source = it }, singleLine = true,
+          label = { Text(stringResource(R.string.research_note_source)) },
+          placeholder = { Text(stringResource(R.string.research_note_source_hint)) },
+          modifier = Modifier.fillMaxWidth()
+        )
+        if (note == null) {
+          Text(stringResource(R.string.research_relation_question), style = MaterialTheme.typography.labelLarge)
+          RelationPicker(relation) { relation = it }
+        }
+      }
+    },
+    confirmButton = {
+      TextButton(enabled = text.isNotBlank(), onClick = { onSave(text, source, relation) }) {
+        Text(stringResource(if (note == null) R.string.research_add else R.string.research_save))
+      }
+    },
+    dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.research_cancel)) } }
+  )
+}
+
+/** The reader's comment on a link, and how it relates. */
+@Composable
+private fun LinkNoteDialog(link: IdeaLink, onSave: (Relation, String) -> Unit, onDismiss: () -> Unit) {
+  var note by rememberSaveable(link.id) { mutableStateOf(link.note) }
+  var relation by rememberSaveable(link.id) { mutableStateOf(link.relation) }
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text(stringResource(R.string.research_comment)) },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        OutlinedTextField(
+          value = note, onValueChange = { note = it }, minLines = 3,
+          placeholder = { Text(stringResource(R.string.research_comment_hint)) },
+          modifier = Modifier.fillMaxWidth()
+        )
+        Text(stringResource(R.string.research_relation_question), style = MaterialTheme.typography.labelLarge)
+        RelationPicker(relation) { relation = it }
+      }
+    },
+    confirmButton = { TextButton(onClick = { onSave(relation, note) }) { Text(stringResource(R.string.research_save)) } },
+    dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.research_cancel)) } }
+  )
 }
 
 @Composable
@@ -540,7 +775,7 @@ fun PickIdeaScreen(
     value = when (target) {
       is LinkTarget.Ayah -> text.verseText(target)
       is LinkTarget.Hadith -> hadith(target)?.displayText
-      is LinkTarget.Idea -> null
+      is LinkTarget.Idea, is LinkTarget.Note -> null
     }
   }
   val arabic = arabicFont()
@@ -553,7 +788,7 @@ fun PickIdeaScreen(
               when (target) {
                 is LinkTarget.Ayah -> text.suraName(target.sura) + " " + target.ref
                 is LinkTarget.Hadith -> text.collectionName(target.collection) + " " + target.number
-                is LinkTarget.Idea -> ""
+                is LinkTarget.Idea, is LinkTarget.Note -> ""
               },
               style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary
             )

@@ -96,4 +96,79 @@ class ResearchTest {
     assertThat(store.links(sabr).map { it.target }).doesNotContain(LinkTarget.Idea(trial))
     assertThat(store.ideas.value.map { it.idea.id }).containsExactly(sabr)
   }
+
+  @Test
+  fun sharingRoundTrips() {
+    runBlocking { sharingBody() }
+  }
+
+  private suspend fun sharingBody() {
+    val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+    val mine = ResearchStore(context)
+    val patience = mine.createIdea("Patience", "notes", listOf("sabr"))
+    val trials = mine.createIdea("Trials")
+    mine.addLink(patience, LinkTarget.Ayah(2, 153), Relation.SUPPORTS)
+    mine.addLink(patience, LinkTarget.Idea(trials), Relation.RELATED)
+    mine.addNote(patience, "Patience is half of faith.", "Ibn al-Qayyim", Relation.EXPLAINS)
+    val comment = mine.links(patience).first { it.target is LinkTarget.Ayah }
+    mine.updateLink(comment, Relation.SUPPORTS, "the key verse")
+
+    // sharing one idea brings the idea it links to along
+    val bundle = ResearchBundle.parse(mine.export(setOf(patience), "abdo").toJson().toString())!!
+    assertThat(bundle.author).isEqualTo("abdo")
+    assertThat(bundle.ideas.map { it.title }).containsExactly("Patience", "Trials")
+    val shared = bundle.ideas.first { it.title == "Patience" }
+    assertThat(shared.author).isEqualTo("abdo")
+    assertThat(shared.links.first { it.kind == "ayah" }.note).isEqualTo("the key verse")
+    assertThat(shared.links.first { it.kind == "note" }.text).isEqualTo("Patience is half of faith.")
+
+    // into someone else's phone: a fresh database
+    context.deleteDatabase("research.db")
+    val theirs = ResearchStore(context)
+    assertThat(theirs.import(bundle, "friend")).isEqualTo(2)
+    val imported = theirs.ideas.value.map { it.idea }
+    assertThat(imported.map { it.author }.toSet()).containsExactly("abdo")
+    val id = imported.first { it.title == "Patience" }.id
+    val links = theirs.links(id)
+    assertThat(links).hasSize(3)
+    val toTrials = links.first { it.target is LinkTarget.Idea }.target as LinkTarget.Idea
+    assertThat(imported.first { it.id == toTrials.id }.title).isEqualTo("Trials")
+    val note = links.first { it.target is LinkTarget.Note }.target as LinkTarget.Note
+    assertThat(theirs.notes()[note.uid]?.source).isEqualTo("Ibn al-Qayyim")
+
+    // importing the same file again updates instead of adding twice
+    theirs.import(bundle, "friend")
+    assertThat(theirs.ideas.value).hasSize(2)
+    assertThat(theirs.links(id)).hasSize(3)
+    assertThat(theirs.notes()).hasSize(1)
+
+    // removing the link drops the note it pointed at
+    theirs.removeLink(theirs.links(id).first { it.target is LinkTarget.Note })
+    assertThat(theirs.notes()).isEmpty()
+
+    assertThat(ResearchBundle.parse("{\"ideas\": []}")).isNull()
+    assertThat(ResearchBundle.parse("not json")).isNull()
+  }
+
+  @Test
+  fun upgradesTheFirstDatabase() {
+    val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+    context.deleteDatabase("research.db")
+    // version 1, as 3.6.4-7 shipped it
+    android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath("research.db").apply { parentFile?.mkdirs() }, null).use { db ->
+      db.execSQL("CREATE TABLE ideas(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '', tags TEXT NOT NULL DEFAULT '', created INTEGER, updated INTEGER)")
+      db.execSQL("CREATE TABLE links(id INTEGER PRIMARY KEY AUTOINCREMENT, idea_id INTEGER NOT NULL, kind TEXT NOT NULL, ref TEXT NOT NULL, relation TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', created INTEGER)")
+      db.execSQL("INSERT INTO ideas(title, created, updated) VALUES ('Old', 1, 1)")
+      db.version = 1
+    }
+    runBlocking {
+      val store = ResearchStore(context)
+      store.refresh()
+      assertThat(store.ideas.value.map { it.idea.title }).containsExactly("Old")
+      val bundle = store.export(null, "abdo")
+      assertThat(bundle.ideas.single().uid).isNotEmpty()
+      store.addNote(store.ideas.value.single().idea.id, "text", "", Relation.RELATED)
+      assertThat(store.notes()).hasSize(1)
+    }
+  }
 }

@@ -52,4 +52,24 @@
   <string name="research_map_connections">مرتبط بـ</string>
   <string name="research_open">افتح</string>
   <string name="research_close">إغلاق</string>
+  <string name="research_comment">تعليق</string>
+  <string name="research_comment_hint">لماذا أضفته؟ وعلى ماذا يدل؟</string>
+  <string name="research_save">حفظ</string>
+  <string name="research_share">مشاركة</string>
+  <string name="research_share_all">مشاركة كل الأفكار</string>
+  <string name="research_import">استيراد أفكار</string>
+  <string name="research_your_name">اسمك</string>
+  <string name="research_your_name_hint">تحمل الأفكار التي تشاركها هذا الاسم ليعرف من يستوردها كاتبها.</string>
+  <string name="research_more">المزيد</string>
+  <string name="research_by">بقلم @%1$s</string>
+  <string name="research_import_confirm">إضافة %1$d من الأفكار من هذا الملف؟</string>
+  <string name="research_import_confirm_by">إضافة %1$d من الأفكار شاركها @%2$s؟</string>
+  <string name="research_imported">أضيفت %1$d من الأفكار</string>
+  <string name="research_import_invalid">هذا ليس ملف بحث من هذا التطبيق.</string>
+  <string name="research_share_text">%1$d من الأفكار من بحثي القرآني، بقلم @%2$s. افتح الملف بتطبيق القرآن لإضافتها.</string>
+  <string name="research_add_note">نقل</string>
+  <string name="research_note_text">ماذا قال أو وجد؟</string>
+  <string name="research_note_source">المصدر</string>
+  <string name="research_note_source_hint">العالم، الكتاب، الصفحة، أو أنت</string>
+  <string name="research_map_notes">نقول</string>
 </resources>

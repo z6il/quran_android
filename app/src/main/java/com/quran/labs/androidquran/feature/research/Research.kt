@@ -54,11 +54,22 @@ sealed interface LinkTarget {
     }
   }
 
+  /** a quote or finding from someone's research (a scholar, a book, or the reader's own), kept by uid */
+  data class Note(val uid: String) : LinkTarget {
+    override val kind get() = KIND
+    override val ref get() = uid
+
+    companion object {
+      const val KIND = "note"
+    }
+  }
+
   companion object {
     fun of(kind: String, ref: String): LinkTarget? = when (kind) {
       Ayah.KIND -> Ayah.parse(ref)
       Hadith.KIND -> Hadith.parse(ref)
       Idea.KIND -> ref.toLongOrNull()?.let(::Idea)
+      Note.KIND -> ref.takeIf { it.isNotBlank() }?.let(::Note)
       else -> null
     }
   }
@@ -69,7 +80,9 @@ data class Idea(
   val title: String,
   val body: String,
   val tags: List<String>,
-  val updated: Long
+  val updated: Long,
+  /** who wrote it, for ideas imported from someone else; blank for the reader's own */
+  val author: String = ""
 )
 
 data class IdeaLink(
@@ -80,8 +93,11 @@ data class IdeaLink(
   val note: String
 )
 
-/** An idea with how many verses, hadith and other ideas it links to, for lists. */
-data class IdeaSummary(val idea: Idea, val ayat: Int, val hadith: Int, val ideas: Int)
+/** What a note source says, and where it comes from (e.g. "Ibn Kathir, Tafsir 1/250"). */
+data class NoteSource(val uid: String, val text: String, val source: String)
+
+/** An idea with how many verses, hadith, other ideas and notes it links to, for lists. */
+data class IdeaSummary(val idea: Idea, val ayat: Int, val hadith: Int, val ideas: Int, val notes: Int = 0)
 
 /** "a, b , ,c" -> [a, b, c], keeping the order and dropping repeats */
 fun parseTags(text: String): List<String> =
