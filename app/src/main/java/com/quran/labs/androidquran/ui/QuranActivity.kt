@@ -57,6 +57,7 @@ import com.quran.labs.androidquran.feature.khatmah.KhatmahActivity
 import com.quran.labs.androidquran.feature.khatmah.KhatmahCard
 import com.quran.labs.androidquran.feature.khatmah.KhatmahStore
 import com.quran.labs.androidquran.feature.reading.model.LatestPageTracker
+import com.quran.labs.androidquran.feature.research.ResearchActivity
 import com.quran.labs.androidquran.presenter.data.QuranIndexEventLogger
 import com.quran.labs.androidquran.presenter.translation.TranslationManagerPresenter
 import com.quran.labs.androidquran.service.AudioService
@@ -399,6 +400,9 @@ class QuranActivity : AppCompatActivity(),
     when (val itemId = item.itemId) {
       R.id.settings -> {
         startActivity(Intent(this, QuranPreferenceActivity::class.java))
+      }
+      R.id.research -> {
+        startActivity(ResearchActivity.intent(this))
       }
       R.id.last_page -> {
         jumpToLastPage()

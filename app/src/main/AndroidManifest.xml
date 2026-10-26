@@ -112,6 +112,12 @@
         android:exported="false" />
 
     <activity
+        android:name=".feature.research.ResearchActivity"
+        android:theme="@style/QuranToolBarDayNight"
+        android:windowSoftInputMode="adjustResize"
+        android:exported="false" />
+
+    <activity
         android:name=".SearchActivity"
         android:launchMode="singleTop"
         android:theme="@style/QuranToolBarDayNight"

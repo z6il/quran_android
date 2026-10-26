@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="research_title">Research</string>
+  <string name="research_new_idea">New idea</string>
+  <string name="research_idea_title">Title</string>
+  <string name="research_idea_body">Notes</string>
+  <string name="research_idea_tags">Tags, separated by commas</string>
+  <string name="research_untitled">Untitled</string>
+  <string name="research_empty">Collect verses and hadith around an idea, and say how each one bears on it. Start one here, or from any verse\'s menu while reading.</string>
+  <string name="research_search">Search ideas</string>
+  <string name="research_linked">Linked</string>
+  <string name="research_nothing_linked">Nothing linked yet. Add a verse, a hadith or another idea.</string>
+  <string name="research_add_verse">Verse</string>
+  <string name="research_add_hadith">Hadith</string>
+  <string name="research_add_idea">Idea</string>
+  <string name="research_add_to_idea">Add to idea</string>
+  <string name="research_relation_explains">Explains</string>
+  <string name="research_relation_supports">Supports</string>
+  <string name="research_relation_related">Related</string>
+  <string name="research_relation_contrasts">Contrasts</string>
+  <string name="research_relation_question">How does it relate?</string>
+  <string name="research_sura">Surah number</string>
+  <string name="research_from_ayah">From verse</string>
+  <string name="research_to_ayah">To verse</string>
+  <string name="research_invalid_verse">There\'s no such verse.</string>
+  <string name="research_add">Add</string>
+  <string name="research_cancel">Cancel</string>
+  <string name="research_delete">Delete</string>
+  <string name="research_delete_confirm">Delete this idea and its links?</string>
+  <string name="research_remove_link">Remove link</string>
+  <string name="research_back">Back</string>
+  <string name="research_hadith_library">Hadith library</string>
+  <string name="research_library_intro">The six books (Bukhari, Muslim, Abu Dawud, Tirmidhi, Nasa\'i, Ibn Majah) in Arabic with gradings, from sunnah.com. Downloaded once, about %1$d MB, then it works offline.</string>
+  <string name="research_download">Download</string>
+  <string name="research_downloading">Downloading… %1$d%%</string>
+  <string name="research_download_failed">The download didn\'t finish (%1$s). Check your connection and try again.</string>
+  <string name="research_retry">Try again</string>
+  <string name="research_search_hadith">Search hadith in Arabic</string>
+  <string name="research_all">All</string>
+  <string name="research_no_hadith">No hadith match. Try fewer or different words.</string>
+  <string name="research_choose_idea">Add to which idea?</string>
+  <string name="research_no_grade">No grading given</string>
+  <string name="research_open_in_quran">Open in the Quran</string>
+  <string name="research_library_needed">Download the hadith library to show this hadith.</string>
+  <string name="research_map">Map</string>
+</resources>

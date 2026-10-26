@@ -40,6 +40,11 @@
     </menu>
   </item>
   <item
+      android:id="@+id/research"
+      android:icon="@drawable/ic_research"
+      android:title="@string/research_title"
+      app:showAsAction="ifRoom" />
+  <item
       android:id="@+id/last_page"
       android:icon="@drawable/ic_goto_quran"
       android:title="@string/menu_jump_last_page"

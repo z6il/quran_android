@@ -167,6 +167,8 @@ import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import androidx.core.view.isVisible
+import com.quran.labs.androidquran.feature.research.LinkTarget
+import com.quran.labs.androidquran.feature.research.ResearchActivity
 
 /**
  * Activity that displays the Quran (in Arabic or translation mode).
@@ -1877,6 +1879,12 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
         shareAyah(startSuraAyah, endSuraAyah, false)
       } else if (itemId == com.quran.labs.androidquran.common.toolbar.R.id.cab_copy_ayah) {
         shareAyah(startSuraAyah, endSuraAyah, true)
+      } else if (itemId == com.quran.labs.androidquran.common.toolbar.R.id.cab_add_to_idea) {
+        // a selection within one sura links as a range, otherwise just its first verse
+        val end = if (endSuraAyah.sura == startSuraAyah.sura) endSuraAyah.ayah else startSuraAyah.ayah
+        startActivity(
+          ResearchActivity.addToIdeaIntent(this@PagerActivity, LinkTarget.Ayah(startSuraAyah.sura, startSuraAyah.ayah, end))
+        )
       } else {
         return false
       }

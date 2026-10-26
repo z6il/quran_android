@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="research_title">البحث</string>
+  <string name="research_new_idea">فكرة جديدة</string>
+  <string name="research_idea_title">العنوان</string>
+  <string name="research_idea_body">الملاحظات</string>
+  <string name="research_idea_tags">وسوم، تفصل بينها فاصلة</string>
+  <string name="research_untitled">بلا عنوان</string>
+  <string name="research_empty">اجمع الآيات والأحاديث حول فكرة، وبيّن صلة كل منها بها. ابدأ من هنا، أو من قائمة أي آية أثناء القراءة.</string>
+  <string name="research_search">ابحث في الأفكار</string>
+  <string name="research_linked">المرتبط بها</string>
+  <string name="research_nothing_linked">لا شيء مرتبط بعد. أضف آية أو حديثًا أو فكرة أخرى.</string>
+  <string name="research_add_verse">آية</string>
+  <string name="research_add_hadith">حديث</string>
+  <string name="research_add_idea">فكرة</string>
+  <string name="research_add_to_idea">أضف إلى فكرة</string>
+  <string name="research_relation_explains">يفسّر</string>
+  <string name="research_relation_supports">يؤيّد</string>
+  <string name="research_relation_related">ذو صلة</string>
+  <string name="research_relation_contrasts">يعارض</string>
+  <string name="research_relation_question">ما صلته بالفكرة؟</string>
+  <string name="research_sura">رقم السورة</string>
+  <string name="research_from_ayah">من آية</string>
+  <string name="research_to_ayah">إلى آية</string>
+  <string name="research_invalid_verse">لا توجد آية بهذا الرقم.</string>
+  <string name="research_add">إضافة</string>
+  <string name="research_cancel">إلغاء</string>
+  <string name="research_delete">حذف</string>
+  <string name="research_delete_confirm">حذف هذه الفكرة وروابطها؟</string>
+  <string name="research_remove_link">إزالة الرابط</string>
+  <string name="research_back">رجوع</string>
+  <string name="research_hadith_library">مكتبة الحديث</string>
+  <string name="research_library_intro">الكتب الستة (البخاري، مسلم، أبو داود، الترمذي، النسائي، ابن ماجه) بالعربية مع أحكامها، من موقع sunnah.com. تُنزَّل مرة واحدة، نحو %1$d ميغابايت، ثم تعمل دون اتصال.</string>
+  <string name="research_download">تنزيل</string>
+  <string name="research_downloading">جارٍ التنزيل… %1$d٪</string>
+  <string name="research_download_failed">لم يكتمل التنزيل (%1$s). تحقّق من الاتصال وأعد المحاولة.</string>
+  <string name="research_retry">إعادة المحاولة</string>
+  <string name="research_search_hadith">ابحث في الأحاديث بالعربية</string>
+  <string name="research_all">الكل</string>
+  <string name="research_no_hadith">لا أحاديث مطابقة. جرّب كلمات أقل أو مختلفة.</string>
+  <string name="research_choose_idea">إلى أي فكرة تضيفه؟</string>
+  <string name="research_no_grade">لا حكم مذكور</string>
+  <string name="research_open_in_quran">افتح في المصحف</string>
+  <string name="research_library_needed">نزّل مكتبة الحديث لعرض هذا الحديث.</string>
+  <string name="research_map">الخريطة</string>
+</resources>
