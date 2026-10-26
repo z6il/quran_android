@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="adhkar_title">Adhkar</string>
+  <string name="adhkar_morning">Morning adhkar</string>
+  <string name="adhkar_evening">Evening adhkar</string>
+  <string name="adhkar_morning_short">Morning</string>
+  <string name="adhkar_evening_short">Evening</string>
+  <string name="adhkar_sleep_short">Sleep</string>
+  <string name="adhkar_today">Today</string>
+  <string name="adhkar_search">Search adhkar</string>
+  <string name="adhkar_favorites">Favorites</string>
+  <string name="adhkar_all">All adhkar</string>
+  <plurals name="adhkar_count">
+    <item quantity="one">%d dhikr</item>
+    <item quantity="other">%d adhkar</item>
+  </plurals>
+  <string name="adhkar_position">%1$d of %2$d</string>
+  <string name="adhkar_tap">Tap to count</string>
+  <string name="adhkar_reference">Source</string>
+  <string name="adhkar_done_title">Done</string>
+  <string name="adhkar_done_detail">May Allah accept it from you.</string>
+  <string name="adhkar_finish">Finish</string>
+  <string name="adhkar_reminders">Reminders</string>
+  <string name="adhkar_reminder_text">Time for your adhkar</string>
+  <string name="adhkar_reminder_channel">Adhkar reminders</string>
+  <string name="adhkar_notifications_off">Notifications are off for this app. Turn them on in system settings to get reminders.</string>
+  <string name="adhkar_ok">OK</string>
+  <string name="adhkar_cancel">Cancel</string>
+  <string name="adhkar_close">Close</string>
+  <string name="adhkar_back">Back</string>
+  <string name="adhkar_favorite">Favorite</string>
+  <string name="adhkar_source_note">Hisn al-Muslim by Sa\'id ibn Ali ibn Wahf al-Qahtani. Text and source references from sunnah.com.</string>
+  <string name="adhkar_no_results">No adhkar match your search.</string>
+</resources>

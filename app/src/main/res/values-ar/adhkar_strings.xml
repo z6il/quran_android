@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="adhkar_title">الأذكار</string>
+  <string name="adhkar_morning">أذكار الصباح</string>
+  <string name="adhkar_evening">أذكار المساء</string>
+  <string name="adhkar_morning_short">الصباح</string>
+  <string name="adhkar_evening_short">المساء</string>
+  <string name="adhkar_sleep_short">النوم</string>
+  <string name="adhkar_today">اليوم</string>
+  <string name="adhkar_search">ابحث في الأذكار</string>
+  <string name="adhkar_favorites">المفضلة</string>
+  <string name="adhkar_all">كل الأذكار</string>
+  <plurals name="adhkar_count">
+    <item quantity="zero">%d ذكر</item>
+    <item quantity="one">ذكر واحد</item>
+    <item quantity="two">ذكران</item>
+    <item quantity="few">%d أذكار</item>
+    <item quantity="many">%d ذكرًا</item>
+    <item quantity="other">%d ذكر</item>
+  </plurals>
+  <string name="adhkar_position">%1$d من %2$d</string>
+  <string name="adhkar_tap">اضغط للعدّ</string>
+  <string name="adhkar_reference">المصدر</string>
+  <string name="adhkar_done_title">تمّت</string>
+  <string name="adhkar_done_detail">تقبّل الله منك.</string>
+  <string name="adhkar_finish">إنهاء</string>
+  <string name="adhkar_reminders">التذكير</string>
+  <string name="adhkar_reminder_text">حان وقت أذكارك</string>
+  <string name="adhkar_reminder_channel">تذكير الأذكار</string>
+  <string name="adhkar_notifications_off">الإشعارات متوقفة لهذا التطبيق. فعّلها من إعدادات النظام لتصلك التذكيرات.</string>
+  <string name="adhkar_ok">حسنًا</string>
+  <string name="adhkar_cancel">إلغاء</string>
+  <string name="adhkar_close">إغلاق</string>
+  <string name="adhkar_back">رجوع</string>
+  <string name="adhkar_favorite">مفضلة</string>
+  <string name="adhkar_source_note">حصن المسلم لسعيد بن علي بن وهف القحطاني. النص والتخريج من موقع sunnah.com.</string>
+  <string name="adhkar_no_results">لا توجد أذكار مطابقة لبحثك.</string>
+</resources>

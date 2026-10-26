@@ -107,6 +107,11 @@
         android:exported="false" />
 
     <activity
+        android:name=".feature.adhkar.AdhkarActivity"
+        android:theme="@style/QuranToolBarDayNight"
+        android:exported="false" />
+
+    <activity
         android:name=".SearchActivity"
         android:launchMode="singleTop"
         android:theme="@style/QuranToolBarDayNight"
