@@ -185,6 +185,7 @@ class ResearchActivity : AppCompatActivity() {
       Screen.Map -> ResearchMap(
         store = store,
         text = text,
+        hadith = { library.hadith(it) },
         onOpen = { openTarget(it) },
         onBack = { back() }
       )

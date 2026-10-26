@@ -44,4 +44,12 @@
   <string name="research_library_needed">نزّل مكتبة الحديث لعرض هذا الحديث.</string>
   <string name="research_map">الخريطة</string>
   <string name="research_map_empty">اربط الآيات والأحاديث والأفكار بأفكارك وستظهر هنا مترابطة.</string>
+  <string name="research_map_hint">المس عقدة لاستكشافها. اسحب للتدوير وقرّب بإصبعين.</string>
+  <string name="research_map_reset">عرض الكل</string>
+  <string name="research_map_ideas">أفكار</string>
+  <string name="research_map_verses">آيات</string>
+  <string name="research_map_hadith">أحاديث</string>
+  <string name="research_map_connections">مرتبط بـ</string>
+  <string name="research_open">افتح</string>
+  <string name="research_close">إغلاق</string>
 </resources>

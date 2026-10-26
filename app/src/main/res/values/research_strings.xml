@@ -44,4 +44,12 @@
   <string name="research_library_needed">Download the hadith library to show this hadith.</string>
   <string name="research_map">Map</string>
   <string name="research_map_empty">Link verses, hadith and ideas to your ideas and they\'ll appear here, connected.</string>
+  <string name="research_map_hint">Tap a node to explore. Drag to turn, pinch to zoom.</string>
+  <string name="research_map_reset">Show everything</string>
+  <string name="research_map_ideas">Ideas</string>
+  <string name="research_map_verses">Verses</string>
+  <string name="research_map_hadith">Hadith</string>
+  <string name="research_map_connections">Connected to</string>
+  <string name="research_open">Open</string>
+  <string name="research_close">Close</string>
 </resources>
