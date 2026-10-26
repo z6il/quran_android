@@ -23,11 +23,6 @@
         app:subtitleTextAppearance="@style/ToolbarSubtitleText"
         app:titleTextAppearance="@style/ToolbarTitleText" />
 
-    <androidx.compose.ui.platform.ComposeView
-        android:id="@+id/khatmah_card"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
-
     <com.quran.labs.androidquran.view.SlidingTabLayout
         android:id="@+id/indicator"
         style="@style/ToolBarArea"
@@ -38,5 +33,11 @@
   <com.quran.labs.androidquran.view.QuranViewPager
       android:id="@+id/index_pager"
       android:layout_width="match_parent"
-      android:layout_height="match_parent" />
+      android:layout_height="0dp"
+      android:layout_weight="1" />
+
+  <androidx.compose.ui.platform.ComposeView
+      android:id="@+id/bottom_bar"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content" />
 </LinearLayout>

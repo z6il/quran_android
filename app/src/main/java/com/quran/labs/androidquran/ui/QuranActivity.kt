@@ -20,14 +20,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ActionMode
 import androidx.appcompat.widget.SearchView
 import androidx.appcompat.widget.Toolbar
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
@@ -50,14 +43,12 @@ import com.quran.labs.androidquran.SearchActivity
 import com.quran.labs.androidquran.ShortcutsActivity
 import com.quran.labs.androidquran.common.ui.core.QuranTheme
 import com.quran.labs.androidquran.data.Constants
-import com.quran.labs.androidquran.feature.adhkar.AdhkarActivity
-import com.quran.labs.androidquran.feature.adhkar.AdhkarCard
+import com.quran.labs.androidquran.feature.home.AppBottomBar
+import com.quran.labs.androidquran.feature.home.AppNav
+import com.quran.labs.androidquran.feature.home.AppTab
 import com.quran.labs.androidquran.feature.adhkar.AdhkarStore
-import com.quran.labs.androidquran.feature.khatmah.KhatmahActivity
-import com.quran.labs.androidquran.feature.khatmah.KhatmahCard
 import com.quran.labs.androidquran.feature.khatmah.KhatmahStore
 import com.quran.labs.androidquran.feature.reading.model.LatestPageTracker
-import com.quran.labs.androidquran.feature.research.ResearchActivity
 import com.quran.labs.androidquran.presenter.data.QuranIndexEventLogger
 import com.quran.labs.androidquran.presenter.translation.TranslationManagerPresenter
 import com.quran.labs.androidquran.service.AudioService
@@ -157,10 +148,6 @@ class QuranActivity : AppCompatActivity(),
   @Inject
   lateinit var adhkarStore: AdhkarStore
 
-  private val openKhatmah = registerForActivityResult(KhatmahActivity.Open()) { continueReading ->
-    if (continueReading) jumpToLastPage()
-  }
-
   private var jumpToPageOnResume: Int? = null
 
   public override fun onCreate(savedInstanceState: Bundle?) {
@@ -207,31 +194,9 @@ class QuranActivity : AppCompatActivity(),
     val indicator = findViewById<SlidingTabLayout>(R.id.indicator)
     indicator.setViewPager(pager)
 
-    findViewById<ComposeView>(R.id.khatmah_card).setContent {
+    findViewById<ComposeView>(R.id.bottom_bar).setContent {
       QuranTheme {
-        val progress by khatmahStore.progress.collectAsState()
-        val adhkar by adhkarStore.state.collectAsState()
-        Column(
-          Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-          verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-          KhatmahCard(
-            progress = progress,
-            onOpen = {
-              lifecycleScope.launch {
-                val page = latestPage()
-                openKhatmah.launch(if (page == Constants.NO_PAGE) 1 else page)
-              }
-            },
-            onContinue = { jumpToLastPage() },
-            onResume = { khatmahStore.resumePlan() }
-          )
-          AdhkarCard(
-            state = adhkar,
-            onOpenList = { startActivity(AdhkarActivity.intent(this@QuranActivity)) },
-            onOpen = { set -> startActivity(AdhkarActivity.intent(this@QuranActivity, set.chapterId, set.session)) }
-          )
-        }
+        AppBottomBar(AppTab.QURAN, onSelect = { AppNav.go(this@QuranActivity, AppTab.QURAN, it) })
       }
     }
     jumpToPageOnResume = if (isRtl) {
@@ -262,6 +227,12 @@ class QuranActivity : AppCompatActivity(),
     }
     updateTranslationsListAsNeeded()
     quranIndexEventLogger.logAnalytics()
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    // "continue reading" from the khatmah tab
+    if (ShortcutsActivity.ACTION_JUMP_TO_LATEST == intent.action) jumpToLastPage()
   }
 
   public override fun onResume() {
@@ -400,9 +371,6 @@ class QuranActivity : AppCompatActivity(),
     when (val itemId = item.itemId) {
       R.id.settings -> {
         startActivity(Intent(this, QuranPreferenceActivity::class.java))
-      }
-      R.id.research -> {
-        startActivity(ResearchActivity.intent(this))
       }
       R.id.last_page -> {
         jumpToLastPage()

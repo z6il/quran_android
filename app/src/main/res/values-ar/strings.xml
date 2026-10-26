@@ -331,4 +331,7 @@
   </string>
   <string name="comma">"،"</string>
 
+  <string name="nav_quran">القرآن</string>
+  <string name="nav_khatmah">الختمة</string>
+  <string name="nav_adhkar">الأذكار</string>
 </resources>

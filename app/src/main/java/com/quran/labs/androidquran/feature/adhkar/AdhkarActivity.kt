@@ -22,6 +22,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationManagerCompat
 import com.quran.labs.androidquran.QuranApplication
+import com.quran.labs.androidquran.feature.home.AppTab
+import com.quran.labs.androidquran.feature.home.WithBottomBar
 import com.quran.labs.androidquran.common.ui.core.QuranTheme
 import dev.zacsweers.metro.Inject
 
@@ -66,6 +68,7 @@ class AdhkarActivity : AppCompatActivity() {
       setContent {
         QuranTheme {
           val state by adhkarStore.state.collectAsState()
+          WithBottomBar(this@AdhkarActivity, AppTab.ADHKAR, showBar = openSet == null) {
           AnimatedContent(
             targetState = openSet,
             transitionSpec = {
@@ -103,6 +106,7 @@ class AdhkarActivity : AppCompatActivity() {
                 onBack = { finish() }
               )
             }
+          }
           }
           if (showReminders) {
             RemindersDialog(

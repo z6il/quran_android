@@ -33,6 +33,8 @@ import com.quran.data.model.SuraAyah
 import com.quran.labs.androidquran.QuranApplication
 import com.quran.labs.androidquran.R
 import com.quran.labs.androidquran.common.ui.core.QuranTheme
+import com.quran.labs.androidquran.feature.home.AppTab
+import com.quran.labs.androidquran.feature.home.WithBottomBar
 import com.quran.labs.androidquran.data.QuranDisplayData
 import com.quran.labs.androidquran.model.translation.ArabicDatabaseUtils
 import com.quran.labs.androidquran.ui.PagerActivity
@@ -111,6 +113,7 @@ class ResearchActivity : AppCompatActivity() {
           LaunchedEffect(libraryState) {
             if (libraryState is HadithLibraryState.Installed) collections = library.collections()
           }
+          WithBottomBar(this@ResearchActivity, AppTab.RESEARCH, showBar = stack.size == 1 && stack.last() == Screen.Ideas) {
           AnimatedContent(
             targetState = stack.last(),
             transitionSpec = {
@@ -118,6 +121,7 @@ class ResearchActivity : AppCompatActivity() {
             },
             label = "research"
           ) { screen -> Render(screen, libraryState) }
+          }
           askingName?.let { then ->
             AuthorNameDialog(
               current = authorName,
