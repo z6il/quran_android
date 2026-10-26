@@ -185,7 +185,7 @@ class ResearchActivity : AppCompatActivity() {
       Screen.Map -> ResearchMap(
         store = store,
         text = text,
-        onOpenIdea = { stack.add(Screen.IdeaDetail(it)) },
+        onOpen = { openTarget(it) },
         onBack = { back() }
       )
     }

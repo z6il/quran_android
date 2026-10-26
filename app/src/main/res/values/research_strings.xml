@@ -43,4 +43,5 @@
   <string name="research_open_in_quran">Open in the Quran</string>
   <string name="research_library_needed">Download the hadith library to show this hadith.</string>
   <string name="research_map">Map</string>
+  <string name="research_map_empty">Link verses, hadith and ideas to your ideas and they\'ll appear here, connected.</string>
 </resources>

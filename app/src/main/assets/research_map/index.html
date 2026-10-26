@@ -1,0 +1,238 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #061012; touch-action: none; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<script src="three.min.js"></script>
+<script src="OrbitControls.js"></script>
+<script>
+/*
+ * The research map: ideas, verses and hadith as glowing nodes in 3D, linked by coloured
+ * lines. Android hands the graph over with setGraph(json) and hears taps through
+ * Android.open(kind, ref).
+ *
+ * graph: { nodes: [{id, kind: "idea"|"ayah"|"hadith", ref, label}],
+ *          links: [{source, target, color}] }
+ */
+const KIND_COLOR = { idea: 0x26c6da, ayah: 0xffc857, hadith: 0xb388ff };
+const KIND_SIZE = { idea: 7, ayah: 4.2, hadith: 4.2 };
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+renderer.setClearColor(0x061012);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x061012, 0.0007);
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 4000);
+camera.position.set(0, 0, 220);
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const light = new THREE.PointLight(0xffffff, 0.9);
+light.position.set(120, 160, 200);
+scene.add(light);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.6;
+controls.enablePan = false;
+controls.minDistance = 40;
+controls.maxDistance = 900;
+let touched = false;
+controls.addEventListener('start', () => { controls.autoRotate = false; touched = true; });
+
+// faint star field for depth
+(function stars() {
+  const g = new THREE.BufferGeometry();
+  const p = [];
+  for (let i = 0; i < 700; i++) {
+    const r = 900 + Math.random() * 600, t = Math.random() * Math.PI * 2, u = Math.acos(2 * Math.random() - 1);
+    p.push(r * Math.sin(u) * Math.cos(t), r * Math.sin(u) * Math.sin(t), r * Math.cos(u));
+  }
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x5f8b8f, size: 2.5, sizeAttenuation: true, fog: false })));
+})();
+
+function glowTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255,255,255,0.9)');
+  g.addColorStop(0.25, 'rgba(255,255,255,0.35)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g;
+  x.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+const GLOW = glowTexture();
+
+function labelSprite(text, size) {
+  const font = 'bold 44px sans-serif';
+  const c = document.createElement('canvas');
+  const x = c.getContext('2d');
+  x.font = font;
+  const w = Math.ceil(x.measureText(text).width) + 36;
+  c.width = w; c.height = 72;
+  x.font = font;
+  x.fillStyle = 'rgba(6,16,18,0.62)';
+  const r = 18;
+  x.beginPath();
+  x.moveTo(r, 0); x.lineTo(w - r, 0); x.quadraticCurveTo(w, 0, w, r); x.lineTo(w, 72 - r);
+  x.quadraticCurveTo(w, 72, w - r, 72); x.lineTo(r, 72); x.quadraticCurveTo(0, 72, 0, 72 - r);
+  x.lineTo(0, r); x.quadraticCurveTo(0, 0, r, 0); x.fill();
+  x.fillStyle = '#ffffff';
+  x.textBaseline = 'middle';
+  x.textAlign = 'center';
+  x.fillText(text, w / 2, 38);
+  const tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  const h = size * 1.5;
+  s.scale.set(h * w / 72, h, 1);
+  return s;
+}
+
+let nodes = [], links = [], pickables = [], linkLines = [], settle = 0;
+
+function clear() {
+  for (const n of nodes) scene.remove(n.group);
+  for (const l of linkLines) scene.remove(l);
+  nodes = []; links = []; pickables = []; linkLines = [];
+}
+
+window.setGraph = function (json) {
+  clear();
+  const g = typeof json === 'string' ? JSON.parse(json) : json;
+  const byId = {};
+  const spread = 40 + Math.sqrt(g.nodes.length) * 22;
+  for (const d of g.nodes) {
+    const size = KIND_SIZE[d.kind] || 4;
+    const color = KIND_COLOR[d.kind] || 0xffffff;
+    const group = new THREE.Group();
+    const sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(size, 24, 16),
+      new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.55, roughness: 0.35, metalness: 0.1 })
+    );
+    sphere.userData = d;
+    group.add(sphere);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: GLOW, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
+    }));
+    halo.scale.set(size * 6, size * 6, 1);
+    group.add(halo);
+    const label = labelSprite(d.label, d.kind === 'idea' ? 7.5 : 5.5);
+    label.position.set(0, size + (d.kind === 'idea' ? 9 : 7), 0);
+    group.add(label);
+    group.position.set((Math.random() - 0.5) * spread, (Math.random() - 0.5) * spread, (Math.random() - 0.5) * spread);
+    scene.add(group);
+    const node = { d, group, v: new THREE.Vector3(), size };
+    nodes.push(node);
+    byId[d.id] = node;
+    pickables.push(sphere);
+  }
+  for (const l of g.links) {
+    const a = byId[l.source], b = byId[l.target];
+    if (!a || !b) continue;
+    const geom = new THREE.BufferGeometry().setFromPoints([a.group.position, b.group.position]);
+    const line = new THREE.Line(geom, new THREE.LineBasicMaterial({ color: l.color, transparent: true, opacity: 0.95 }));
+    scene.add(line);
+    links.push({ a, b, line });
+    linkLines.push(line);
+  }
+  camera.position.set(0, 0, Math.min(800, 120 + spread * 2.2));
+  settle = 420;
+};
+
+// a light force layout: everything repels, links pull together, all drift to the centre
+const tmp = new THREE.Vector3();
+function step() {
+  if (settle <= 0) return;
+  settle--;
+  const k = 0.02 + 0.98 * (settle / 420);
+  for (let i = 0; i < nodes.length; i++) {
+    const a = nodes[i];
+    for (let j = i + 1; j < nodes.length; j++) {
+      const b = nodes[j];
+      tmp.subVectors(a.group.position, b.group.position);
+      const d2 = Math.max(tmp.lengthSq(), 100);
+      tmp.multiplyScalar(120 / d2 * k);
+      a.v.add(tmp); b.v.sub(tmp);
+    }
+  }
+  for (const l of links) {
+    tmp.subVectors(l.b.group.position, l.a.group.position);
+    const d = tmp.length() || 1;
+    tmp.multiplyScalar((d - 42) * 0.02 * k / d);
+    l.a.v.add(tmp); l.b.v.sub(tmp);
+  }
+  const centre = new THREE.Vector3();
+  for (const n of nodes) centre.add(n.group.position);
+  if (nodes.length) centre.divideScalar(nodes.length);
+  let radius = 0;
+  for (const n of nodes) {
+    n.v.addScaledVector(n.group.position, -0.025 * k);
+    n.v.multiplyScalar(0.82);
+    if (n.v.length() > 4) n.v.setLength(4);
+    n.group.position.add(n.v).sub(centre);
+    radius = Math.max(radius, n.group.position.length() + n.size * 3);
+  }
+  // keep the whole graph in view until the reader takes over
+  if (!touched) {
+    const fit = radius / Math.sin(camera.fov * Math.PI / 360) * (camera.aspect < 1 ? 1 / camera.aspect : 1) * 0.9 + 20;
+    const want = Math.max(controls.minDistance, Math.min(controls.maxDistance, fit));
+    camera.position.setLength(camera.position.length() + (want - camera.position.length()) * 0.08);
+  }
+  for (const l of links) {
+    const p = l.line.geometry.attributes.position;
+    p.setXYZ(0, l.a.group.position.x, l.a.group.position.y, l.a.group.position.z);
+    p.setXYZ(1, l.b.group.position.x, l.b.group.position.y, l.b.group.position.z);
+    p.needsUpdate = true;
+  }
+}
+
+// a tap (not a drag) on a node opens it
+const ray = new THREE.Raycaster(), pointer = new THREE.Vector2();
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', e => { downAt = { x: e.clientX, y: e.clientY, t: Date.now() }; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!downAt) return;
+  const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y);
+  const quick = Date.now() - downAt.t < 400;
+  downAt = null;
+  if (moved > 10 || !quick) return;
+  pointer.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+  ray.setFromCamera(pointer, camera);
+  const hit = ray.intersectObjects(pickables)[0];
+  if (hit && window.Android) Android.open(hit.object.userData.kind, hit.object.userData.ref);
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+let t = 0;
+(function loop() {
+  requestAnimationFrame(loop);
+  step();
+  // ideas breathe a little
+  t += 0.03;
+  for (const n of nodes) if (n.d.kind === 'idea') n.group.children[1].scale.setScalar(n.size * (6 + Math.sin(t + n.size) * 0.6));
+  controls.update();
+  renderer.render(scene, camera);
+})();
+
+if (window.Android) Android.ready();
+</script>
+</body>
+</html>

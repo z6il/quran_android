@@ -43,4 +43,5 @@
   <string name="research_open_in_quran">افتح في المصحف</string>
   <string name="research_library_needed">نزّل مكتبة الحديث لعرض هذا الحديث.</string>
   <string name="research_map">الخريطة</string>
+  <string name="research_map_empty">اربط الآيات والأحاديث والأفكار بأفكارك وستظهر هنا مترابطة.</string>
 </resources>
