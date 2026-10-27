@@ -1,13 +1,5 @@
 package com.quran.labs.androidquran.feature.research
 
-import android.annotation.SuppressLint
-import android.os.Handler
-import android.os.Looper
-import android.util.Log
-import android.webkit.ConsoleMessage
-import android.webkit.JavascriptInterface
-import android.webkit.WebChromeClient
-import android.webkit.WebView
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -51,10 +43,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -70,7 +62,6 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import com.quran.labs.androidquran.R
 import com.quran.labs.androidquran.common.ui.core.QuranIcons
 import kotlinx.coroutines.delay
@@ -89,14 +80,6 @@ private fun kindColor(target: LinkTarget) = when (target) {
   is LinkTarget.Ayah -> AyahColor
   is LinkTarget.Hadith -> HadithColor
   is LinkTarget.Note -> NoteColor
-}
-
-/** brighter relation colours for the dark map, matching the page's */
-private fun mapRelationColor(relation: Relation) = when (relation) {
-  Relation.EXPLAINS -> Color(0xFF4DD0E1)
-  Relation.SUPPORTS -> Color(0xFF69F0AE)
-  Relation.RELATED -> Color(0xFF8C9EFF)
-  Relation.CONTRASTS -> Color(0xFFFF5252)
 }
 
 internal data class MapNode(val id: String, val target: LinkTarget, val label: String)
@@ -159,7 +142,6 @@ internal suspend fun buildGraph(store: ResearchStore, text: ResearchText, untitl
 
 /** The 3D map of ideas and what they link to: tap a node to fly to it and see what it is. */
 @OptIn(ExperimentalMaterial3Api::class)
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun ResearchMap(
   store: ResearchStore,
@@ -171,38 +153,26 @@ fun ResearchMap(
   val untitled = stringResource(R.string.research_untitled)
   val ideas by store.ideas.collectAsState()
   val graph by produceState<MapGraph?>(null, ideas) { value = buildGraph(store, text, untitled) }
-  var pageReady by remember { mutableStateOf(false) }
-  var webView by remember { mutableStateOf<WebView?>(null) }
+  var resetKey by remember { mutableIntStateOf(0) }
   var selectedId by remember { mutableStateOf<String?>(null) }
   var showVerses by remember { mutableStateOf(true) }
   var showHadith by remember { mutableStateOf(true) }
   var showNotes by remember { mutableStateOf(true) }
   var hint by remember { mutableStateOf(true) }
-  val main = remember { Handler(Looper.getMainLooper()) }
 
-  fun js(code: String) = webView?.evaluateJavascript(code, null)
   fun select(id: String) {
     selectedId = id
-    js("focusNode(${JSONObject.quote(id)})")
   }
 
-  // hand the graph over once both the page and the data are ready
-  LaunchedEffect(graph, pageReady, webView) {
+  // a node that's gone after the graph reloads lets go
+  LaunchedEffect(graph) {
     val g = graph ?: return@LaunchedEffect
-    if (pageReady) {
-      js("setGraph(${JSONObject.quote(g.toJson().toString())})")
-      js(filterJs(showVerses, showHadith, showNotes))
-      selectedId?.let { if (it in g.byId) select(it) else selectedId = null }
-    }
-  }
-  LaunchedEffect(showVerses, showHadith, showNotes, pageReady) {
-    if (pageReady) js(filterJs(showVerses, showHadith, showNotes))
+    if (selectedId != null && selectedId !in g.byId) selectedId = null
   }
   LaunchedEffect(Unit) {
     delay(6000)
     hint = false
   }
-  DisposableEffect(Unit) { onDispose { webView?.destroy() } }
 
   Scaffold(
     topBar = {
@@ -212,7 +182,7 @@ fun ResearchMap(
         actions = {
           IconButton(onClick = {
             selectedId = null
-            js("resetView()")
+            resetKey++
           }) { Icon(Recenter, contentDescription = stringResource(R.string.research_map_reset)) }
         },
         colors = TopAppBarDefaults.topAppBarColors(
@@ -226,36 +196,26 @@ fun ResearchMap(
     containerColor = MapBackground
   ) { padding ->
     Box(Modifier.padding(padding).fillMaxSize().background(MapBackground)) {
-      AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = { context ->
-          WebView(context).apply {
-            setBackgroundColor(android.graphics.Color.rgb(6, 16, 18))
-            settings.javaScriptEnabled = true
-            webChromeClient = object : WebChromeClient() {
-              override fun onConsoleMessage(message: ConsoleMessage): Boolean {
-                Log.d("ResearchMap", "${message.message()} (${message.sourceId()}:${message.lineNumber()})")
-                return true
-              }
+      graph?.let { g ->
+        GraphCanvas(
+          graph = g,
+          shown = { target ->
+            when (target) {
+              is LinkTarget.Ayah -> showVerses
+              is LinkTarget.Hadith -> showHadith
+              is LinkTarget.Note -> showNotes
+              is LinkTarget.Idea -> true
             }
-            addJavascriptInterface(object {
-              @JavascriptInterface
-              fun ready() = main.post { pageReady = true }
-
-              @JavascriptInterface
-              fun select(id: String) = main.post {
-                selectedId = id
-                hint = false
-              }
-
-              @JavascriptInterface
-              fun deselect() = main.post { selectedId = null }
-            }, "Android")
-            loadUrl("file:///android_asset/research_map/index.html")
-            webView = this
-          }
-        }
-      )
+          },
+          selectedId = selectedId,
+          resetKey = resetKey,
+          onSelect = { id ->
+            selectedId = id
+            if (id != null) hint = false
+          },
+          modifier = Modifier.fillMaxSize()
+        )
+      }
 
       val g = graph
       // what's on the map, and switches to hide verses or hadith
@@ -319,10 +279,7 @@ fun ResearchMap(
               hadith = hadith,
               onNeighbour = { select(it.id) },
               onOpen = { onOpen(shown.target) },
-              onClose = {
-                selectedId = null
-                js("clearFocus()")
-              }
+              onClose = { selectedId = null }
             )
           } else if (g != null && g.edges.isNotEmpty()) {
             RelationLegend()
@@ -332,9 +289,6 @@ fun ResearchMap(
     }
   }
 }
-
-private fun filterJs(verses: Boolean, hadith: Boolean, notes: Boolean) =
-  "setFilter('{\"ayah\":$verses,\"hadith\":$hadith,\"note\":$notes}')"
 
 @Composable
 private fun KindChip(color: Color, label: String, count: Int, on: Boolean, onClick: (() -> Unit)?) {
