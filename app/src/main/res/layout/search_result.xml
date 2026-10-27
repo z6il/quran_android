@@ -1,19 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- one matching verse, on a card (the frame keeps it off the screen edges) -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp">
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:duplicateParentState="true"
+    android:background="@drawable/search_result_card"
     android:orientation="vertical"
-    android:padding="5dp">
+    android:paddingStart="18dp"
+    android:paddingEnd="18dp"
+    android:paddingTop="14dp"
+    android:paddingBottom="14dp">
+
+  <TextView
+      android:id="@+id/verseLocation"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginBottom="8dp"
+      android:background="@drawable/search_location_pill"
+      android:paddingStart="12dp"
+      android:paddingEnd="12dp"
+      android:paddingTop="4dp"
+      android:paddingBottom="4dp"
+      android:textAppearance="@style/SearchResult.Location" />
 
   <TextView
       android:id="@+id/verseText"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
+      android:lineSpacingMultiplier="1.25"
       android:textAppearance="@style/SearchResult" />
-
-  <TextView
-      android:id="@+id/verseLocation"
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:textAppearance="@style/SearchResult.Location" />
 </LinearLayout>
+</FrameLayout>
