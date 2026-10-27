@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- the round next / previous verse buttons under the translation panel -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#3300838F">
+  <item>
+    <shape android:shape="oval">
+      <solid android:color="@color/translation_nav_button" />
+    </shape>
+  </item>
+</ripple>

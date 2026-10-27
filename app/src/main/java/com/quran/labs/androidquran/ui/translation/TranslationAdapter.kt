@@ -2,6 +2,7 @@ package com.quran.labs.androidquran.ui.translation
 
 import android.content.Context
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -55,6 +56,14 @@ internal class TranslationAdapter(
   private var suraHeaderColor: Int = 0
   private var ayahSelectionColor: Int = 0
   private var isNightMode: Boolean = false
+  private val density = context.resources.displayMetrics.density
+
+  /** each verse on its own card */
+  private val cards = VerseCardDecoration({ data.getOrNull(it) }, { highlightedAyah }, density)
+
+  init {
+    recyclerView.addItemDecoration(cards)
+  }
 
   private var highlightedAyah: Int = 0
   private var highlightedRowCount: Int = 0
@@ -225,10 +234,25 @@ internal class TranslationAdapter(
       this.inlineAyahColor = ContextCompat.getColor(context, R.color.translation_inline_ayah_highlight_color)
     }
 
+    // light cards on a tinted page, or dark cards on black at night
+    recyclerView.setBackgroundColor(if (isNightMode) Color.BLACK else ContextCompat.getColor(context, R.color.translation_page_color))
+    cards.cardColor = if (isNightMode) ContextCompat.getColor(context, R.color.translation_card_night_color) else Color.WHITE
+    cards.highlightColor = ayahSelectionColor
+    cards.strokeColor = inlineAyahColor
+    recyclerView.invalidateItemDecorations()
+
     if (this.data.isNotEmpty()) {
       notifyDataSetChanged()
     }
   }
+
+  private fun rounded(color: Int, radiusDp: Float) = GradientDrawable().apply {
+    cornerRadius = radiusDp * density
+    setColor(color)
+  }
+
+  /** [color] at [alpha] out of 255 */
+  private fun tint(color: Int, alpha: Int) = Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
 
   private fun handleClick(view: View) {
     val position = recyclerView.getChildAdapterPosition(view)
@@ -315,7 +339,8 @@ internal class TranslationAdapter(
         val text: CharSequence?
         if (row.type == TranslationViewRow.Type.SURA_HEADER) {
           text = row.data
-          holder.text.setBackgroundColor(suraHeaderColor)
+          holder.text.background = rounded(tint(inlineAyahColor, if (isNightMode) 0x33 else 0x1F), 16f)
+          holder.text.setTextColor(inlineAyahColor)
         } else if (row.type == TranslationViewRow.Type.BASMALLAH || row.type == TranslationViewRow.Type.QURAN_TEXT) {
           val str = SpannableString(
             if (row.type == TranslationViewRow.Type.BASMALLAH) {
@@ -333,8 +358,13 @@ internal class TranslationAdapter(
           holder.text.textSize = ARABIC_MULTIPLIER * ayahFontSize
         } else {
           if (row.type == TranslationViewRow.Type.TRANSLATOR) {
+            // which translation or tafsir this is, as a small label
             text = row.data
             holder.text.setTextColor(inlineAyahColor)
+            holder.text.background = rounded(tint(inlineAyahColor, if (isNightMode) 0x33 else 0x1A), 50f)
+            // an Arabic tafsir's name sits on the right, over its text
+            holder.wrapperView.layoutDirection =
+              if (SearchTextUtil.isRtl(text.toString())) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_INHERIT
           } else {
             // translation
             text = row.data?.let { rowText ->
@@ -364,7 +394,9 @@ internal class TranslationAdapter(
               )
 
               when {
-                row.link != null && !expandHyperlink -> getAyahLink(row.link)
+                row.link != null && !expandHyperlink -> SpannableString(getAyahLink(row.link)).apply {
+                  setSpan(ForegroundColorSpan(inlineAyahColor), 0, this.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
                 length > MAX_TAFSEER_LENGTH ->
                   truncateTextIfNeeded(spannable, row.ayahInfo.ayahId, row.translationIndex)
                 else -> spannable
@@ -400,31 +432,23 @@ internal class TranslationAdapter(
 
             holder.text.movementMethod = LinkMovementMethod.getInstance()
             holder.text.setTextColor(textColor)
-            holder.text.textSize = translationFontSize.toFloat()
+            // Arabic tafsir reads better a little bigger and with room between lines
+            holder.text.textSize = translationFontSize * if (row.isArabic) 1.32f else 1f
+            holder.text.setLineSpacing(0f, if (row.isArabic) 1.12f else 1.3f)
           }
         }
         holder.text.text = text
       }
       // a divider row
       holder.divider != null -> {
-        var showLine = true
-        if (position + 1 < data.size) {
-          val nextRow = data[position + 1]
-          if (nextRow.ayahInfo.sura != row.ayahInfo.sura) {
-            showLine = false
-          }
-        } else {
-          showLine = false
-        }
-        holder.divider.toggleLine(showLine)
-        holder.divider.setDividerColor(dividerColor)
+        // the gap between cards; the cards themselves separate the verses
+        holder.divider.toggleLine(false)
       }
       // ayah number row
       holder.ayahNumber != null -> {
         val text = context.getString(R.string.sura_ayah, row.ayahInfo.sura, row.ayahInfo.ayah)
         holder.ayahNumber.setAyahString(text)
-        holder.ayahNumber.setTextColor(textColor)
-        holder.ayahNumber.setNightMode(isNightMode)
+        holder.ayahNumber.setColors(tint(inlineAyahColor, if (isNightMode) 0x33 else 0x1F), inlineAyahColor)
       }
     }
     updateHighlight(row, holder)
@@ -508,19 +532,15 @@ internal class TranslationAdapter(
   private fun updateHighlight(row: TranslationViewRow, holder: RowViewHolder) {
     // toggle highlighting of the ayah, but not for sura headers and basmallah
     val isHighlighted = row.ayahInfo.ayahId == highlightedAyah
+    // the verse's card shows the highlight (see VerseCardDecoration), so rows stay clear
     if (row.type != TranslationViewRow.Type.SURA_HEADER &&
       row.type != TranslationViewRow.Type.BASMALLAH &&
       row.type != TranslationViewRow.Type.SPACER
     ) {
-      holder.wrapperView.setBackgroundColor(
-        if (isHighlighted) ayahSelectionColor else 0
-      )
-    } else if (holder.divider != null) { // SPACER type
-      if (isHighlighted) {
-        holder.divider.highlight(ayahSelectionColor)
-      } else {
-        holder.divider.unhighlight()
-      }
+      holder.wrapperView.setBackgroundColor(0)
+      if (isHighlighted) recyclerView.invalidate()
+    } else {
+      holder.divider?.unhighlight()
     }
   }
 

@@ -1,5 +1,9 @@
 package com.quran.labs.androidquran.view
 
+import com.quran.common.search.SearchTextUtil
+import android.graphics.drawable.GradientDrawable
+import android.graphics.Color
+import android.content.res.Configuration
 import android.content.Context
 import android.graphics.Typeface
 import android.text.SpannableString
@@ -66,7 +70,10 @@ class InlineTranslationView @JvmOverloads constructor(
     ayahFontSize = settings.ayahTextSize
     translationFontSize = settings.translationTextSize
     textStyle = R.style.TranslationText
-    inlineAyahColor = ContextCompat.getColor(context, R.color.translation_translator_color)
+    // a brighter accent on the dark panel
+    inlineAyahColor = ContextCompat.getColor(
+      context, if (isNight) R.color.translation_inline_ayah_highlight_night_color else R.color.translation_translator_color
+    )
     ayahTextColor = ContextCompat.getColor(context, R.color.text_primary)
   }
 
@@ -106,52 +113,75 @@ class InlineTranslationView @JvmOverloads constructor(
     linearLayout.addView(view, params)
   }
 
+  private val density = resources.displayMetrics.density
+  private val isNight
+    get() = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+  private fun rounded(color: Int, radiusDp: Float) = GradientDrawable().apply {
+    cornerRadius = radiusDp * density
+    setColor(color)
+  }
+
+  private fun tint(color: Int, alpha: Int) = Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
+
+  private fun dp(value: Int) = (value * density).toInt()
+
+  /** one card per verse: its number, then each translation or tafsir under a label */
   private fun addTextForAyah(translations: Array<LocalTranslation>, ayah: QuranAyahInfo) {
-    var params = LinearLayout.LayoutParams(
-      LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT
-    )
-    params.setMargins(leftRightMargin, topBottomMargin, leftRightMargin, topBottomMargin)
-    val suraNumber = ayah.sura
-    val ayahNumber = ayah.ayah
-    val ayahHeader = TextView(context)
-    ayahHeader.setTextColor(ayahTextColor)
-    ayahHeader.textSize = ayahFontSize.toFloat()
-    ayahHeader.setTypeface(null, Typeface.BOLD)
-    ayahHeader.text = context.resources.getString(R.string.sura_ayah, suraNumber, ayahNumber)
-    linearLayout.addView(ayahHeader, params)
-    val ayahView = TextView(context)
-    ayahView.setTextAppearance(context, textStyle)
-    ayahView.setTextColor(ayahTextColor)
-    ayahView.textSize = translationFontSize.toFloat()
-
-    // translation
-    val showHeader = translations.size > 1
-    val builder = SpannableStringBuilder()
-    for (i in translations.indices) {
-      val (_, _, translationText) = ayah.texts[i]
-      if (!TextUtils.isEmpty(translationText)) {
-        if (showHeader) {
-          if (i > 0) {
-            builder.append("\n\n")
-          }
-          val start = builder.length
-          builder.append(translations[i].resolveTranslatorName())
-          builder.setSpan(
-            StyleSpan(Typeface.BOLD),
-            start, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-          )
-          builder.append("\n\n")
-        }
-
-        // irrespective of whether it's a link or not, show the text
-        builder.append(stylize(ayah.texts[i], translations[i].languageCode, translationText))
-      }
+    val accent = inlineAyahColor
+    val card = LinearLayout(context).apply {
+      orientation = LinearLayout.VERTICAL
+      background = rounded(if (isNight) 0x14FFFFFF else tint(accent, 0x0D), 18f)
+      setPadding(dp(16), dp(14), dp(16), dp(16))
     }
-    ayahView.append(builder)
-    params = LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
-    params.setMargins(leftRightMargin, topBottomMargin, leftRightMargin, topBottomMargin)
-    ayahView.setTextIsSelectable(true)
-    linearLayout.addView(ayahView, params)
+    val cardParams = LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+      setMargins(leftRightMargin / 2, topBottomMargin, leftRightMargin / 2, topBottomMargin / 2)
+    }
+
+    val ayahHeader = TextView(context).apply {
+      text = context.resources.getString(R.string.sura_ayah, ayah.sura, ayah.ayah)
+      setTextColor(accent)
+      textSize = 14f
+      setTypeface(null, Typeface.BOLD)
+      background = rounded(tint(accent, if (isNight) 0x33 else 0x1F), 50f)
+      setPadding(dp(14), dp(5), dp(14), dp(5))
+    }
+    card.addView(ayahHeader, LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+
+    for (i in translations.indices) {
+      val (_, _, translationText) = ayah.texts.getOrNull(i) ?: continue
+      if (TextUtils.isEmpty(translationText)) continue
+      val arabic = translations[i].languageCode == "ar"
+
+      // which translation or tafsir this is
+      val label = TextView(context).apply {
+        text = translations[i].resolveTranslatorName()
+        setTextColor(accent)
+        textSize = 12f
+        setTypeface(null, Typeface.BOLD)
+        letterSpacing = 0.02f
+      }
+      card.addView(label, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+        topMargin = dp(14)
+      })
+
+      val body = TextView(context).apply {
+        setTextAppearance(textStyle)
+        setTextColor(ayahTextColor)
+        textSize = translationFontSize * if (arabic) 1.2f else 1f
+        setLineSpacing(0f, if (arabic) 1.12f else 1.2f)
+        if (arabic || SearchTextUtil.isRtl(translationText)) {
+          layoutDirection = View.LAYOUT_DIRECTION_RTL
+          textDirection = View.TEXT_DIRECTION_RTL
+        }
+        text = stylize(ayah.texts[i], translations[i].languageCode, translationText)
+        setTextIsSelectable(true)
+      }
+      card.addView(body, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+        topMargin = dp(6)
+      })
+    }
+    linearLayout.addView(card, cardParams)
   }
 
   private fun collapsedFootnoteSpan(number: Int): SpannableString {

@@ -37,11 +37,15 @@
       >
     <ImageButton
         android:id="@+id/next_ayah"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_margin="12dp"
         android:src="@drawable/ic_translation_next"
         android:contentDescription="@string/next"
+        android:background="@drawable/translation_nav_button"
         android:padding="12dp"
+        android:elevation="4dp"
+        android:tint="@color/translation_translator_color"
         />
     <Space
         android:layout_width="0dp"
@@ -50,11 +54,15 @@
         />
     <ImageButton
         android:id="@+id/previous_ayah"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_margin="12dp"
         android:src="@drawable/ic_translation_previous"
         android:contentDescription="@string/previous"
+        android:background="@drawable/translation_nav_button"
         android:padding="12dp"
+        android:elevation="4dp"
+        android:tint="@color/translation_translator_color"
         />
   </com.quran.labs.androidquran.view.LeftToRightLinearLayout>
 

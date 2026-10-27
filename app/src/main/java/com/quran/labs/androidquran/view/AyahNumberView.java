@@ -48,11 +48,12 @@ public class AyahNumberView extends View {
       ta.recycle();
     }
 
-    boxPaint = new Paint();
+    boxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     boxPaint.setColor(boxColor);
     textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     textPaint.setColor(textColor);
     textPaint.setTextSize(textSize);
+    textPaint.setFakeBoldText(true);
   }
 
   public void setAyahString(@NonNull String suraAyah) {
@@ -84,6 +85,13 @@ public class AyahNumberView extends View {
     textPaint.setColor(textColor);
   }
 
+  /** a tinted pill with the verse number in the accent colour */
+  public void setColors(int box, int text) {
+    boxPaint.setColor(box);
+    textPaint.setColor(text);
+    invalidate();
+  }
+
   @Override
   protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
     super.onMeasure(widthMeasureSpec, heightMeasureSpec);
@@ -92,12 +100,14 @@ public class AyahNumberView extends View {
 
   @Override
   protected void onDraw(Canvas canvas) {
-    canvas.drawRect(padding, padding, padding + boxWidth, padding + boxHeight, boxPaint);
+    float radius = boxHeight / 2f;
+    canvas.drawRoundRect(padding, padding, padding + boxWidth, padding + boxHeight, radius, radius, boxPaint);
     if (this.textLayout != null) {
       int startY = padding + ((boxHeight - this.textLayout.getHeight()) / 2);
+      canvas.save();
       canvas.translate(padding, startY);
       this.textLayout.draw(canvas);
-      canvas.translate(padding, -startY);
+      canvas.restore();
     }
   }
 }

@@ -121,7 +121,8 @@ public class TranslationView extends FrameLayout implements View.OnClickListener
 
     List<TranslationViewRow> rows = new ArrayList<>();
     int currentSura = -1;
-    boolean wantTranslationHeaders = translations.length > 1;
+    // always say which translation or tafsir is shown
+    boolean wantTranslationHeaders = translations.length > 0;
     for (int i = 0, size = verses.size(); i < size; i++) {
       QuranAyahInfo verse = verses.get(i);
       int sura = verse.sura;
