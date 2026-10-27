@@ -8,9 +8,15 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center"
-    android:background="@color/panel_background_color"
+    android:background="@drawable/panel_sheet"
     tools:ignore="Overdraw"
     >
+  <View
+      android:layout_width="36dp"
+      android:layout_height="4dp"
+      android:layout_marginTop="8dp"
+      android:background="@drawable/panel_handle"
+      />
   <LinearLayout
       android:id="@+id/ayah_action_bar"
       android:layout_width="match_parent"

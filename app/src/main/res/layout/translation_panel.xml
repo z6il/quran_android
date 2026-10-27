@@ -14,13 +14,15 @@
     <com.quran.labs.androidquran.view.QuranSpinner
         android:id="@+id/translator"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/translation_top_bottom_margin"
-        android:layout_marginLeft="@dimen/translation_left_right_margin"
-        android:layout_marginRight="@dimen/translation_left_right_margin"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:textColor="@color/accent_color"
+        android:layout_height="48dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="16dp"
+        android:background="@drawable/panel_field"
+        android:popupBackground="@drawable/panel_popup"
+        android:dropDownVerticalOffset="6dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="44dp"
         />
     <com.quran.labs.androidquran.view.InlineTranslationView
         android:id="@+id/translation_view"

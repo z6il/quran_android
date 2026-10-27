@@ -1,5 +1,8 @@
 package com.quran.labs.androidquran.ui.util;
 
+import com.quran.labs.androidquran.util.QuranUtils;
+import androidx.core.content.ContextCompat;
+import android.graphics.Typeface;
 import android.content.Context;
 import android.content.res.Resources;
 import android.util.TypedValue;
@@ -91,10 +94,30 @@ public class TranslationsSpinnerAdapter extends ArrayAdapter<String> {
     }
     holder = (SpinnerHolder) convertView.getTag();
 
-    holder.title.setText(R.string.translations);
+    holder.title.setText(selectedSummary());
+    holder.title.setTextColor(ContextCompat.getColor(context, R.color.accent_color));
+    holder.title.setTypeface(null, Typeface.BOLD);
+    holder.title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
     holder.subtitle.setVisibility(View.GONE);
 
     return convertView;
+  }
+
+  /** the names of the translations shown, e.g. "Ibn Kathir + 1", or "Translations" when none */
+  private String selectedSummary() {
+    List<String> names = new ArrayList<>();
+    for (int i = 0; i < translations.size(); i++) {
+      if (selectedItems.contains(translations.get(i).getFilename())) {
+        names.add(translationNames[i]);
+      }
+    }
+    if (names.isEmpty()) {
+      return context.getString(R.string.translations);
+    } else if (names.size() == 1) {
+      return names.get(0);
+    } else {
+      return names.get(0) + " + " + QuranUtils.getLocalizedNumber(names.size() - 1);
+    }
   }
 
   @Override
@@ -114,9 +137,13 @@ public class TranslationsSpinnerAdapter extends ArrayAdapter<String> {
       Resources r = convertView.getResources();
       float leftPadding = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 8, r.getDisplayMetrics());
       holder.textView.setPadding(Math.round(leftPadding), 0, 0, 0);
-      holder.textView.setText(R.string.more_translations);
+      holder.textView.setText(context.getString(R.string.more_translations) + "  +");
+      holder.textView.setTextColor(ContextCompat.getColor(context, R.color.accent_color));
+      holder.textView.setTypeface(null, Typeface.BOLD);
     } else {
       holder.checkBox.setVisibility(View.VISIBLE);
+      holder.textView.setTextColor(holder.defaultColor);
+      holder.textView.setTypeface(null, Typeface.NORMAL);
       holder.checkBox.setChecked(selectedItems.contains(translations.get(position).getFilename()));
       holder.checkBox.setOnClickListener(onCheckedChangeListener);
       holder.textView.setText(translationNames[position]);
@@ -151,9 +178,12 @@ public class TranslationsSpinnerAdapter extends ArrayAdapter<String> {
     final TextView textView;
     int position;
 
+    final android.content.res.ColorStateList defaultColor;
+
     CheckBoxHolder(View view) {
       this.checkBox = view.findViewById(R.id.checkbox);
       this.textView = view.findViewById(R.id.text);
+      this.defaultColor = textView.getTextColors();
     }
   }
 

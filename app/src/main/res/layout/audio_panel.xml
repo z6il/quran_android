@@ -9,13 +9,16 @@
       android:orientation="vertical"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:paddingLeft="12dp"
-      android:paddingRight="12dp"
+      android:paddingLeft="16dp"
+      android:paddingRight="16dp"
+      android:paddingTop="8dp"
       >
+    <!-- which verses -->
+    <LinearLayout style="@style/PanelCard">
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="4dp"
+        android:layout_marginBottom="2dp"
         android:text="@string/play_from"
         android:textAppearance="@style/PanelLabel"
         />
@@ -39,7 +42,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="4dp"
+        android:layout_marginBottom="2dp"
         android:text="@string/play_to"
         android:textAppearance="@style/PanelLabel"
         />
@@ -60,25 +63,41 @@
           android:layout_height="wrap_content"
           />
     </LinearLayout>
+    </LinearLayout>
 
-    <include layout="@layout/play_set_of_verses" />
-    <include layout="@layout/play_each_verse" />
-    <include layout="@layout/playback_speed" />
+    <!-- how many times, and how fast -->
+    <LinearLayout style="@style/PanelCard">
+      <include layout="@layout/play_set_of_verses" />
+      <include layout="@layout/play_each_verse" />
+      <include layout="@layout/playback_speed" />
+    </LinearLayout>
 
     <CheckBox
         android:id="@+id/restrict_to_range"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="12dp"
+        android:buttonTint="@color/accent_color"
         android:text="@string/play_restrict_range"
         />
 
     <Button
         android:id="@+id/apply"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:layout_height="54dp"
+        android:background="@drawable/panel_button"
+        android:drawableStart="@drawable/ic_panel_play"
+        android:drawablePadding="8dp"
+        android:drawableTint="@color/panel_button_text"
+        android:gravity="center"
+        android:paddingStart="24dp"
+        android:paddingEnd="48dp"
+        android:stateListAnimator="@null"
         android:text="@string/play_apply"
-        android:layout_gravity="end"
+        android:textAllCaps="false"
+        android:textColor="@color/panel_button_text"
+        android:textSize="16sp"
+        android:textStyle="bold"
         />
 
     <Space
