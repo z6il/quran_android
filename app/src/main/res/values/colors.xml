@@ -27,6 +27,8 @@
   <color name="translation_nav_button">#ffe0f2f1</color>
   <color name="panel_card">#ffffffff</color>
   <color name="settings_page">#ffeef3f3</color>
+  <color name="icon_badge">#2400838f</color>
+  <color name="field_stroke">#3300838f</color>
   <color name="settings_card">#ffffffff</color>
   <color name="menu_popup">#ffffffff</color>
   <color name="switch_track_off">#ffd5dddd</color>

@@ -13,10 +13,10 @@ import androidx.recyclerview.widget.RecyclerView
 import com.quran.labs.androidquran.R
 
 /**
- * Draws each section of a settings screen (the rows between two category titles) on one
- * rounded card over a tinted page, instead of a flat list with dividers.
+ * Draws each section of a list (the rows between two headers) on one rounded card over a
+ * tinted page, instead of a flat list with dividers. Used by settings and the translations list.
  */
-private class PreferenceCardDecoration(
+class SectionCardDecoration(
   private val isCategory: (position: Int) -> Boolean,
   density: Float,
   cardColor: Int
@@ -81,7 +81,7 @@ fun styleAsCards(fragment: PreferenceFragmentCompat) {
   fragment.setDivider(null)
   list.setBackgroundColor(ContextCompat.getColor(context, R.color.settings_page))
   list.addItemDecoration(
-    PreferenceCardDecoration(
+    SectionCardDecoration(
       isCategory = { position -> (list.adapter as? PreferenceGroupAdapter)?.getItem(position) is PreferenceCategory },
       density = context.resources.displayMetrics.density,
       cardColor = ContextCompat.getColor(context, R.color.settings_card)

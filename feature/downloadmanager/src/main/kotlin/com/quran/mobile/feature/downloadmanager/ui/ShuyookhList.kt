@@ -1,5 +1,7 @@
 package com.quran.mobile.feature.downloadmanager.ui
 
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -18,7 +20,7 @@ fun ShuyookhList(
   shuyookh: ImmutableList<DownloadedSheikhUiModel>,
   onQariItemClicked: ((QariItem) -> Unit)
 ) {
-  Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+  Column(modifier = Modifier.verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
     shuyookh.forEach {
       SheikhDownloadSummary(it, onQariItemClicked)
     }

@@ -4,20 +4,23 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:paddingLeft="10dp"
+    android:paddingLeft="14dp"
     android:paddingRight="10dp"
-    android:paddingTop="4dp"
-    android:paddingBottom="4dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
     android:orientation="horizontal"
     android:background="@drawable/translation_row_background">
   <ImageView
       android:id="@+id/translation_icon"
       android:src="@drawable/ic_translation"
-      android:layout_width="48dp"
-      android:layout_height="48dp"
+      android:layout_width="40dp"
+      android:layout_height="40dp"
+      android:layout_marginEnd="14dp"
+      android:layout_gravity="center_vertical"
+      android:background="@drawable/icon_badge"
       android:scaleType="center"
       android:contentDescription="@null"
-      app:tint="@color/icon_tint"
+      app:tint="@color/accent_color"
       />
   <LinearLayout
       android:id="@+id/translation_area"
@@ -33,6 +36,7 @@
         android:layout_height="wrap_content"
         android:textColor="@color/text_primary"
         android:textSize="16sp"
+        android:fontFamily="sans-serif-medium"
         />
     <TextView
         android:id="@+id/translation_info"
@@ -48,7 +52,7 @@
       android:layout_height="match_parent"
       android:scaleType="center"
       android:contentDescription="@null"
-      app:tint="@color/icon_tint" />
+      app:tint="@color/accent_color" />
 
   <!-- content description set in code -->
   <ImageView
@@ -57,6 +61,5 @@
       android:layout_height="match_parent"
       android:scaleType="center"
       tools:ignore="ContentDescription"
-      app:tint="@color/icon_tint" />
-      />
+      app:tint="@color/accent_color" />
 </LinearLayout>

@@ -41,6 +41,8 @@
   <color name="translation_nav_button">#ff263634</color>
   <color name="panel_card">#ff2b3031</color>
   <color name="settings_page">#ff161a1b</color>
+  <color name="icon_badge">#33b2dfdb</color>
+  <color name="field_stroke">#40b2dfdb</color>
   <color name="settings_card">#ff23292a</color>
   <color name="menu_popup">#ff2b3132</color>
   <color name="switch_track_off">#ff3a4344</color>

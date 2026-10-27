@@ -1,5 +1,7 @@
 package com.quran.labs.androidquran.ui
 
+import androidx.core.content.ContextCompat
+import com.quran.labs.androidquran.ui.preference.SectionCardDecoration
 import android.content.DialogInterface
 import android.content.IntentFilter
 import android.os.Bundle
@@ -114,6 +116,17 @@ class TranslationManagerActivity : AppCompatActivity(), SimpleDownloadListener,
     val layoutManager: RecyclerView.LayoutManager = LinearLayoutManager(this)
     translationRecycler.setLayoutManager(layoutManager)
     adapter = TranslationsAdapter(this)
+    // the downloaded and available sections each on a card
+    translationRecycler.setBackgroundColor(ContextCompat.getColor(this, R.color.settings_page))
+    translationRecycler.addItemDecoration(
+      SectionCardDecoration(
+        isCategory = { position ->
+          position !in 0 until adapter.itemCount || adapter.getItemViewType(position) == R.layout.translation_sep
+        },
+        density = resources.displayMetrics.density,
+        cardColor = ContextCompat.getColor(this, R.color.settings_card)
+      )
+    )
     translationRecycler.setAdapter(adapter)
 
     ViewCompat.setOnApplyWindowInsetsListener(translationRecycler) { view, windowInsets ->

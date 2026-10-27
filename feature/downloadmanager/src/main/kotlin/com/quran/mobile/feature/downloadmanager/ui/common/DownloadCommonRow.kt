@@ -1,5 +1,7 @@
 package com.quran.mobile.feature.downloadmanager.ui.common
 
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.shape.RoundedCornerShape
 import android.content.res.Configuration
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -35,7 +37,13 @@ fun DownloadCommonRow(
   onRowLongPressed: (() -> Unit)? = null,
   icon: @Composable RowScope.() -> Unit
 ) {
-  val baseModifier = modifier.fillMaxWidth()
+  // each row a soft rounded card
+  val baseModifier = Modifier
+    .padding(horizontal = 12.dp, vertical = 4.dp)
+    .fillMaxWidth()
+    .clip(RoundedCornerShape(18.dp))
+    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.06f))
+    .then(modifier)
   val clickModifier =
     if (onRowLongPressed != null) {
       baseModifier
@@ -50,17 +58,18 @@ fun DownloadCommonRow(
 
   Row(
     modifier = clickModifier
-      .padding(16.dp)
+      .padding(horizontal = 14.dp, vertical = 12.dp)
   ) {
     icon()
     Column(
       modifier = Modifier
-        .padding(start = 8.dp)
+        .padding(start = 14.dp)
         .align(Alignment.CenterVertically)
     ) {
       Text(
         text = title,
         style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.onSurface
       )
       Text(

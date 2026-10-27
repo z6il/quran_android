@@ -33,7 +33,7 @@ fun SheikhEntryRow(
   onEntryLongClicked: ((EntryForQari) -> Unit)
 ) {
   val modifier = if (isSelected) {
-    Modifier.background(MaterialTheme.colorScheme.tertiaryContainer)
+    Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
   } else { Modifier }
 
   val title = when (sheikhEntryUiModel) {
@@ -52,11 +52,11 @@ fun SheikhEntryRow(
       Image(
         imageVector = QuranIcons.Close,
         contentDescription = stringResource(deleteEntryResourceId),
-        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onError),
+        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.error),
         modifier = Modifier
           .align(Alignment.CenterVertically)
           .clip(CircleShape)
-          .background(MaterialTheme.colorScheme.error)
+          .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f))
           .padding(8.dp)
       )
     }
@@ -71,11 +71,11 @@ fun SheikhEntryRow(
       Image(
         painterResource(id = R.drawable.ic_download),
         contentDescription = stringResource(downloadEntryResourceId),
-        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onTertiary),
+        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary),
         modifier = Modifier
           .align(Alignment.CenterVertically)
           .clip(CircleShape)
-          .background(MaterialTheme.colorScheme.tertiary)
+          .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
           .padding(8.dp)
       )
     }
