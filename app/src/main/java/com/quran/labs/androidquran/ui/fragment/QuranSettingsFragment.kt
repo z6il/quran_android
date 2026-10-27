@@ -1,5 +1,6 @@
 package com.quran.labs.androidquran.ui.fragment
 
+import com.quran.labs.androidquran.ui.preference.styleAsCards
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -107,6 +108,7 @@ class QuranSettingsFragment : PreferenceFragmentCompat() {
     savedInstanceState: Bundle?
   ): View {
     val view = super.onCreateView(inflater, container, savedInstanceState)
+    styleAsCards(this)
     val recyclerView = listView
     recyclerView.clipToPadding = false
     ViewCompat.setOnApplyWindowInsetsListener(recyclerView) { view, windowInsets ->

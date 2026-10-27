@@ -26,6 +26,11 @@
   <color name="translation_page_color">#ffeef3f3</color>
   <color name="translation_nav_button">#ffe0f2f1</color>
   <color name="panel_card">#ffffffff</color>
+  <color name="settings_page">#ffeef3f3</color>
+  <color name="settings_card">#ffffffff</color>
+  <color name="menu_popup">#ffffffff</color>
+  <color name="switch_track_off">#ffd5dddd</color>
+  <color name="switch_thumb_off">#ff7b8a8a</color>
   <color name="panel_card_stroke">#1f00838f</color>
   <color name="panel_handle">#33000000</color>
   <color name="panel_button">#ff00838f</color>

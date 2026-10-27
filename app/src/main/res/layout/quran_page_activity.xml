@@ -33,7 +33,7 @@
         android:layout_height="wrap_content"
         android:minHeight="?attr/actionBarSize"
         android:theme="@style/ToolbarStyle"
-        app:popupTheme="@style/ThemeOverlay.AppCompat.DayNight"
+        app:popupTheme="@style/QuranPopupTheme"
         app:titleTextAppearance="@style/ToolbarTitleText"
         app:subtitleTextAppearance="@style/ToolbarSubtitleText"
         android:elevation="0dp"

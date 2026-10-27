@@ -40,6 +40,11 @@
   <color name="text_hint_color">#80ffffff</color>
   <color name="translation_nav_button">#ff263634</color>
   <color name="panel_card">#ff2b3031</color>
+  <color name="settings_page">#ff161a1b</color>
+  <color name="settings_card">#ff23292a</color>
+  <color name="menu_popup">#ff2b3132</color>
+  <color name="switch_track_off">#ff3a4344</color>
+  <color name="switch_thumb_off">#ff8fa0a0</color>
   <color name="panel_card_stroke">#1fb2dfdb</color>
   <color name="panel_handle">#40ffffff</color>
   <color name="panel_button">#ff4dd0c4</color>

@@ -19,9 +19,58 @@
     <item name="android:textColorSecondary">@color/toolbar_secondary_text</item>
   </style>
 
-  <style name="ToolbarTitleText" parent="TextAppearance.Widget.AppCompat.Toolbar.Title" />
+  <style name="ToolbarTitleText" parent="TextAppearance.Widget.AppCompat.Toolbar.Title">
+    <item name="android:textSize">20sp</item>
+    <item name="android:fontFamily">sans-serif-medium</item>
+  </style>
 
-  <style name="ToolbarSubtitleText" parent="TextAppearance.Widget.AppCompat.Toolbar.Subtitle" />
+  <style name="ToolbarSubtitleText" parent="TextAppearance.Widget.AppCompat.Toolbar.Subtitle">
+    <item name="android:textSize">13sp</item>
+    <item name="android:textColor">@color/accent_color</item>
+  </style>
+
+  <!-- the ⋮ menus: rounded, raised, roomier rows -->
+  <style name="QuranPopupTheme" parent="ThemeOverlay.AppCompat.DayNight">
+    <item name="popupMenuStyle">@style/QuranPopupMenu</item>
+    <item name="actionOverflowMenuStyle">@style/QuranPopupMenu.Overflow</item>
+    <item name="listPreferredItemHeightSmall">52dp</item>
+    <item name="listPreferredItemPaddingLeft">20dp</item>
+    <item name="listPreferredItemPaddingRight">24dp</item>
+    <item name="textAppearanceLargePopupMenu">@style/QuranPopupMenuText</item>
+    <item name="textAppearanceSmallPopupMenu">@style/QuranPopupMenuText</item>
+    <item name="colorAccent">@color/accent_color</item>
+  </style>
+
+  <style name="QuranPopupMenu" parent="Widget.AppCompat.PopupMenu">
+    <item name="android:popupBackground">@drawable/menu_popup</item>
+    <item name="android:popupElevation">10dp</item>
+    <item name="android:dropDownVerticalOffset">4dp</item>
+  </style>
+
+  <style name="QuranPopupMenu.Overflow" parent="Widget.AppCompat.PopupMenu.Overflow">
+    <item name="android:popupBackground">@drawable/menu_popup</item>
+    <item name="android:popupElevation">10dp</item>
+    <item name="overlapAnchor">false</item>
+    <item name="android:dropDownVerticalOffset">4dp</item>
+  </style>
+
+  <style name="QuranPopupMenuText" parent="TextAppearance.AppCompat.Widget.PopupMenu.Large">
+    <item name="android:textSize">16sp</item>
+  </style>
+
+  <!-- settings: switches instead of checkboxes, and bold section titles -->
+  <style name="QuranPreferenceTheme" parent="PreferenceThemeOverlay">
+    <item name="checkBoxPreferenceStyle">@style/QuranSwitchPreference</item>
+    <item name="preferenceCategoryStyle">@style/QuranPreferenceCategory</item>
+  </style>
+
+  <style name="QuranSwitchPreference" parent="Preference.CheckBoxPreference.Material">
+    <item name="android:widgetLayout">@layout/pref_switch_widget</item>
+  </style>
+
+  <style name="QuranPreferenceCategory" parent="Preference.Category.Material">
+    <item name="android:layout">@layout/pref_category</item>
+  </style>
 
   <style name="NotificationText" parent="android:TextAppearance.StatusBar.EventContent" />
 
