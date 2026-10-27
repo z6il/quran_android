@@ -72,4 +72,5 @@
   <string name="research_note_source">Source</string>
   <string name="research_note_source_hint">Scholar, book, page, or your own</string>
   <string name="research_map_notes">Notes</string>
+  <string name="research_add_under">Add under this</string>
 </resources>

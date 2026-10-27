@@ -132,8 +132,9 @@ internal suspend fun buildGraph(store: ResearchStore, text: ResearchText, untitl
       nodes[nodeId(t)] = MapNode(nodeId(t), t, label)
     }
   }
+  val byLink = links.associateBy { it.id }
   val edges = links.mapNotNull { link ->
-    val source = nodeId(LinkTarget.Idea(link.ideaId))
+    val source = link.parentId?.let { byLink[it] }?.let { nodeId(it.target) } ?: nodeId(LinkTarget.Idea(link.ideaId))
     val target = nodeId(link.target)
     if (source in nodes && target in nodes) MapEdge(source, target, link.relation, link.note) else null
   }

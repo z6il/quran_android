@@ -89,9 +89,27 @@ data class IdeaLink(
   val id: Long,
   val ideaId: Long,
   val target: LinkTarget,
+  /** how it bears on its parent link, or on the idea when it has none */
   val relation: Relation,
-  val note: String
+  val note: String,
+  /** the link this one sits under (a hadith explaining a verse, say); null at the top */
+  val parentId: Long? = null
 )
+
+/** [links] in reading order, each link followed by the ones under it, with how deep it sits */
+fun linkTree(links: List<IdeaLink>): List<Pair<IdeaLink, Int>> {
+  val ids = links.mapTo(HashSet()) { it.id }
+  val children = links.groupBy { it.parentId?.takeIf { p -> p in ids } }
+  val out = mutableListOf<Pair<IdeaLink, Int>>()
+  fun walk(parent: Long?, depth: Int) {
+    children[parent]?.forEach { link ->
+      out += link to depth
+      walk(link.id, depth + 1)
+    }
+  }
+  walk(null, 0)
+  return out
+}
 
 /** What a note source says, and where it comes from (e.g. "Ibn Kathir, Tafsir 1/250"). */
 data class NoteSource(val uid: String, val text: String, val source: String)

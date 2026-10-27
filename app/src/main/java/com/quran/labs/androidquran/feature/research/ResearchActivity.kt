@@ -55,9 +55,9 @@ class ResearchActivity : AppCompatActivity() {
   private sealed interface Screen {
     data object Ideas : Screen
     data class IdeaDetail(val id: Long) : Screen
-    /** [forIdea]: picking a hadith to link to that idea */
-    data class Library(val forIdea: Long?) : Screen
-    data class HadithDetail(val entry: HadithEntry, val forIdea: Long?) : Screen
+    /** [forIdea]: picking a hadith to link to that idea, under the link [under] if set */
+    data class Library(val forIdea: Long?, val under: Long? = null) : Screen
+    data class HadithDetail(val entry: HadithEntry, val forIdea: Long?, val under: Long? = null) : Screen
     data class PickIdea(val target: LinkTarget) : Screen
     data object Map : Screen
   }
@@ -183,12 +183,12 @@ class ResearchActivity : AppCompatActivity() {
           text = text,
           hadith = { library.hadith(it) },
           onSave = { t, b, tags -> scope.launch { store.updateIdea(current.id, t, b, tags) } },
-          onAddLink = { target, relation -> scope.launch { store.addLink(current.id, target, relation) } },
-          onAddNote = { t, s, relation -> scope.launch { store.addNote(current.id, t, s, relation) } },
+          onAddLink = { target, relation, under -> scope.launch { store.addLink(current.id, target, relation, parentId = under) } },
+          onAddNote = { t, s, relation, under -> scope.launch { store.addNote(current.id, t, s, relation, under) } },
           onEditNote = { uid, t, s -> scope.launch { store.updateNote(current.id, uid, t, s) } },
           onRemoveLink = { link -> scope.launch { store.removeLink(link) } },
           onEditLink = { link, relation, note -> scope.launch { store.updateLink(link, relation, note) } },
-          onPickHadith = { stack.add(Screen.Library(current.id)) },
+          onPickHadith = { under -> stack.add(Screen.Library(current.id, under)) },
           onOpenTarget = { openTarget(it) },
           onShare = { withName { share(setOf(current.id)) } },
           onDelete = { scope.launch { store.deleteIdea(current.id); back() } },
@@ -201,7 +201,7 @@ class ResearchActivity : AppCompatActivity() {
         search = { q, c -> library.search(q, c) },
         text = text,
         onDownload = { lifecycleScope.launch { library.download() } },
-        onOpen = { stack.add(Screen.HadithDetail(it, screen.forIdea)) },
+        onOpen = { stack.add(Screen.HadithDetail(it, screen.forIdea, screen.under)) },
         onBack = { back() }
       )
       is Screen.HadithDetail -> HadithScreen(
@@ -212,7 +212,7 @@ class ResearchActivity : AppCompatActivity() {
           if (screen.forIdea != null) {
             // came from an idea: link it there and go back to that idea
             scope.launch {
-              store.addLink(screen.forIdea, screen.entry.target, relation)
+              store.addLink(screen.forIdea, screen.entry.target, relation, parentId = screen.under)
               while (stack.size > 1 && stack.last() != Screen.IdeaDetail(screen.forIdea)) stack.removeAt(stack.lastIndex)
             }
           } else {

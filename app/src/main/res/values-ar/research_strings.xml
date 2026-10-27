@@ -72,4 +72,5 @@
   <string name="research_note_source">المصدر</string>
   <string name="research_note_source_hint">العالم، الكتاب، الصفحة، أو أنت</string>
   <string name="research_map_notes">نقول</string>
+  <string name="research_add_under">أضف تحته</string>
 </resources>

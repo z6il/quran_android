@@ -66,6 +66,7 @@ class ResearchStore @Inject constructor(
       db.delete("links", "idea_id = ?", arrayOf(id.toString()))
       db.delete("links", "kind = ? AND ref = ?", arrayOf(LinkTarget.Idea.KIND, id.toString()))
       db.delete("ideas", "id = ?", arrayOf(id.toString()))
+      dropOrphans(db)
       dropLooseNotes(db)
       db.setTransactionSuccessful()
     } finally {
@@ -76,32 +77,23 @@ class ResearchStore @Inject constructor(
 
   suspend fun links(ideaId: Long): List<IdeaLink> = withContext(Dispatchers.IO) {
     helper.readableDatabase.rawQuery(
-      "SELECT id, idea_id, kind, ref, relation, note FROM links WHERE idea_id = ? ORDER BY created",
+      "SELECT id, idea_id, kind, ref, relation, note, parent_id FROM links WHERE idea_id = ? ORDER BY created, id",
       arrayOf(ideaId.toString())
-    ).use { c ->
-      buildList {
-        while (c.moveToNext()) {
-          val target = LinkTarget.of(c.getString(2), c.getString(3)) ?: continue
-          add(IdeaLink(c.getLong(0), c.getLong(1), target, Relation.of(c.getString(4)), c.getString(5)))
-        }
-      }
-    }
+    ).use { c -> buildList { while (c.moveToNext()) c.toLink()?.let(::add) } }
   }
 
   /** every link, for drawing the map of how ideas connect */
   suspend fun allLinks(): List<IdeaLink> = withContext(Dispatchers.IO) {
-    helper.readableDatabase.rawQuery("SELECT id, idea_id, kind, ref, relation, note FROM links", null).use { c ->
-      buildList {
-        while (c.moveToNext()) {
-          val target = LinkTarget.of(c.getString(2), c.getString(3)) ?: continue
-          add(IdeaLink(c.getLong(0), c.getLong(1), target, Relation.of(c.getString(4)), c.getString(5)))
-        }
-      }
+    helper.readableDatabase.rawQuery("SELECT id, idea_id, kind, ref, relation, note, parent_id FROM links", null).use { c ->
+      buildList { while (c.moveToNext()) c.toLink()?.let(::add) }
     }
   }
 
-  /** links an idea to a target; linking the same target twice updates the relation */
-  suspend fun addLink(ideaId: Long, target: LinkTarget, relation: Relation, note: String = "") =
+  /**
+   * links an idea to a target, or puts it under the link [parentId]; linking the same target
+   * twice in the same place updates the relation
+   */
+  suspend fun addLink(ideaId: Long, target: LinkTarget, relation: Relation, note: String = "", parentId: Long? = null) =
     withContext(Dispatchers.IO) {
       if (target is LinkTarget.Idea && target.id == ideaId) return@withContext
       val db = helper.writableDatabase
@@ -112,10 +104,11 @@ class ResearchStore @Inject constructor(
         put("relation", relation.key)
         put("note", note)
         put("created", System.currentTimeMillis())
+        if (parentId != null) put("parent_id", parentId) else putNull("parent_id")
       }
       val updated = db.update(
-        "links", values, "idea_id = ? AND kind = ? AND ref = ?",
-        arrayOf(ideaId.toString(), target.kind, target.ref)
+        "links", values, "idea_id = ? AND kind = ? AND ref = ? AND IFNULL(parent_id, 0) = CAST(? AS INTEGER)",
+        arrayOf(ideaId.toString(), target.kind, target.ref, (parentId ?: 0L).toString())
       )
       if (updated == 0) db.insert("links", null, values)
       touch(db, ideaId)
@@ -123,10 +116,10 @@ class ResearchStore @Inject constructor(
     }
 
   /** adds a note source (a quote or finding) and links [ideaId] to it */
-  suspend fun addNote(ideaId: Long, text: String, source: String, relation: Relation) {
+  suspend fun addNote(ideaId: Long, text: String, source: String, relation: Relation, parentId: Long? = null) {
     val uid = UUID.randomUUID().toString()
     withContext(Dispatchers.IO) { saveNote(helper.writableDatabase, uid, text, source) }
-    addLink(ideaId, LinkTarget.Note(uid), relation)
+    addLink(ideaId, LinkTarget.Note(uid), relation, parentId = parentId)
   }
 
   suspend fun updateNote(ideaId: Long, uid: String, text: String, source: String) = withContext(Dispatchers.IO) {
@@ -148,6 +141,19 @@ class ResearchStore @Inject constructor(
     }, SQLiteDatabase.CONFLICT_REPLACE)
   }
 
+  /** links whose parent is gone go too, and then theirs, all the way down */
+  private fun dropOrphans(db: SQLiteDatabase) {
+    while (true) {
+      val gone = db.delete("links", "parent_id IS NOT NULL AND parent_id NOT IN (SELECT id FROM links)", null)
+      if (gone == 0) break
+    }
+  }
+
+  private fun android.database.Cursor.toLink(): IdeaLink? {
+    val target = LinkTarget.of(getString(2), getString(3)) ?: return null
+    return IdeaLink(getLong(0), getLong(1), target, Relation.of(getString(4)), getString(5), if (isNull(6)) null else getLong(6))
+  }
+
   /** notes no link points at any more */
   private fun dropLooseNotes(db: SQLiteDatabase) {
     db.execSQL("DELETE FROM notes WHERE uid NOT IN (SELECT ref FROM links WHERE kind = 'note')")
@@ -167,6 +173,7 @@ class ResearchStore @Inject constructor(
   suspend fun removeLink(link: IdeaLink) = withContext(Dispatchers.IO) {
     val db = helper.writableDatabase
     db.delete("links", "id = ?", arrayOf(link.id.toString()))
+    dropOrphans(db)
     dropLooseNotes(db)
     touch(db, link.ideaId)
     mutableIdeas.value = loadSummaries()
@@ -198,23 +205,26 @@ class ResearchStore @Inject constructor(
     val ideas = chosen.filter { it in uids }.mapNotNull { id ->
       db.rawQuery("SELECT title, body, tags, author FROM ideas WHERE id = ?", arrayOf(id.toString())).use { c ->
         if (!c.moveToFirst()) return@use null
-        val links = db.rawQuery(
-          "SELECT kind, ref, relation, note FROM links WHERE idea_id = ? ORDER BY created", arrayOf(id.toString())
-        ).use { l ->
-          buildList {
-            while (l.moveToNext()) {
-              val kind = l.getString(0)
-              // a link to another idea only goes along when that idea does, by its uid
-              val ref = if (kind == LinkTarget.Idea.KIND) {
-                l.getString(1).toLongOrNull()?.takeIf { it in chosen }?.let { uids[it] } ?: continue
-              } else {
-                l.getString(1)
-              }
-              val note = if (kind == LinkTarget.Note.KIND) notes[ref] ?: continue else null
-              add(SharedLink(kind, ref, Relation.of(l.getString(2)), l.getString(3), note?.text.orEmpty(), note?.source.orEmpty()))
-            }
+        val rows = db.rawQuery(
+          "SELECT id, idea_id, kind, ref, relation, note, parent_id FROM links WHERE idea_id = ? ORDER BY created, id",
+          arrayOf(id.toString())
+        ).use { l -> buildList { while (l.moveToNext()) l.toLink()?.let(::add) } }
+        val under = rows.groupBy { it.parentId }
+        fun shared(link: IdeaLink): SharedLink? {
+          val kind = link.target.kind
+          // a link to another idea only goes along when that idea does, by its uid
+          val ref = if (link.target is LinkTarget.Idea) {
+            (link.target as LinkTarget.Idea).id.takeIf { it in chosen }?.let { uids[it] } ?: return null
+          } else {
+            link.target.ref
           }
+          val note = if (kind == LinkTarget.Note.KIND) notes[ref] ?: return null else null
+          return SharedLink(
+            kind, ref, link.relation, link.note, note?.text.orEmpty(), note?.source.orEmpty(),
+            under[link.id].orEmpty().mapNotNull(::shared)
+          )
         }
+        val links = under[null].orEmpty().mapNotNull(::shared)
         SharedIdea(uids.getValue(id), c.getString(0), c.getString(1), parseTags(c.getString(2)), c.getString(3).ifBlank { me }, links)
       }
     }
@@ -250,24 +260,27 @@ class ResearchStore @Inject constructor(
       }
       bundle.ideas.forEach { idea ->
         val id = ids.getValue(idea.uid)
-        idea.links.forEach { link ->
+        fun insert(link: SharedLink, parent: Long?) {
           val ref = if (link.kind == LinkTarget.Idea.KIND) {
             val other = ids[link.ref] ?: ideaWithUid(db, link.ref)
-            if (other == null || other == id) return@forEach
+            if (other == null || other == id) return
             other.toString()
           } else {
             if (link.kind == LinkTarget.Note.KIND) saveNote(db, link.ref, link.text, link.source)
             link.ref
           }
-          db.insert("links", null, ContentValues().apply {
+          val linkId = db.insert("links", null, ContentValues().apply {
             put("idea_id", id)
             put("kind", link.kind)
             put("ref", ref)
             put("relation", link.relation.key)
             put("note", link.note)
             put("created", now)
+            if (parent != null) put("parent_id", parent)
           })
+          link.children.forEach { insert(it, linkId) }
         }
+        idea.links.forEach { insert(it, null) }
       }
       dropLooseNotes(db)
       db.setTransactionSuccessful()
@@ -311,7 +324,7 @@ class ResearchStore @Inject constructor(
   private fun android.database.Cursor.toIdea() =
     Idea(getLong(0), getString(1), getString(2), parseTags(getString(3)), getLong(4), getString(5) ?: "")
 
-  private class Helper(context: Context) : SQLiteOpenHelper(context, "research.db", null, 2) {
+  private class Helper(context: Context) : SQLiteOpenHelper(context, "research.db", null, 3) {
     override fun onCreate(db: SQLiteDatabase) {
       db.execSQL(
         """CREATE TABLE ideas(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL,
@@ -322,7 +335,8 @@ class ResearchStore @Inject constructor(
       createNotes(db)
       db.execSQL(
         """CREATE TABLE links(id INTEGER PRIMARY KEY AUTOINCREMENT, idea_id INTEGER NOT NULL, kind TEXT NOT NULL,
-           ref TEXT NOT NULL, relation TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', created INTEGER)"""
+           ref TEXT NOT NULL, relation TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', created INTEGER,
+           parent_id INTEGER)"""
       )
       db.execSQL("CREATE INDEX links_idea ON links(idea_id)")
       db.execSQL("CREATE INDEX links_target ON links(kind, ref)")
@@ -340,6 +354,10 @@ class ResearchStore @Inject constructor(
         }
         db.execSQL("CREATE UNIQUE INDEX ideas_uid ON ideas(uid)")
         createNotes(db)
+      }
+      if (oldVersion < 3) {
+        // links under links
+        db.execSQL("ALTER TABLE links ADD COLUMN parent_id INTEGER")
       }
     }
 

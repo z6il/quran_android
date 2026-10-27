@@ -171,4 +171,46 @@ class ResearchTest {
       assertThat(store.notes()).hasSize(1)
     }
   }
+
+  @Test
+  fun linksUnderLinks() {
+    runBlocking { linksUnderLinksBody() }
+  }
+
+  private suspend fun linksUnderLinksBody() {
+    val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+    context.deleteDatabase("research.db")
+    val store = ResearchStore(context)
+    val idea = store.createIdea("Patience")
+    store.addLink(idea, LinkTarget.Ayah(2, 153), Relation.SUPPORTS)
+    val verse = store.links(idea).single()
+    store.addLink(idea, LinkTarget.Hadith("muslim", "2999"), Relation.EXPLAINS, parentId = verse.id)
+    val hadith = store.links(idea).first { it.target is LinkTarget.Hadith }
+    store.addNote(idea, "Patience is light.", "Ibn Rajab", Relation.EXPLAINS, parentId = hadith.id)
+    store.addLink(idea, LinkTarget.Ayah(39, 10), Relation.SUPPORTS, parentId = verse.id)
+    // the same verse at the top and under another link are two links
+    store.addLink(idea, LinkTarget.Ayah(39, 10), Relation.RELATED)
+
+    val tree = linkTree(store.links(idea))
+    assertThat(tree.map { it.first.target.kind to it.second }).containsExactly(
+      "ayah" to 0, "hadith" to 1, "note" to 2, "ayah" to 1, "ayah" to 0
+    ).inOrder()
+
+    // sharing keeps the tree
+    val bundle = ResearchBundle.parse(store.export(setOf(idea), "abdo").toJson().toString())!!
+    val top = bundle.ideas.single().links
+    assertThat(top).hasSize(2)
+    assertThat(top.first().children.map { it.kind }).containsExactly("hadith", "ayah").inOrder()
+    assertThat(top.first().children.first().children.single().text).isEqualTo("Patience is light.")
+    context.deleteDatabase("research.db")
+    val theirs = ResearchStore(context)
+    theirs.import(bundle, "friend")
+    val id = theirs.ideas.value.single().idea.id
+    assertThat(linkTree(theirs.links(id)).map { it.second }).containsExactly(0, 1, 2, 1, 0).inOrder()
+
+    // removing a link removes everything under it
+    theirs.removeLink(theirs.links(id).first { it.target == LinkTarget.Ayah(2, 153) })
+    assertThat(theirs.links(id).map { it.target }).containsExactly(LinkTarget.Ayah(39, 10))
+    assertThat(theirs.notes()).isEmpty()
+  }
 }

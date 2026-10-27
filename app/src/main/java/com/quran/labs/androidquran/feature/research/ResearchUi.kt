@@ -419,12 +419,12 @@ fun IdeaScreen(
   text: ResearchText,
   hadith: suspend (LinkTarget.Hadith) -> HadithEntry?,
   onSave: (title: String, body: String, tags: List<String>) -> Unit,
-  onAddLink: (LinkTarget, Relation) -> Unit,
-  onAddNote: (text: String, source: String, Relation) -> Unit,
+  onAddLink: (LinkTarget, Relation, parentId: Long?) -> Unit,
+  onAddNote: (text: String, source: String, Relation, parentId: Long?) -> Unit,
   onEditNote: (uid: String, text: String, source: String) -> Unit,
   onRemoveLink: (IdeaLink) -> Unit,
   onEditLink: (IdeaLink, Relation, String) -> Unit,
-  onPickHadith: () -> Unit,
+  onPickHadith: (parentId: Long?) -> Unit,
   onOpenTarget: (LinkTarget) -> Unit,
   onShare: () -> Unit,
   onDelete: () -> Unit,
@@ -438,6 +438,9 @@ fun IdeaScreen(
   var confirmDelete by rememberSaveable { mutableStateOf(false) }
   var editingLink by rememberSaveable { mutableStateOf<Long?>(null) }
   var addingNote by rememberSaveable { mutableStateOf(false) }
+  // the link a verse, hadith, note or idea is being added under; null for the idea itself
+  var addingUnder by rememberSaveable { mutableStateOf<Long?>(null) }
+  val tree = remember(links) { linkTree(links) }
   var editingNote by rememberSaveable { mutableStateOf<String?>(null) }
 
   // save as the reader types, once they pause
@@ -485,19 +488,19 @@ fun IdeaScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-          OutlinedButton(onClick = { addingVerse = true }, shape = RoundedCornerShape(8.dp)) {
+          OutlinedButton(onClick = { addingUnder = null; addingVerse = true }, shape = RoundedCornerShape(8.dp)) {
             Icon(QuranIcons.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.research_add_verse))
           }
-          OutlinedButton(onClick = onPickHadith, shape = RoundedCornerShape(8.dp)) {
+          OutlinedButton(onClick = { onPickHadith(null) }, shape = RoundedCornerShape(8.dp)) {
             Icon(Library, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.research_add_hadith))
           }
-          OutlinedButton(onClick = { linkingIdea = true }, enabled = otherIdeas.isNotEmpty(), shape = RoundedCornerShape(8.dp)) {
+          OutlinedButton(onClick = { addingUnder = null; linkingIdea = true }, enabled = otherIdeas.isNotEmpty(), shape = RoundedCornerShape(8.dp)) {
             Icon(LightBulb, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.research_add_idea))
           }
-          OutlinedButton(onClick = { addingNote = true }, shape = RoundedCornerShape(8.dp)) {
+          OutlinedButton(onClick = { addingUnder = null; addingNote = true }, shape = RoundedCornerShape(8.dp)) {
             Icon(Quote, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.research_add_note))
           }
@@ -506,10 +509,21 @@ fun IdeaScreen(
       if (links.isEmpty()) {
         item { Text(stringResource(R.string.research_nothing_linked), color = MaterialTheme.colorScheme.onSurfaceVariant) }
       }
-      items(links, key = { it.id }) { link ->
+      items(tree, key = { it.first.id }) { (link, depth) ->
         val target = link.target
         LinkCard(
           link, text, hadith, otherIdeas,
+          depth = depth,
+          canAddIdea = otherIdeas.isNotEmpty(),
+          onAddUnder = { kind ->
+            addingUnder = link.id
+            when (kind) {
+              LinkTarget.Ayah.KIND -> addingVerse = true
+              LinkTarget.Hadith.KIND -> onPickHadith(link.id)
+              LinkTarget.Idea.KIND -> linkingIdea = true
+              else -> addingNote = true
+            }
+          },
           note = (target as? LinkTarget.Note)?.let { notes[it.uid] },
           // a note is edited here; everything else opens
           onOpen = { if (target is LinkTarget.Note) editingNote = target.uid else onOpenTarget(target) },
@@ -520,10 +534,14 @@ fun IdeaScreen(
     }
   }
 
-  if (addingVerse) AddVerseDialog(text, onAdd = { target, relation -> addingVerse = false; onAddLink(target, relation) }, onDismiss = { addingVerse = false })
-  if (linkingIdea) LinkIdeaDialog(otherIdeas, onAdd = { target, relation -> linkingIdea = false; onAddLink(target, relation) }, onDismiss = { linkingIdea = false })
+  if (addingVerse) {
+    AddVerseDialog(text, onAdd = { target, relation -> addingVerse = false; onAddLink(target, relation, addingUnder) }, onDismiss = { addingVerse = false })
+  }
+  if (linkingIdea) {
+    LinkIdeaDialog(otherIdeas, onAdd = { target, relation -> linkingIdea = false; onAddLink(target, relation, addingUnder) }, onDismiss = { linkingIdea = false })
+  }
   if (addingNote) {
-    NoteDialog(null, onSave = { t, s, r -> addingNote = false; onAddNote(t, s, r) }, onDismiss = { addingNote = false })
+    NoteDialog(null, onSave = { t, s, r -> addingNote = false; onAddNote(t, s, r, addingUnder) }, onDismiss = { addingNote = false })
   }
   editingNote?.let { uid ->
     NoteDialog(notes[uid], onSave = { t, s, _ -> editingNote = null; onEditNote(uid, t, s) }, onDismiss = { editingNote = null })
@@ -552,6 +570,9 @@ private fun LinkCard(
   hadith: suspend (LinkTarget.Hadith) -> HadithEntry?,
   ideas: List<Idea>,
   note: NoteSource?,
+  depth: Int,
+  canAddIdea: Boolean,
+  onAddUnder: (kind: String) -> Unit,
   onOpen: () -> Unit,
   onComment: () -> Unit,
   onRemove: () -> Unit
@@ -572,11 +593,22 @@ private fun LinkCard(
     }
   }
   val arabic = arabicFont()
+  var addMenu by remember { mutableStateOf(false) }
+  // links under links step in, with a line back to their parent
+  Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+    repeat(depth) { level ->
+      Box(Modifier.width(18.dp).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+        Box(
+          Modifier.width(2.dp).fillMaxHeight()
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = if (level == depth - 1) 0.45f else 0.2f))
+        )
+      }
+    }
   Card(
     onClick = onOpen,
     shape = CardShape,
     colors = CardDefaults.cardColors(containerColor = cardColor(), contentColor = MaterialTheme.colorScheme.onSurface),
-    modifier = Modifier.fillMaxWidth()
+    modifier = Modifier.weight(1f)
   ) {
     Row(Modifier.height(IntrinsicSize.Min)) {
       Box(Modifier.width(4.dp).fillMaxHeight().background(relationColor(link.relation)))
@@ -629,8 +661,32 @@ private fun LinkCard(
             Text(link.note, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
           }
         }
+        // put a verse, hadith, note or idea under this one
+        Box {
+          TextButton(onClick = { addMenu = true }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+            Icon(Plus, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(stringResource(R.string.research_add_under), style = MaterialTheme.typography.labelLarge)
+          }
+          DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
+            listOf(
+              Triple(LinkTarget.Ayah.KIND, R.string.research_add_verse, QuranIcons.MenuBook),
+              Triple(LinkTarget.Hadith.KIND, R.string.research_add_hadith, Library),
+              Triple(LinkTarget.Note.KIND, R.string.research_add_note, Quote),
+              Triple(LinkTarget.Idea.KIND, R.string.research_add_idea, LightBulb)
+            ).forEach { (kind, label, icon) ->
+              DropdownMenuItem(
+                text = { Text(stringResource(label)) },
+                leadingIcon = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                enabled = kind != LinkTarget.Idea.KIND || canAddIdea,
+                onClick = { addMenu = false; onAddUnder(kind) }
+              )
+            }
+          }
+        }
       }
     }
+  }
   }
 }
 

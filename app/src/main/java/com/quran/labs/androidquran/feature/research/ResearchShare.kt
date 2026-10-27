@@ -79,10 +79,13 @@ data class SharedLink(
   val relation: Relation,
   val note: String,
   val text: String = "",
-  val source: String = ""
+  val source: String = "",
+  /** the links under this one */
+  val children: List<SharedLink> = emptyList()
 ) {
   fun toJson(): JSONObject = JSONObject().put("kind", kind).put("ref", ref).put("relation", relation.key).put("note", note)
     .apply { if (kind == LinkTarget.Note.KIND) put("text", text).put("source", source) }
+    .apply { if (children.isNotEmpty()) put("children", JSONArray(children.map { it.toJson() })) }
 
   companion object {
     fun parse(o: JSONObject): SharedLink? {
@@ -93,7 +96,11 @@ data class SharedLink(
       if (ref.isBlank()) return null
       val text = o.optString("text")
       if (kind == LinkTarget.Note.KIND && text.isBlank()) return null
-      return SharedLink(kind, ref, Relation.of(o.optString("relation")), o.optString("note"), text, o.optString("source"))
+      val children = o.optJSONArray("children")
+      return SharedLink(
+        kind, ref, Relation.of(o.optString("relation")), o.optString("note"), text, o.optString("source"),
+        if (children == null) emptyList() else (0 until children.length()).mapNotNull { parse(children.getJSONObject(it)) }
+      )
     }
   }
 }
