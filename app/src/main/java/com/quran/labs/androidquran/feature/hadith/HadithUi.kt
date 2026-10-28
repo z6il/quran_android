@@ -413,7 +413,7 @@ private fun Download(state: HadithLibraryState, onDownload: () -> Unit, modifier
       contentAlignment = Alignment.Center
     ) { Icon(AppIcons.Book, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(44.dp)) }
     Spacer(Modifier.height(20.dp))
-    Text(stringResource(R.string.research_library_intro, 24), textAlign = TextAlign.Center)
+    Text(stringResource(R.string.research_library_intro, 17), textAlign = TextAlign.Center)
     Spacer(Modifier.height(24.dp))
     when (state) {
       is HadithLibraryState.Downloading -> {

@@ -30,7 +30,7 @@
   <string name="research_remove_link">Remove link</string>
   <string name="research_back">Back</string>
   <string name="research_hadith_library">Hadith library</string>
-  <string name="research_library_intro">Sixteen collections in Arabic: the six books, Musnad Ahmad, the Muwatta of Malik, Sunan ad-Darimi, Riyad as-Salihin, Al-Adab Al-Mufrad and more, with gradings where the source gives them. Downloaded once, about %1$d MB, then it works offline.</string>
+  <string name="research_library_intro">Eighteen collections in Arabic, as on sunnah.com: the nine books, Riyad as-Salihin, Al-Adab Al-Mufrad, Mishkat al-Masabih, the Forties and more, with their gradings. Downloaded once, about %1$d MB, then it works offline.</string>
   <string name="research_download">Download</string>
   <string name="research_downloading">Downloading… %1$d%%</string>
   <string name="research_download_failed">The download didn\'t finish (%1$s). Check your connection and try again.</string>
