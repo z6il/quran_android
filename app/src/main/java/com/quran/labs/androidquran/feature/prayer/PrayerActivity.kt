@@ -46,6 +46,7 @@ class PrayerActivity : AppCompatActivity() {
   private var locating by mutableStateOf(false)
   private var notificationsAllowed by mutableStateOf(true)
   private var exactAllowed by mutableStateOf(true)
+  private var qassasProgress by mutableStateOf<Float?>(null)
 
   private val locationPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
     if (granted.values.any { it }) locate() else Toast.makeText(this, R.string.prayer_location_denied, Toast.LENGTH_LONG).show()
@@ -85,6 +86,8 @@ class PrayerActivity : AppCompatActivity() {
                   onChange = { store.update(it) },
                   onChooseCity = { choosingCity = true },
                   onChooseSound = ::chooseSound,
+                  qassasProgress = qassasProgress,
+                  qassasDownloaded = AdhanDownload.isDownloaded(this@PrayerActivity),
                   onTestSound = {
                     if (!notificationsAllowed) askNotifications() else PrayerAlarms.test(this@PrayerActivity)
                   },
@@ -147,6 +150,7 @@ class PrayerActivity : AppCompatActivity() {
   private fun chooseSound(sound: AlertSound) {
     when (sound) {
       // a file or a phone sound to pick first; the choice is saved once picked
+      AlertSound.QASSAS -> useQassas()
       AlertSound.ADHAN -> pickAdhan.launch(arrayOf("audio/*"))
       AlertSound.PHONE -> pickPhoneSound.launch(
         Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
@@ -159,6 +163,30 @@ class PrayerActivity : AppCompatActivity() {
     }
   }
 
+  /** the Qassas adhan, downloaded the first time it's chosen */
+  private fun useQassas() {
+    val select = {
+      store.update {
+        it.copy(sound = AlertSound.QASSAS, soundUri = AdhanDownload.uri(this).toString(), soundName = getString(R.string.prayer_sound_qassas))
+      }
+    }
+    if (AdhanDownload.isDownloaded(this)) {
+      select()
+      return
+    }
+    if (qassasProgress != null) return
+    qassasProgress = 0f
+    lifecycleScope.launch {
+      val error = AdhanDownload.download(this@PrayerActivity) { p -> runOnUiThread { qassasProgress = p } }
+      qassasProgress = null
+      if (error == null) {
+        select()
+      } else {
+        Toast.makeText(this@PrayerActivity, getString(R.string.prayer_sound_qassas_failed, error), Toast.LENGTH_LONG).show()
+      }
+    }
+  }
+
   /** keeps a copy, so the alert still plays if the original file moves or goes */
   private fun useAdhanFile(source: Uri) {
     lifecycleScope.launch {
@@ -168,7 +196,8 @@ class PrayerActivity : AppCompatActivity() {
             if (c.moveToFirst()) c.getString(0) else null
           } ?: "adhan"
           val dir = File(filesDir, "prayer").apply { mkdirs() }
-          dir.listFiles()?.forEach { it.delete() }
+          // the last picked file goes; the downloaded Qassas adhan stays
+          dir.listFiles()?.filter { it.name.startsWith("adhan_") && !it.name.startsWith("adhan_qassas") }?.forEach { it.delete() }
           // a new name each time, so the alert channel sees a new sound
           val extension = name.substringAfterLast('.', "mp3").take(5)
           val file = File(dir, "adhan_${System.currentTimeMillis()}.$extension")

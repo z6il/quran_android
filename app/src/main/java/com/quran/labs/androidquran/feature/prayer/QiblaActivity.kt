@@ -124,41 +124,93 @@ class QiblaActivity : AppCompatActivity() {
   }
 }
 
-private class CompassReading(val heading: Float?, val accuracy: Int, val microTesla: Float)
+/**
+ * [tilt]: degrees from lying flat; [pitch] and [roll] place the level's bubble.
+ * [upright]: held up like a camera, so the heading is where the back of the phone points.
+ */
+private class CompassReading(
+  val heading: Float?,
+  val accuracy: Int,
+  val microTesla: Float,
+  val tilt: Float,
+  val pitch: Float,
+  val roll: Float,
+  val upright: Boolean
+)
 
-/** the phone's heading from true north, smoothed; null on phones without a compass */
+/**
+ * The phone's heading from true north, smoothed; null on phones without a compass. Uses the
+ * fused rotation sensor where there is one (gyroscope included), otherwise the accelerometer
+ * with the magnetometer. Works lying flat or held upright.
+ */
 @Composable
 private fun rememberCompass(place: Place?): CompassReading {
   val context = LocalContext.current
   var heading by remember { mutableStateOf<Float?>(null) }
   var accuracy by remember { mutableIntStateOf(SensorManager.SENSOR_STATUS_ACCURACY_HIGH) }
   var strength by remember { mutableFloatStateOf(0f) }
+  var tilt by remember { mutableFloatStateOf(0f) }
+  var pitch by remember { mutableFloatStateOf(0f) }
+  var roll by remember { mutableFloatStateOf(0f) }
+  var upright by remember { mutableStateOf(false) }
   DisposableEffect(place) {
     val sensors = context.getSystemService<SensorManager>()
     val rotation = sensors?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
     val magnetic = sensors?.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
+    val accelerometer = sensors?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     val declination = place?.let {
       GeomagneticField(it.latitude.toFloat(), it.longitude.toFloat(), 0f, System.currentTimeMillis()).declination
     } ?: 0f
     val matrix = FloatArray(9)
+    val remapped = FloatArray(9)
     val orientation = FloatArray(3)
+    val gravity = FloatArray(3)
+    val field = FloatArray(3)
+    var haveGravity = false
+    var haveField = false
+
+    fun update() {
+      // matrix[8] is how much the screen faces up: 1 flat, 0 upright
+      val tiltDegrees = Math.toDegrees(kotlin.math.acos(matrix[8].coerceIn(-1f, 1f).toDouble())).toFloat()
+      // a little hysteresis so it doesn't flicker between the two around 55°
+      val isUpright = if (upright) tiltDegrees > 50f else tiltDegrees > 60f
+      if (isUpright) {
+        SensorManager.remapCoordinateSystem(matrix, SensorManager.AXIS_X, SensorManager.AXIS_Z, remapped)
+        SensorManager.getOrientation(remapped, orientation)
+      } else {
+        SensorManager.getOrientation(matrix, orientation)
+        pitch = Math.toDegrees(orientation[1].toDouble()).toFloat()
+        roll = Math.toDegrees(orientation[2].toDouble()).toFloat()
+      }
+      tilt = tiltDegrees
+      upright = isUpright
+      val raw = (Math.toDegrees(orientation[0].toDouble()).toFloat() + declination + 360f) % 360f
+      val previous = heading
+      // ease toward the new reading the short way round
+      heading = if (previous == null) raw else {
+        val delta = ((raw - previous + 540f) % 360f) - 180f
+        (previous + delta * 0.2f + 360f) % 360f
+      }
+    }
+
     val listener = object : SensorEventListener {
       override fun onSensorChanged(event: SensorEvent) {
         when (event.sensor.type) {
           Sensor.TYPE_ROTATION_VECTOR -> {
             SensorManager.getRotationMatrixFromVector(matrix, event.values)
-            SensorManager.getOrientation(matrix, orientation)
-            val raw = (Math.toDegrees(orientation[0].toDouble()).toFloat() + declination + 360f) % 360f
-            val previous = heading
-            // ease toward the new reading the short way round
-            heading = if (previous == null) raw else {
-              val delta = ((raw - previous + 540f) % 360f) - 180f
-              (previous + delta * 0.2f + 360f) % 360f
-            }
+            update()
+          }
+          Sensor.TYPE_ACCELEROMETER -> {
+            // smoothed, for phones without the fused sensor
+            for (i in 0..2) gravity[i] = if (haveGravity) gravity[i] * 0.8f + event.values[i] * 0.2f else event.values[i]
+            haveGravity = true
+            if (rotation == null && haveField && SensorManager.getRotationMatrix(matrix, null, gravity, field)) update()
           }
           Sensor.TYPE_MAGNETIC_FIELD -> {
             val (x, y, z) = event.values
             strength = kotlin.math.sqrt(x * x + y * y + z * z)
+            for (i in 0..2) field[i] = if (haveField) field[i] * 0.8f + event.values[i] * 0.2f else event.values[i]
+            haveField = true
           }
         }
       }
@@ -169,9 +221,27 @@ private fun rememberCompass(place: Place?): CompassReading {
     }
     rotation?.let { sensors.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
     magnetic?.let { sensors.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
+    if (rotation == null) accelerometer?.let { sensors.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
     onDispose { sensors?.unregisterListener(listener) }
   }
-  return CompassReading(heading, accuracy, strength)
+  return CompassReading(heading, accuracy, strength, tilt, pitch, roll, upright)
+}
+
+/** a spirit level: the bubble sits in the middle when the phone lies flat */
+@Composable
+private fun Level(pitch: Float, roll: Float, level: Boolean) {
+  val colors = MaterialTheme.colorScheme
+  val color by animateColorAsState(if (level) colors.primary else colors.error, label = "level")
+  Canvas(Modifier.size(56.dp)) {
+    val r = size.minDimension / 2
+    drawCircle(color.copy(alpha = 0.12f), r)
+    drawCircle(color.copy(alpha = 0.5f), r, style = Stroke(1.5.dp.toPx()))
+    drawCircle(color.copy(alpha = 0.5f), r * 0.3f, style = Stroke(1.dp.toPx()))
+    // 30° of tilt takes the bubble to the edge
+    val dx = (roll / 30f).coerceIn(-1f, 1f) * r * 0.7f
+    val dy = (-pitch / 30f).coerceIn(-1f, 1f) * r * 0.7f
+    drawCircle(color, r * 0.22f, Offset(center.x + dx, center.y + dy))
+  }
 }
 
 @Composable
@@ -233,6 +303,25 @@ private fun QiblaScreen(place: Place?, locating: Boolean, onUseLocation: () -> U
           style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
           modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp)
         )
+      }
+
+      if (heading != null) {
+        val flatEnough = compass.upright || compass.tilt < 20f
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+          if (!compass.upright) Level(compass.pitch, compass.roll, flatEnough)
+          Text(
+            stringResource(
+              when {
+                compass.upright -> R.string.qibla_upright
+                flatEnough -> R.string.qibla_flat
+                else -> R.string.qibla_hold_flat
+              }
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (flatEnough) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+            modifier = Modifier.widthIn(max = 260.dp)
+          )
+        }
       }
 
       Row(verticalAlignment = Alignment.CenterVertically) {

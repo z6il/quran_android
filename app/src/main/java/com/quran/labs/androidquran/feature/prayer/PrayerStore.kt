@@ -35,7 +35,8 @@ class PrayerStore private constructor(private val context: Context) {
       hijriAdjust = prefs.getInt(HIJRI_ADJUST, 0),
       sound = enumOr(prefs.getString(SOUND, null), defaults.sound),
       soundUri = prefs.getString(SOUND_URI, null),
-      soundName = prefs.getString(SOUND_NAME, null)
+      soundName = prefs.getString(SOUND_NAME, null),
+      remindBefore = prefs.getInt(REMIND_BEFORE, 0)
     )
   }
 
@@ -57,6 +58,7 @@ class PrayerStore private constructor(private val context: Context) {
       putString(SOUND, s.sound.name)
       putString(SOUND_URI, s.soundUri)
       putString(SOUND_NAME, s.soundName)
+      putInt(REMIND_BEFORE, s.remindBefore)
     }.apply()
     mutable.value = s
     PrayerAlarms.schedule(context)
@@ -76,6 +78,7 @@ class PrayerStore private constructor(private val context: Context) {
     private const val SOUND = "sound"
     private const val SOUND_URI = "sound_uri"
     private const val SOUND_NAME = "sound_name"
+    private const val REMIND_BEFORE = "remind_before"
 
     @Volatile private var instance: PrayerStore? = null
 

@@ -154,4 +154,20 @@
   <string name="prayer_sound_test">Test the alert</string>
   <string name="prayer_stop_adhan">Stop</string>
   <string name="prayer_sound_failed">Couldn\'t read that file. Try another audio file.</string>
+  <string name="prayer_now">Prayer time now</string>
+  <string name="prayer_then">Then %1$s at %2$s</string>
+  <string name="prayer_elapsed">since</string>
+  <string name="prayer_sound_qassas">Adhan by Mohammed bin Marwan Qassas</string>
+  <string name="prayer_sound_qassas_detail">Downloads once, then works offline</string>
+  <string name="prayer_sound_qassas_ready">Downloaded</string>
+  <string name="prayer_sound_qassas_failed">The adhan couldn\'t be downloaded (%1$s). Check your connection and try again.</string>
+  <string name="prayer_before">Reminder before the prayer</string>
+  <string name="prayer_before_detail">A gentle notification some minutes before each prayer with alerts on.</string>
+  <string name="prayer_before_off">Off</string>
+  <string name="prayer_minutes">%1$d min</string>
+  <string name="prayer_before_channel">Before the prayer</string>
+  <string name="prayer_before_title">%1$s in %2$d minutes</string>
+  <string name="qibla_hold_flat">Hold the phone flat, screen up, for an accurate direction</string>
+  <string name="qibla_flat">The phone is level</string>
+  <string name="qibla_upright">Held upright: the direction is where the back of the phone points</string>
 </resources>

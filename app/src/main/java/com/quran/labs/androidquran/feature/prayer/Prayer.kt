@@ -79,6 +79,8 @@ enum class HighLatitude(@StringRes val label: Int, val rule: HighLatitudeRule) {
 
 /** What a prayer alert sounds like. */
 enum class AlertSound(@StringRes val label: Int) {
+  /** the adhan of Mohammed bin Marwan Qassas, downloaded once */
+  QASSAS(R.string.prayer_sound_qassas),
   /** an adhan recording the reader picked from their files */
   ADHAN(R.string.prayer_sound_adhan),
   /** the phone's notification sound */
@@ -104,8 +106,13 @@ data class PrayerSettings(
   val sound: AlertSound = AlertSound.DEFAULT,
   /** the sound for [AlertSound.ADHAN] or [AlertSound.PHONE], and a name to show for it */
   val soundUri: String? = null,
-  val soundName: String? = null
+  val soundName: String? = null,
+  /** minutes before each prayer for a gentle reminder; 0 for none */
+  val remindBefore: Int = 0
 ) {
+  /** the sound plays a downloaded or picked adhan */
+  val isAdhan: Boolean get() = sound == AlertSound.ADHAN || sound == AlertSound.QASSAS
+
   /** the method in use, with [Method.AUTO] resolved */
   val effectiveMethod: Method get() = if (method == Method.AUTO) Method.forCountry(place?.country) else method
 }
@@ -129,6 +136,7 @@ object PrayerMath {
     }
     val times = PrayerTimes(coordinates, components, params)
     val sunnah = SunnahTimes(times)
+    // to the whole minute: the library keeps the clock's stray seconds, so two runs could differ
     return listOf(
       PrayerTime(PrayerName.FAJR, times.fajr),
       PrayerTime(PrayerName.SUNRISE, times.sunrise),
@@ -138,7 +146,7 @@ object PrayerMath {
       PrayerTime(PrayerName.ISHA, times.isha),
       PrayerTime(PrayerName.MIDNIGHT, sunnah.middleOfTheNight),
       PrayerTime(PrayerName.LAST_THIRD, sunnah.lastThirdOfTheNight)
-    )
+    ).map { it.copy(time = Date(it.time.time / 60_000L * 60_000L)) }
   }
 
   /** the next time after [now] among [names], looking into tomorrow if needed */
@@ -151,6 +159,24 @@ object PrayerMath {
       day.add(Calendar.DAY_OF_YEAR, 1)
     }
     return null
+  }
+
+  /** the next alarm: a prayer at its time, or the reminder [before] minutes ahead of it */
+  data class Event(val prayer: PrayerTime, val before: Boolean, val at: Long)
+
+  fun nextEvent(settings: PrayerSettings, place: Place, now: Date, names: Set<PrayerName>, before: Int): Event? {
+    val day = Calendar.getInstance().apply { time = now; add(Calendar.DAY_OF_YEAR, -1) }
+    val events = (0..2).flatMap { i ->
+      day(settings, place, (day.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, i) })
+        .filter { it.name in names }
+        .flatMap { t ->
+          listOfNotNull(
+            Event(t, false, t.time.time),
+            if (before > 0 && t.name.isPrayer) Event(t, true, t.time.time - before * 60_000L) else null
+          )
+        }
+    }
+    return events.filter { it.at > now.time }.minByOrNull { it.at }
   }
 
   /** the latest time at or before [now] among [names], for "since the last prayer" */

@@ -44,6 +44,25 @@ class PrayerMathTest {
   }
 
   @Test
+  fun reminderComesBeforeThePrayer() {
+    val zone = TimeZone.getTimeZone("Asia/Riyadh")
+    val settings = PrayerSettings(place = riyadh)
+    val morning = Calendar.getInstance(zone).apply { set(2026, Calendar.OCTOBER, 28, 11, 0) }.time
+    val dhuhr = setOf(PrayerName.DHUHR)
+    val reminder = PrayerMath.nextEvent(settings, riyadh, morning, dhuhr, before = 10)!!
+    assertThat(reminder.before).isTrue()
+    assertThat(reminder.prayer.name).isEqualTo(PrayerName.DHUHR)
+    assertThat(reminder.prayer.time.time - reminder.at).isEqualTo(10 * 60_000L)
+    // once the reminder has passed, the prayer itself is next
+    val after = java.util.Date(reminder.at + 1000)
+    val alert = PrayerMath.nextEvent(settings, riyadh, after, dhuhr, before = 10)!!
+    assertThat(alert.before).isFalse()
+    assertThat(alert.at).isEqualTo(reminder.prayer.time.time)
+    // no reminder asked for
+    assertThat(PrayerMath.nextEvent(settings, riyadh, morning, dhuhr, before = 0)!!.before).isFalse()
+  }
+
+  @Test
   fun qiblaFromRiyadhIsSouthWest() {
     val direction = PrayerMath.qibla(riyadh.latitude, riyadh.longitude)
     assertThat(direction).isWithin(1.0).of(244.0)

@@ -19,8 +19,9 @@ import java.text.DateFormat
 import java.util.Date
 
 /**
- * One alarm at a time: the next prayer with alerts on. When it rings it posts the
- * notification and sets the one after it. Reboots and clock changes set it again.
+ * One alarm at a time: the next prayer with alerts on, or the reminder some minutes before
+ * it. When it rings it posts the notification and sets the one after it. Reboots and clock
+ * changes set it again.
  */
 object PrayerAlarms {
   private const val OLD_CHANNEL_ID = "prayer_times"
@@ -28,6 +29,9 @@ object PrayerAlarms {
   private val NOTIFICATION_ID = OLD_CHANNEL_ID.hashCode()
   private const val EXTRA_PRAYER = "prayer"
   private const val EXTRA_TIME = "time"
+  /** a reminder before the prayer rather than the prayer itself */
+  private const val EXTRA_BEFORE = "before"
+  private const val BEFORE_CHANNEL_ID = "prayer_before"
   /** an alarm that comes this late (phone off, say) is skipped rather than shown */
   private const val STALE_MILLIS = 30 * 60 * 1000L
 
@@ -36,15 +40,17 @@ object PrayerAlarms {
     val settings = PrayerStore.get(context).settings.value
     val place = settings.place
     val next = if (place == null || settings.alerts.isEmpty()) null
-    else PrayerMath.next(settings, place, Date(), settings.alerts)
+    else PrayerMath.nextEvent(settings, place, Date(), settings.alerts, settings.remindBefore)
     val intent = Intent(context, PrayerAlarmReceiver::class.java).setAction(ACTION_ALERT)
     if (next == null) {
       alarms.cancel(PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
       return
     }
-    intent.putExtra(EXTRA_PRAYER, next.name.name).putExtra(EXTRA_TIME, next.time.time)
+    intent.putExtra(EXTRA_PRAYER, next.prayer.name.name)
+      .putExtra(EXTRA_TIME, next.prayer.time.time)
+      .putExtra(EXTRA_BEFORE, next.before)
     val pending = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    val at = next.time.time
+    val at = next.at
     // exact when the system lets us; otherwise within a few minutes
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()) {
       alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
@@ -59,9 +65,46 @@ object PrayerAlarms {
   internal fun alert(context: Context, intent: Intent) {
     val prayer = PrayerName.entries.firstOrNull { it.name == intent.getStringExtra(EXTRA_PRAYER) } ?: return
     val time = intent.getLongExtra(EXTRA_TIME, 0L)
-    if (System.currentTimeMillis() - time > STALE_MILLIS) return
     if (prayer !in PrayerStore.get(context).settings.value.alerts) return
+    if (intent.getBooleanExtra(EXTRA_BEFORE, false)) {
+      if (System.currentTimeMillis() < time) remind(context, prayer, time)
+      return
+    }
+    if (System.currentTimeMillis() - time > STALE_MILLIS) return
     post(context, prayer, time)
+  }
+
+  /** "Dhuhr in 10 minutes", with the phone's usual notification sound */
+  private fun remind(context: Context, prayer: PrayerName, time: Long) {
+    val manager = NotificationManagerCompat.from(context)
+    if (!manager.areNotificationsEnabled()) return
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      val system = context.getSystemService(NotificationManager::class.java)
+      if (system.getNotificationChannel(BEFORE_CHANNEL_ID) == null) {
+        system.createNotificationChannel(
+          NotificationChannel(BEFORE_CHANNEL_ID, context.getString(R.string.prayer_before_channel), NotificationManager.IMPORTANCE_DEFAULT)
+        )
+      }
+    }
+    val minutes = ((time - System.currentTimeMillis() + 30_000) / 60_000).toInt().coerceAtLeast(1)
+    val open = PendingIntent.getActivity(
+      context, 0, PrayerActivity.intent(context),
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+    val notification = NotificationCompat.Builder(context, BEFORE_CHANNEL_ID)
+      .setSmallIcon(R.drawable.ic_notification)
+      .setContentTitle(context.getString(R.string.prayer_before_title, context.getString(prayer.label), minutes))
+      .setContentText(DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(time)))
+      .setContentIntent(open)
+      .setAutoCancel(true)
+      .setTimeoutAfter(time - System.currentTimeMillis())
+      .setCategory(NotificationCompat.CATEGORY_REMINDER)
+      .build()
+    try {
+      manager.notify(NOTIFICATION_ID + 1, notification)
+    } catch (_: SecurityException) {
+      // notification permission was revoked between the check and the post
+    }
   }
 
   /** an alert now, to hear the chosen sound */
@@ -108,9 +151,9 @@ object PrayerAlarms {
   }
 
   private fun soundUri(context: Context, settings: PrayerSettings): Uri {
-    val chosen = settings.soundUri?.takeIf { settings.sound == AlertSound.ADHAN || settings.sound == AlertSound.PHONE }
+    val chosen = settings.soundUri?.takeIf { settings.isAdhan || settings.sound == AlertSound.PHONE }
       ?.let(Uri::parse)
-    if (chosen != null && settings.sound == AlertSound.ADHAN) {
+    if (chosen != null && settings.isAdhan) {
       // the adhan file is ours; let the system ui, which plays it, read it
       runCatching { context.grantUriPermission("com.android.systemui", chosen, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
     }
@@ -141,7 +184,7 @@ object PrayerAlarms {
       .setAutoCancel(true)
       .setPriority(NotificationCompat.PRIORITY_HIGH)
       .setCategory(NotificationCompat.CATEGORY_REMINDER)
-    if (settings.sound == AlertSound.ADHAN) {
+    if (settings.isAdhan) {
       // the adhan plays for minutes; this ends it
       builder.addAction(0, context.getString(R.string.prayer_stop_adhan), stop)
     }

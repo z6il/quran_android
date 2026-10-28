@@ -175,6 +175,9 @@ fun PrayerScreen(
     val countable = remember { PrayerName.entries.filter { it.isPrayer || it == PrayerName.SUNRISE }.toSet() }
     val next = remember(now / 60_000, settings) { PrayerMath.next(settings, place, Date(now), countable) }
     val previous = remember(now / 60_000, settings) { PrayerMath.previous(settings, place, Date(now), countable) }
+    // for half an hour after a prayer comes in, it stays the one shown, with the time since
+    val current = previous?.takeIf { it.name.isPrayer && now - it.time.time < HOLD_MILLIS }
+    val highlighted = current ?: next
 
     LazyColumn(
       Modifier.padding(padding),
@@ -182,7 +185,7 @@ fun PrayerScreen(
       verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
       item {
-        Hero(place, next, previous, now, locating, onPlace = actions.onChooseCity)
+        Hero(place, next, previous, current, now, locating, onPlace = actions.onChooseCity)
       }
       item {
         DayRow(
@@ -203,7 +206,7 @@ fun PrayerScreen(
               }
               PrayerRow(
                 time = t,
-                isNext = dayOffset == 0 && next?.name == t.name && sameDay(next.time, t.time),
+                isNext = dayOffset == 0 && highlighted?.name == t.name && sameDay(highlighted.time, t.time),
                 alert = t.name in settings.alerts,
                 onToggle = { actions.onToggleAlert(t.name) }
               )
@@ -235,10 +238,21 @@ fun PrayerScreen(
   }
 }
 
+/** how long a prayer stays shown after it comes in */
+private const val HOLD_MILLIS = 30 * 60_000L
+
 private fun sameDay(a: Date, b: Date): Boolean = kotlin.math.abs(a.time - b.time) < 60_000
 
 @Composable
-private fun Hero(place: Place, next: PrayerTime?, previous: PrayerTime?, now: Long, locating: Boolean, onPlace: () -> Unit) {
+private fun Hero(
+  place: Place,
+  next: PrayerTime?,
+  previous: PrayerTime?,
+  current: PrayerTime?,
+  now: Long,
+  locating: Boolean,
+  onPlace: () -> Unit
+) {
   val colors = MaterialTheme.colorScheme
   Surface(shape = RoundedCornerShape(24.dp), color = colors.primary, contentColor = colors.onPrimary, modifier = Modifier.fillMaxWidth()) {
     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -254,7 +268,23 @@ private fun Hero(place: Place, next: PrayerTime?, previous: PrayerTime?, now: Lo
         Icon(QuranIcons.ExpandMore, contentDescription = null, modifier = Modifier.size(18.dp))
       }
       if (locating) LinearProgressIndicator(Modifier.fillMaxWidth(), color = colors.onPrimary, trackColor = colors.onPrimary.copy(alpha = 0.2f))
-      if (next != null) {
+      if (current != null) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(stringResource(R.string.prayer_now), style = MaterialTheme.typography.labelLarge, color = colors.onPrimary.copy(alpha = 0.75f))
+            Text(stringResource(current.name.label), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text(timeText(current.time), style = MaterialTheme.typography.titleLarge, color = colors.onPrimary.copy(alpha = 0.9f))
+            if (next != null) {
+              Text(
+                stringResource(R.string.prayer_then, stringResource(next.name.label), timeText(next.time)),
+                style = MaterialTheme.typography.labelMedium, color = colors.onPrimary.copy(alpha = 0.75f)
+              )
+            }
+          }
+          val elapsed = now - current.time.time
+          CountdownRing((elapsed.toFloat() / HOLD_MILLIS).coerceIn(0f, 1f), countdown(elapsed), stringResource(R.string.prayer_elapsed))
+        }
+      } else if (next != null) {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(stringResource(R.string.prayer_next), style = MaterialTheme.typography.labelLarge, color = colors.onPrimary.copy(alpha = 0.75f))
@@ -263,7 +293,7 @@ private fun Hero(place: Place, next: PrayerTime?, previous: PrayerTime?, now: Lo
           }
           val span = previous?.let { next.time.time - it.time.time } ?: 1L
           val fraction = previous?.let { ((now - it.time.time).toFloat() / span).coerceIn(0f, 1f) } ?: 0f
-          CountdownRing(fraction, countdown(next.time.time - now))
+          CountdownRing(fraction, countdown(next.time.time - now), stringResource(R.string.prayer_remaining))
         }
       }
     }
@@ -271,7 +301,7 @@ private fun Hero(place: Place, next: PrayerTime?, previous: PrayerTime?, now: Lo
 }
 
 @Composable
-private fun CountdownRing(fraction: Float, label: String) {
+private fun CountdownRing(fraction: Float, label: String, caption: String) {
   val color = MaterialTheme.colorScheme.onPrimary
   Box(Modifier.size(124.dp), contentAlignment = Alignment.Center) {
     Canvas(Modifier.fillMaxSize()) {
@@ -283,7 +313,7 @@ private fun CountdownRing(fraction: Float, label: String) {
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
       Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
-      Text(stringResource(R.string.prayer_remaining), style = MaterialTheme.typography.labelSmall, color = color.copy(alpha = 0.75f))
+      Text(caption, style = MaterialTheme.typography.labelSmall, color = color.copy(alpha = 0.75f))
     }
   }
 }
@@ -467,6 +497,8 @@ fun PrayerSettingsScreen(
   onChooseCity: () -> Unit,
   onChooseSound: (AlertSound) -> Unit,
   onTestSound: () -> Unit,
+  qassasProgress: Float?,
+  qassasDownloaded: Boolean,
   onBack: () -> Unit
 ) {
   Scaffold(topBar = { AppTopBar(stringResource(R.string.prayer_settings), onBack) }, containerColor = MaterialTheme.colorScheme.surface) { padding ->
@@ -489,6 +521,11 @@ fun PrayerSettingsScreen(
         Column {
           AlertSound.entries.forEach { sound ->
             val detail = when (sound) {
+              AlertSound.QASSAS -> when {
+                qassasProgress != null -> stringResource(R.string.research_downloading, (qassasProgress * 100).toInt())
+                qassasDownloaded -> stringResource(R.string.prayer_sound_qassas_ready)
+                else -> stringResource(R.string.prayer_sound_qassas_detail)
+              }
               AlertSound.ADHAN -> if (settings.sound == sound && settings.soundName != null) settings.soundName
                 else stringResource(R.string.prayer_sound_adhan_detail)
               AlertSound.PHONE -> if (settings.sound == sound && settings.soundName != null) settings.soundName
@@ -501,6 +538,26 @@ fun PrayerSettingsScreen(
             Icon(AppIcons.Bell, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.prayer_sound_test))
+          }
+        }
+      }
+
+      SectionTitle(stringResource(R.string.prayer_before))
+      SectionCard {
+        Text(stringResource(R.string.prayer_before_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        androidx.compose.foundation.layout.FlowRow(
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+          listOf(0, 5, 10, 15, 20, 30, 45).forEach { minutes ->
+            androidx.compose.material3.FilterChip(
+              selected = settings.remindBefore == minutes,
+              onClick = { onChange { it.copy(remindBefore = minutes) } },
+              label = {
+                Text(if (minutes == 0) stringResource(R.string.prayer_before_off) else stringResource(R.string.prayer_minutes, minutes))
+              },
+              shape = RoundedCornerShape(50)
+            )
           }
         }
       }

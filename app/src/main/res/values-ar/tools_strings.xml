@@ -154,4 +154,20 @@
   <string name="prayer_sound_test">تجربة التنبيه</string>
   <string name="prayer_stop_adhan">إيقاف</string>
   <string name="prayer_sound_failed">تعذّرت قراءة الملف. جرّب ملفًا صوتيًا آخر.</string>
+  <string name="prayer_now">حان وقت الصلاة</string>
+  <string name="prayer_then">ثم %1$s الساعة %2$s</string>
+  <string name="prayer_elapsed">مضت</string>
+  <string name="prayer_sound_qassas">أذان محمد بن مروان قصاص</string>
+  <string name="prayer_sound_qassas_detail">يُحمّل مرة واحدة ثم يعمل دون إنترنت</string>
+  <string name="prayer_sound_qassas_ready">تم التحميل</string>
+  <string name="prayer_sound_qassas_failed">تعذّر تحميل الأذان (%1$s). تحقق من الاتصال وحاول مجددًا.</string>
+  <string name="prayer_before">تذكير قبل الصلاة</string>
+  <string name="prayer_before_detail">إشعار هادئ قبل كل صلاة مفعّل تنبيهها بعدد من الدقائق.</string>
+  <string name="prayer_before_off">إيقاف</string>
+  <string name="prayer_minutes">%1$d د</string>
+  <string name="prayer_before_channel">قبل الصلاة</string>
+  <string name="prayer_before_title">%1$s بعد %2$d دقيقة</string>
+  <string name="qibla_hold_flat">أمسك الجهاز مستويًا والشاشة للأعلى ليكون الاتجاه دقيقًا</string>
+  <string name="qibla_flat">الجهاز مستوٍ</string>
+  <string name="qibla_upright">الجهاز قائم: الاتجاه هو ما يشير إليه ظهر الجهاز</string>
 </resources>
