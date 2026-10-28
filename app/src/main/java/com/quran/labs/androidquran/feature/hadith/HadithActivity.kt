@@ -52,7 +52,8 @@ class HadithActivity : AppCompatActivity() {
     data class Topic(val topic: HadithTopic) : Screen
     data class Collection(val collection: HadithCollection) : Screen
     data class Book(val book: HadithBook) : Screen
-    data class Detail(val entry: HadithEntry) : Screen
+    /** [highlight]: the search it was found with, if any */
+    data class Detail(val entry: HadithEntry, val highlight: String? = null) : Screen
     data object Favorites : Screen
   }
 
@@ -75,6 +76,8 @@ class HadithActivity : AppCompatActivity() {
     lifecycleScope.launch { favorites.refresh() }
     // today's hadith shows at once when it was already picked today
     ofTheDay = cachedOfTheDay()
+    // opened to search for something, e.g. from elsewhere in the app
+    if (savedInstanceState == null) intent.getStringExtra(EXTRA_QUERY)?.let { searchState.query = it }
 
     setContentView(ComposeView(this).apply {
       setContent {
@@ -125,7 +128,7 @@ class HadithActivity : AppCompatActivity() {
         onTopic = { stack.add(Screen.Topic(it)) },
         onCollection = { stack.add(Screen.Collection(it)) },
         onFavorites = { stack.add(Screen.Favorites) },
-        onOpen = { stack.add(Screen.Detail(it)) },
+        onOpen = { stack.add(Screen.Detail(it, searchState.query.takeIf { q -> q.isNotBlank() })) },
         onToggleFavorite = toggle
       )
       is Screen.Topic -> TopicScreen(
@@ -153,6 +156,7 @@ class HadithActivity : AppCompatActivity() {
       )
       is Screen.Detail -> HadithDetailScreen(
         entry = screen.entry,
+        highlight = screen.highlight,
         names = names,
         favorite = screen.entry.target in starredSet,
         onToggleFavorite = { toggle(screen.entry) },
@@ -217,6 +221,7 @@ class HadithActivity : AppCompatActivity() {
   companion object {
     private const val DAY = "day"
     private const val ENTRY = "entry"
+    const val EXTRA_QUERY = "query"
   }
 
   private fun back() {

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -45,6 +46,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -189,7 +192,7 @@ fun HadithHome(
           item { Text(stringResource(R.string.research_no_hadith), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         itemsIndexed(r.orEmpty(), key = { i, h -> "${h.collection}:${h.number}:$i" }) { _, h ->
-          HadithCard(h, names, h.target in favorites, onOpen = { onOpen(h) }, onToggleFavorite = { onToggleFavorite(h) })
+          HadithCard(h, names, h.target in favorites, highlight = query, onOpen = { onOpen(h) }, onToggleFavorite = { onToggleFavorite(h) })
         }
         return@LazyColumn
       }
@@ -329,7 +332,18 @@ private fun NarratorLine(entry: HadithEntry) {
 }
 
 @Composable
-fun HadithCard(entry: HadithEntry, names: CollectionNames, favorite: Boolean, showSource: Boolean = true, onOpen: () -> Unit, onToggleFavorite: () -> Unit) {
+fun HadithCard(
+  entry: HadithEntry,
+  names: CollectionNames,
+  favorite: Boolean,
+  showSource: Boolean = true,
+  /** the search, to mark its words and show the part of the hadith where they are */
+  highlight: String? = null,
+  onOpen: () -> Unit,
+  onToggleFavorite: () -> Unit
+) {
+  val mark = searchMark()
+  val preview = remember(entry, highlight) { searchPreview(entry, highlight, mark) }
   Surface(onClick = onOpen, shape = CardShape, color = cardColor(), modifier = Modifier.fillMaxWidth()) {
     Column(Modifier.padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
       Row(verticalAlignment = Alignment.CenterVertically) {
@@ -351,7 +365,7 @@ fun HadithCard(entry: HadithEntry, names: CollectionNames, favorite: Boolean, sh
       }
       NarratorLine(entry)
       Text(
-        entry.displayText, maxLines = 5, overflow = TextOverflow.Ellipsis,
+        preview, maxLines = 5, overflow = TextOverflow.Ellipsis,
         style = TextStyle(fontFamily = arabicFont(), fontSize = 18.sp, lineHeight = 31.sp, textDirection = TextDirection.Rtl),
         modifier = Modifier.fillMaxWidth().padding(end = 12.dp)
       )
@@ -514,10 +528,30 @@ fun FavoritesScreen(
   }
 }
 
+/** the colour behind searched words */
+@Composable
+private fun searchMark(): androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+
+/**
+ * A card's text: the hadith with the searched words marked. When they come later than the
+ * card shows, it starts a little before the first one, so the match is always in view.
+ */
+private fun searchPreview(entry: HadithEntry, query: String?, mark: androidx.compose.ui.graphics.Color): androidx.compose.ui.text.AnnotatedString {
+  if (query.isNullOrBlank()) return androidx.compose.ui.text.AnnotatedString(entry.displayText)
+  // the words may be in the chain of narration rather than the prophetic text
+  val source = if (HadithHighlight.ranges(entry.displayText, query).isNotEmpty()) entry.displayText else entry.text
+  val first = HadithHighlight.ranges(source, query).firstOrNull()?.first ?: return HadithHighlight.annotate(source, query, mark)
+  if (first < 160) return HadithHighlight.annotate(source, query, mark)
+  val start = source.lastIndexOf(' ', first - 60).coerceAtLeast(0)
+  return HadithHighlight.annotate("… " + source.substring(start).trimStart(), query, mark)
+}
+
 /** One hadith in full: text, grade, narrator. */
 @Composable
 fun HadithDetailScreen(
   entry: HadithEntry,
+  /** the search that led here, to mark its words */
+  highlight: String?,
   names: CollectionNames,
   favorite: Boolean,
   onToggleFavorite: () -> Unit,
@@ -527,6 +561,22 @@ fun HadithDetailScreen(
   onBack: () -> Unit
 ) {
   val arabic = arabicFont()
+  val mark = searchMark()
+  val marked = remember(entry, highlight) { HadithHighlight.annotate(entry.text, highlight, mark) }
+  val matches = remember(entry, highlight) { if (highlight.isNullOrBlank()) emptyList() else HadithHighlight.ranges(entry.text, highlight) }
+  val scroll = rememberScrollState()
+  var textTop by remember { mutableStateOf(0f) }
+  var layout by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
+  var current by remember(entry, highlight) { mutableStateOf(0) }
+  val density = androidx.compose.ui.platform.LocalDensity.current
+  // bring a match into view, a little below the top
+  suspend fun goTo(i: Int) {
+    val l = layout ?: return
+    val range = matches.getOrNull(i) ?: return
+    val y = textTop + l.getLineTop(l.getLineForOffset(range.first)) - with(density) { 120.dp.toPx() }
+    scroll.animateScrollTo(y.toInt().coerceAtLeast(0))
+  }
+  LaunchedEffect(layout, current) { if (matches.isNotEmpty()) goTo(current) }
   Scaffold(
     topBar = {
       AppTopBar(names.name(entry.collection) + " · " + entry.number, onBack) {
@@ -544,9 +594,30 @@ fun HadithDetailScreen(
     containerColor = MaterialTheme.colorScheme.surface
   ) { padding ->
     Column(
-      Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
+      Modifier.padding(padding).verticalScroll(scroll).padding(16.dp),
       verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+      if (matches.isNotEmpty()) {
+        // how many times the search appears, and a way through them
+        Surface(shape = RoundedCornerShape(50), color = mark, modifier = Modifier.fillMaxWidth()) {
+          Row(Modifier.heightIn(min = 48.dp).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(QuranIcons.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+              stringResource(R.string.hadith_matches, current + 1, matches.size, highlight.orEmpty().trim()),
+              style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)
+            )
+            if (matches.size > 1) {
+              IconButton(onClick = { current = (current - 1 + matches.size) % matches.size }) {
+                Icon(AppIcons.ChevronLeft, contentDescription = stringResource(R.string.hadith_match_previous))
+              }
+              IconButton(onClick = { current = (current + 1) % matches.size }) {
+                Icon(AppIcons.ChevronRight, contentDescription = stringResource(R.string.hadith_match_next))
+              }
+            }
+          }
+        }
+      }
       if (entry.chapter.isNotBlank()) {
         Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f), modifier = Modifier.fillMaxWidth()) {
           Text(
@@ -560,10 +631,14 @@ fun HadithDetailScreen(
         GradeCard(entry, Modifier.weight(1f))
         remember(entry.text) { narratorOf(entry.text) }?.let { NarratorCard(it, Modifier.weight(1f)) }
       }
-      Surface(shape = CardShape, color = cardColor(), modifier = Modifier.fillMaxWidth()) {
+      Surface(
+        shape = CardShape, color = cardColor(),
+        modifier = Modifier.fillMaxWidth().onGloballyPositioned { textTop = it.positionInParent().y + with(density) { 18.dp.toPx() } }
+      ) {
         Text(
-          entry.text,
+          marked,
           style = TextStyle(fontFamily = arabic, fontSize = 23.sp, lineHeight = 42.sp, textDirection = TextDirection.Rtl),
+          onTextLayout = { layout = it },
           modifier = Modifier.padding(18.dp)
         )
       }

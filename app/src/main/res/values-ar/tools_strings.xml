@@ -182,4 +182,7 @@
   <string name="app_update_allow_installs">اسمح بالتثبيت من هذا التطبيق ثم عُد لإكمال التحديث</string>
   <string name="app_update_check">البحث عن تحديثات</string>
   <string name="app_update_this_version">هذا الإصدار: %1$s</string>
+  <string name="hadith_matches">%1$d من %2$d · «%3$s»</string>
+  <string name="hadith_match_previous">النتيجة السابقة</string>
+  <string name="hadith_match_next">النتيجة التالية</string>
 </resources>

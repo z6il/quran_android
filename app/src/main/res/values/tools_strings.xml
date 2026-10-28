@@ -182,4 +182,7 @@
   <string name="app_update_allow_installs">Allow installs from this app, then come back to finish the update</string>
   <string name="app_update_check">Check for updates</string>
   <string name="app_update_this_version">This version: %1$s</string>
+  <string name="hadith_matches">%1$d of %2$d · «%3$s»</string>
+  <string name="hadith_match_previous">Previous match</string>
+  <string name="hadith_match_next">Next match</string>
 </resources>
