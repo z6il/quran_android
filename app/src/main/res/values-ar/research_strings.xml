@@ -73,4 +73,10 @@
   <string name="research_note_source_hint">العالم، الكتاب، الصفحة، أو أنت</string>
   <string name="research_map_notes">نقول</string>
   <string name="research_add_under">أضف تحته</string>
+  <string name="research_done">تم</string>
+  <string name="research_edit">تعديل</string>
+  <string name="research_collapse_all">طيّ الكل</string>
+  <string name="research_expand_all">توسيع الكل</string>
+  <string name="research_show_under">إظهار %1$d تحته</string>
+  <string name="research_hide_under">إخفاء %1$d تحته</string>
 </resources>

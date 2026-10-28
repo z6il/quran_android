@@ -1,5 +1,11 @@
 package com.quran.labs.androidquran.feature.adhkar
 
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -513,6 +519,7 @@ private fun DhikrPage(
         ),
         modifier = Modifier.fillMaxWidth()
       )
+      AdhkarVirtues.of(dhikr)?.let { VirtueCard(it, arabicFont) }
       if (dhikr.reference.isNotBlank()) {
         Surface(
           onClick = { showReference = !showReference },
@@ -536,6 +543,47 @@ private fun DhikrPage(
       }
     }
     Counter(dhikr, done, onTap, Modifier.align(Alignment.CenterHorizontally).padding(vertical = 16.dp))
+  }
+}
+
+/** The reward promised for this dhikr, in the hadith's words, always in Arabic. */
+@Composable
+private fun VirtueCard(virtue: DhikrVirtue, arabicFont: FontFamily) {
+  val colors = MaterialTheme.colorScheme
+  Surface(
+    shape = RoundedCornerShape(16.dp),
+    color = colors.primary.copy(alpha = 0.09f),
+    modifier = Modifier.fillMaxWidth()
+  ) {
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+      Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+          stringResource(R.string.adhkar_virtue),
+          style = MaterialTheme.typography.titleSmall,
+          fontWeight = FontWeight.Bold,
+          color = colors.primary
+        )
+        virtue.points.forEach { point ->
+          Row {
+            Text("•", color = colors.primary, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 8.dp))
+            Text(
+              buildAnnotatedString {
+                if (point.label != null) {
+                  withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = colors.primary)) { append(point.label + ": ") }
+                }
+                append(point.text)
+              },
+              style = TextStyle(fontFamily = arabicFont, fontSize = 18.sp, lineHeight = 32.sp, textDirection = TextDirection.Rtl)
+            )
+          }
+        }
+        Text(
+          virtue.source,
+          style = MaterialTheme.typography.labelMedium.copy(textDirection = TextDirection.Rtl),
+          color = colors.onSurfaceVariant
+        )
+      }
+    }
   }
 }
 

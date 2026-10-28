@@ -9,6 +9,11 @@
       android:maxSdkVersion="29" />
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
   <uses-permission android:name="android.permission.WAKE_LOCK"/>
+  <!-- prayer times and qibla: where the reader is, and an alert at each prayer -->
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
 
   <!-- foreground services need this when targeting Android 9+ (Api 28+) -->
   <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE"/>
@@ -105,6 +110,40 @@
         android:name=".feature.khatmah.KhatmahActivity"
         android:theme="@style/QuranToolBarDayNight"
         android:exported="false" />
+
+    <activity
+        android:name=".feature.hadith.HadithActivity"
+        android:theme="@style/QuranToolBarDayNight"
+        android:windowSoftInputMode="adjustResize"
+        android:exported="false" />
+
+    <activity
+        android:name=".feature.prayer.PrayerActivity"
+        android:theme="@style/QuranToolBarDayNight"
+        android:windowSoftInputMode="adjustResize"
+        android:exported="false" />
+
+    <activity
+        android:name=".feature.prayer.QiblaActivity"
+        android:theme="@style/QuranToolBarDayNight"
+        android:screenOrientation="portrait"
+        android:exported="false" />
+
+    <activity
+        android:name=".feature.home.MoreActivity"
+        android:theme="@style/QuranToolBarDayNight"
+        android:exported="false" />
+
+    <receiver
+        android:name=".feature.prayer.PrayerAlarmReceiver"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+      </intent-filter>
+    </receiver>
 
     <activity
         android:name=".feature.adhkar.AdhkarActivity"

@@ -18,6 +18,9 @@ import java.util.zip.ZipInputStream
 
 data class HadithCollection(val slug: String, val nameAr: String, val nameEn: String, val count: Int)
 
+/** a book (kitab) of a collection, e.g. Bukhari's Book of Belief */
+data class HadithBook(val collection: String, val number: String, val nameAr: String, val nameEn: String, val count: Int)
+
 data class HadithEntry(
   val collection: String,
   val number: String,
@@ -114,6 +117,60 @@ class HadithLibrary @Inject constructor(
     db.rawQuery("SELECT slug, name_ar, name_en, count FROM collections ORDER BY position", null).use { c ->
       buildList { while (c.moveToNext()) add(HadithCollection(c.getString(0), c.getString(1), c.getString(2), c.getInt(3))) }
     }
+  }
+
+  suspend fun books(collection: String): List<HadithBook> = withContext(Dispatchers.IO) {
+    val db = database() ?: return@withContext emptyList()
+    db.rawQuery(
+      "SELECT b.number, b.name_ar, b.name_en, COUNT(h.id) FROM books b " +
+        "LEFT JOIN hadith h ON h.collection = b.collection AND h.book = b.number " +
+        "WHERE b.collection = ? GROUP BY b.number ORDER BY b.position",
+      arrayOf(collection)
+    ).use { c ->
+      buildList {
+        while (c.moveToNext()) add(HadithBook(collection, c.getString(0), c.getString(1) ?: "", c.getString(2) ?: "", c.getInt(3)))
+      }
+    }
+  }
+
+  /** every book of every collection, for the topic index */
+  suspend fun allBooks(): List<HadithBook> = withContext(Dispatchers.IO) {
+    val db = database() ?: return@withContext emptyList()
+    db.rawQuery(
+      "SELECT b.collection, b.number, b.name_ar, b.name_en, COUNT(h.id) FROM books b " +
+        "JOIN collections c ON c.slug = b.collection " +
+        "LEFT JOIN hadith h ON h.collection = b.collection AND h.book = b.number " +
+        "GROUP BY b.collection, b.number ORDER BY c.position, b.position",
+      null
+    ).use { c ->
+      buildList {
+        while (c.moveToNext()) add(HadithBook(c.getString(0), c.getString(1), c.getString(2) ?: "", c.getString(3) ?: "", c.getInt(4)))
+      }
+    }
+  }
+
+  /** a book's hadith in the collection's order */
+  suspend fun inBook(book: HadithBook): List<HadithEntry> = withContext(Dispatchers.IO) {
+    val db = database() ?: return@withContext emptyList()
+    db.rawQuery(
+      "SELECT collection, number, chapter_ar, text_ar, matn_ar, grade FROM hadith WHERE collection = ? AND book = ? ORDER BY id",
+      arrayOf(book.collection, book.number)
+    ).use { c -> buildList { while (c.moveToNext()) add(c.toEntry()) } }
+  }
+
+  /** the same hadith all day, a different one each day, from Bukhari and Muslim */
+  suspend fun ofTheDay(day: Long): HadithEntry? = withContext(Dispatchers.IO) {
+    val db = database() ?: return@withContext null
+    // a main narration (not a variant like "1995 b") that quotes the Prophet, short enough for a card
+    val where = "collection IN ('bukhari', 'muslim') AND number NOT LIKE '% %' AND LENGTH(text_ar) BETWEEN 120 AND 520 " +
+      "AND text_ar LIKE '%صلى الله عليه وسلم%' AND text_ar NOT LIKE '%بِهَذَا الإِسْنَادِ%'"
+    // jump to a spot picked by the day and take the first fitting one from there: no full scan
+    val (first, last) = db.rawQuery("SELECT MIN(id), MAX(id) FROM hadith WHERE collection IN ('bukhari', 'muslim')", null)
+      .use { if (it.moveToFirst()) it.getLong(0) to it.getLong(1) else return@withContext null }
+    val start = first + Math.floorMod(day * 7919L, (last - first + 1).coerceAtLeast(1))
+    val sql = "SELECT collection, number, chapter_ar, text_ar, matn_ar, grade FROM hadith WHERE id >= ? AND $where ORDER BY id LIMIT 1"
+    db.rawQuery(sql, arrayOf(start.toString())).use { c -> if (c.moveToFirst()) c.toEntry() else null }
+      ?: db.rawQuery(sql, arrayOf(first.toString())).use { c -> if (c.moveToFirst()) c.toEntry() else null }
   }
 
   /** words in any order, each matched as a prefix, diacritics ignored */

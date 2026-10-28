@@ -4,6 +4,10 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.rotate
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -107,6 +111,10 @@ private val Delete by lazy {
   icon("Delete", "M6,19c0,1.1 0.9,2 2,2h8c1.1,0 2,-0.9 2,-2V7H6v12zM19,4h-3.5l-1,-1h-5l-1,1H5v2h14V4z")
 }
 private val Plus by lazy { icon("Add", "M19,13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z") }
+private val Edit by lazy {
+  icon("Edit", "M3,17.25V21h3.75L17.81,9.94l-3.75,-3.75L3,17.25zM20.71,7.04c0.39,-0.39 0.39,-1.02 0,-1.41l-2.34,-2.34" +
+    "c-0.39,-0.39 -1.02,-0.39 -1.41,0l-1.83,1.83 3.75,3.75 1.83,-1.83z")
+}
 internal val Quote by lazy { icon("Quote", "M6,17h3l2,-4V7H5v6h3zM14,17h3l2,-4V7h-6v6h3z") }
 internal val Share by lazy {
   icon("Share", "M18,16.08c-0.76,0 -1.44,0.3 -1.96,0.77L8.91,12.7c0.05,-0.23 0.09,-0.46 0.09,-0.7s-0.04,-0.47 -0.09,-0.7l7.05,-4.11" +
@@ -442,6 +450,39 @@ fun IdeaScreen(
   var addingUnder by rememberSaveable { mutableStateOf<Long?>(null) }
   val tree = remember(links) { linkTree(links) }
   var editingNote by rememberSaveable { mutableStateOf<String?>(null) }
+  // a new idea opens on its details; one with content opens on its sources
+  var editingDetails by rememberSaveable(idea.id) { mutableStateOf(idea.title.isBlank() && idea.body.isBlank()) }
+  var addMenu by remember { mutableStateOf(false) }
+  // only one kind of source, as a flat list; null for the whole tree
+  var kindFilter by rememberSaveable { mutableStateOf<String?>(null) }
+  var collapsedIds by rememberSaveable(idea.id) { mutableStateOf("") }
+  val collapsed = remember(collapsedIds) { collapsedIds.split(',').mapNotNull { it.toLongOrNull() }.toSet() }
+  fun setCollapsed(ids: Set<Long>) {
+    collapsedIds = ids.joinToString(",")
+  }
+  val childCount = remember(links) { links.mapNotNull { it.parentId }.groupingBy { it }.eachCount() }
+  val parents = remember(childCount) { childCount.keys }
+  val hasBranches = parents.isNotEmpty()
+  val counts = remember(links) {
+    listOf(LinkTarget.Ayah.KIND, LinkTarget.Hadith.KIND, LinkTarget.Note.KIND, LinkTarget.Idea.KIND)
+      .map { kind -> kind to links.count { it.target.kind == kind } }
+      .filter { it.second > 0 }
+  }
+  val shown = remember(tree, collapsedIds, kindFilter) {
+    val filter = kindFilter
+    if (filter != null) {
+      tree.filter { it.first.target.kind == filter }
+    } else {
+      // skip everything inside a collapsed branch
+      val hidden = collapsed
+      var hideDeeperThan = Int.MAX_VALUE
+      tree.filter { (link, depth) ->
+        if (depth > hideDeeperThan) return@filter false
+        hideDeeperThan = if (link.id in hidden) depth else Int.MAX_VALUE
+        true
+      }
+    }
+  }
 
   // save as the reader types, once they pause
   LaunchedEffect(idea.id) {
@@ -470,53 +511,90 @@ fun IdeaScreen(
     LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 32.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
       if (idea.author.isNotBlank()) item { AuthorLabel(idea.author) }
       item {
-        OutlinedTextField(value = title, onValueChange = { title = it }, singleLine = true,
-          label = { Text(stringResource(R.string.research_idea_title)) }, modifier = Modifier.fillMaxWidth())
-      }
-      item {
-        OutlinedTextField(value = body, onValueChange = { body = it }, minLines = 3,
-          label = { Text(stringResource(R.string.research_idea_body)) }, modifier = Modifier.fillMaxWidth())
-      }
-      item {
-        OutlinedTextField(value = tags, onValueChange = { tags = it }, singleLine = true,
-          label = { Text(stringResource(R.string.research_idea_tags)) }, modifier = Modifier.fillMaxWidth())
+        AnimatedContent(editingDetails, label = "details") { editing ->
+          if (editing) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+              OutlinedTextField(value = title, onValueChange = { title = it }, singleLine = true,
+                label = { Text(stringResource(R.string.research_idea_title)) }, modifier = Modifier.fillMaxWidth())
+              OutlinedTextField(value = body, onValueChange = { body = it }, minLines = 3,
+                label = { Text(stringResource(R.string.research_idea_body)) }, modifier = Modifier.fillMaxWidth())
+              OutlinedTextField(value = tags, onValueChange = { tags = it }, singleLine = true,
+                label = { Text(stringResource(R.string.research_idea_tags)) }, modifier = Modifier.fillMaxWidth())
+              TextButton(onClick = { onSave(title, body, parseTags(tags)); editingDetails = false }, modifier = Modifier.align(Alignment.End)) {
+                Icon(QuranIcons.Check, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.research_done))
+              }
+            }
+          } else {
+            IdeaSummaryCard(title, body, parseTags(tags), onEdit = { editingDetails = true })
+          }
+        }
       }
       item {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-          Text(stringResource(R.string.research_linked).uppercase(Locale.getDefault()),
+          Text(
+            stringResource(R.string.research_linked).uppercase(Locale.getDefault()) + if (links.isNotEmpty()) "  ·  " + links.size.localized() else "",
             style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-        }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-          OutlinedButton(onClick = { addingUnder = null; addingVerse = true }, shape = RoundedCornerShape(8.dp)) {
-            Icon(QuranIcons.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.research_add_verse))
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f)
+          )
+          if (hasBranches && kindFilter == null) {
+            TextButton(onClick = { setCollapsed(if (collapsed.isEmpty()) parents else emptySet()) }) {
+              Text(stringResource(if (collapsed.isEmpty()) R.string.research_collapse_all else R.string.research_expand_all))
+            }
           }
-          OutlinedButton(onClick = { onPickHadith(null) }, shape = RoundedCornerShape(8.dp)) {
-            Icon(Library, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.research_add_hadith))
-          }
-          OutlinedButton(onClick = { addingUnder = null; linkingIdea = true }, enabled = otherIdeas.isNotEmpty(), shape = RoundedCornerShape(8.dp)) {
-            Icon(LightBulb, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.research_add_idea))
-          }
-          OutlinedButton(onClick = { addingUnder = null; addingNote = true }, shape = RoundedCornerShape(8.dp)) {
-            Icon(Quote, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.research_add_note))
+          Box {
+            Button(onClick = { addMenu = true }, shape = RoundedCornerShape(50), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)) {
+              Icon(Plus, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp))
+              Text(stringResource(R.string.research_add))
+            }
+            AddMenu(addMenu, canAddIdea = otherIdeas.isNotEmpty(), onDismiss = { addMenu = false }) { kind ->
+              addMenu = false
+              addingUnder = null
+              when (kind) {
+                LinkTarget.Ayah.KIND -> addingVerse = true
+                LinkTarget.Hadith.KIND -> onPickHadith(null)
+                LinkTarget.Idea.KIND -> linkingIdea = true
+                else -> addingNote = true
+              }
+            }
           }
         }
       }
       if (links.isEmpty()) {
         item { Text(stringResource(R.string.research_nothing_linked), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+      } else if (counts.size > 1) {
+        item {
+          androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+              FilterChip(selected = kindFilter == null, onClick = { kindFilter = null },
+                label = { Text(stringResource(R.string.research_all) + " " + links.size.localized()) }, shape = RoundedCornerShape(50))
+            }
+            items(counts) { (kind, count) ->
+              FilterChip(
+                selected = kindFilter == kind,
+                onClick = { kindFilter = if (kindFilter == kind) null else kind },
+                leadingIcon = { Icon(kindIcon(kind), contentDescription = null, modifier = Modifier.size(16.dp)) },
+                label = { Text(stringResource(kindLabel(kind)) + " " + count.localized()) },
+                shape = RoundedCornerShape(50)
+              )
+            }
+          }
+        }
       }
-      items(tree, key = { it.first.id }) { (link, depth) ->
+      items(shown, key = { it.first.id }) { (link, depth) ->
         val target = link.target
+        val under = childCount[link.id] ?: 0
         LinkCard(
           link, text, hadith, otherIdeas,
-          depth = depth,
+          depth = if (kindFilter == null) depth else 0,
+          under = if (kindFilter == null) under else 0,
+          isCollapsed = link.id in collapsed,
+          onToggle = { setCollapsed(if (link.id in collapsed) collapsed - link.id else collapsed + link.id) },
           canAddIdea = otherIdeas.isNotEmpty(),
           onAddUnder = { kind ->
             addingUnder = link.id
+            // show what's about to be added under it
+            setCollapsed(collapsed - link.id)
             when (kind) {
               LinkTarget.Ayah.KIND -> addingVerse = true
               LinkTarget.Hadith.KIND -> onPickHadith(link.id)
@@ -528,7 +606,8 @@ fun IdeaScreen(
           // a note is edited here; everything else opens
           onOpen = { if (target is LinkTarget.Note) editingNote = target.uid else onOpenTarget(target) },
           onComment = { editingLink = link.id },
-          onRemove = { onRemoveLink(link) }
+          onRemove = { onRemoveLink(link) },
+          modifier = Modifier.animateItem()
         )
       }
     }
@@ -563,6 +642,71 @@ fun IdeaScreen(
   }
 }
 
+private fun kindIcon(kind: String): ImageVector = when (kind) {
+  LinkTarget.Ayah.KIND -> QuranIcons.MenuBook
+  LinkTarget.Hadith.KIND -> Library
+  LinkTarget.Idea.KIND -> LightBulb
+  else -> Quote
+}
+
+private fun kindLabel(kind: String): Int = when (kind) {
+  LinkTarget.Ayah.KIND -> R.string.research_map_verses
+  LinkTarget.Hadith.KIND -> R.string.research_map_hadith
+  LinkTarget.Idea.KIND -> R.string.research_map_ideas
+  else -> R.string.research_map_notes
+}
+
+/** verse, hadith, note or idea */
+@Composable
+private fun AddMenu(expanded: Boolean, canAddIdea: Boolean, onDismiss: () -> Unit, onPick: (kind: String) -> Unit) {
+  DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+    listOf(
+      LinkTarget.Ayah.KIND to R.string.research_add_verse,
+      LinkTarget.Hadith.KIND to R.string.research_add_hadith,
+      LinkTarget.Note.KIND to R.string.research_add_note,
+      LinkTarget.Idea.KIND to R.string.research_add_idea
+    ).forEach { (kind, label) ->
+      DropdownMenuItem(
+        text = { Text(stringResource(label)) },
+        leadingIcon = { Icon(kindIcon(kind), contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+        enabled = kind != LinkTarget.Idea.KIND || canAddIdea,
+        onClick = { onPick(kind) }
+      )
+    }
+  }
+}
+
+/** The idea's title, description and tags, folded; editing opens the fields. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun IdeaSummaryCard(title: String, body: String, tags: List<String>, onEdit: () -> Unit) {
+  Surface(onClick = onEdit, shape = RoundedCornerShape(16.dp), color = cardColor(), modifier = Modifier.fillMaxWidth()) {
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+          title.ifBlank { stringResource(R.string.research_untitled) },
+          style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)
+        )
+        Icon(Edit, contentDescription = stringResource(R.string.research_edit), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+      }
+      if (body.isNotBlank()) {
+        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 4, overflow = TextOverflow.Ellipsis)
+      }
+      if (tags.isNotEmpty()) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+          tags.forEach { tag ->
+            Text(
+              "#$tag", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                .padding(horizontal = 10.dp, vertical = 3.dp)
+            )
+          }
+        }
+      }
+    }
+  }
+}
+
 @Composable
 private fun LinkCard(
   link: IdeaLink,
@@ -571,11 +715,15 @@ private fun LinkCard(
   ideas: List<Idea>,
   note: NoteSource?,
   depth: Int,
+  under: Int,
+  isCollapsed: Boolean,
+  onToggle: () -> Unit,
   canAddIdea: Boolean,
   onAddUnder: (kind: String) -> Unit,
   onOpen: () -> Unit,
   onComment: () -> Unit,
-  onRemove: () -> Unit
+  onRemove: () -> Unit,
+  modifier: Modifier = Modifier
 ) {
   val target = link.target
   val title = when (target) {
@@ -593,100 +741,111 @@ private fun LinkCard(
     }
   }
   val arabic = arabicFont()
+  var menu by remember { mutableStateOf(false) }
   var addMenu by remember { mutableStateOf(false) }
-  // links under links step in, with a line back to their parent
-  Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-    repeat(depth) { level ->
-      Box(Modifier.width(18.dp).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+  val accent = relationColor(link.relation)
+  // links under links step in, with an elbow back to their parent
+  Row(modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+    if (depth > 0) {
+      Spacer(Modifier.width(16.dp * (depth - 1)))
+      Box(Modifier.width(16.dp).fillMaxHeight()) {
+        Box(Modifier.padding(start = 6.dp).width(2.dp).fillMaxHeight(0.5f).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)))
         Box(
-          Modifier.width(2.dp).fillMaxHeight()
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = if (level == depth - 1) 0.45f else 0.2f))
+          Modifier.padding(start = 6.dp).align(Alignment.CenterStart).width(10.dp).height(2.dp)
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
         )
       }
     }
-  Card(
-    onClick = onOpen,
-    shape = CardShape,
-    colors = CardDefaults.cardColors(containerColor = cardColor(), contentColor = MaterialTheme.colorScheme.onSurface),
-    modifier = Modifier.weight(1f)
-  ) {
-    Row(Modifier.height(IntrinsicSize.Min)) {
-      Box(Modifier.width(4.dp).fillMaxHeight().background(relationColor(link.relation)))
-      Column(Modifier.weight(1f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          Icon(
-            when (target) {
-              is LinkTarget.Ayah -> QuranIcons.MenuBook
-              is LinkTarget.Hadith -> Library
-              is LinkTarget.Idea -> LightBulb
-              is LinkTarget.Note -> Quote
-            },
-            contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp)
-          )
-          Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-          RelationChip(link.relation)
-          IconButton(onClick = onComment, modifier = Modifier.size(32.dp)) {
-            Icon(QuranIcons.Chat, contentDescription = stringResource(R.string.research_comment), modifier = Modifier.size(18.dp))
+    Card(
+      onClick = onOpen,
+      shape = CardShape,
+      colors = CardDefaults.cardColors(containerColor = cardColor(), contentColor = MaterialTheme.colorScheme.onSurface),
+      modifier = Modifier.weight(1f)
+    ) {
+      Row(Modifier.height(IntrinsicSize.Min)) {
+        Box(Modifier.width(4.dp).fillMaxHeight().background(accent))
+        Column(Modifier.weight(1f).padding(start = 12.dp, top = 6.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(
+              Modifier.size(28.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+              contentAlignment = Alignment.Center
+            ) { Icon(kindIcon(target.kind), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp)) }
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            RelationChip(link.relation)
+            Box {
+              IconButton(onClick = { menu = true }, modifier = Modifier.size(36.dp)) {
+                Icon(MoreVert, contentDescription = stringResource(R.string.research_more), modifier = Modifier.size(20.dp))
+              }
+              DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                DropdownMenuItem(
+                  text = { Text(stringResource(R.string.research_comment)) },
+                  leadingIcon = { Icon(QuranIcons.Chat, contentDescription = null) },
+                  onClick = { menu = false; onComment() }
+                )
+                DropdownMenuItem(
+                  text = { Text(stringResource(R.string.research_add_under)) },
+                  leadingIcon = { Icon(Plus, contentDescription = null) },
+                  onClick = { menu = false; addMenu = true }
+                )
+                DropdownMenuItem(
+                  text = { Text(stringResource(R.string.research_remove_link), color = MaterialTheme.colorScheme.error) },
+                  leadingIcon = { Icon(QuranIcons.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                  onClick = { menu = false; onRemove() }
+                )
+              }
+              AddMenu(addMenu, canAddIdea, onDismiss = { addMenu = false }) { kind -> addMenu = false; onAddUnder(kind) }
+            }
           }
-          IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-            Icon(QuranIcons.Close, contentDescription = stringResource(R.string.research_remove_link), modifier = Modifier.size(18.dp))
+          val p = preview
+          if (!p.isNullOrBlank()) {
+            Text(
+              p,
+              maxLines = if (target is LinkTarget.Note) 4 else 2,
+              overflow = TextOverflow.Ellipsis,
+              style = if (target is LinkTarget.Idea) MaterialTheme.typography.bodyMedium
+              else if (target is LinkTarget.Note) MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Content)
+              else TextStyle(fontFamily = arabic, fontSize = 17.sp, lineHeight = 28.sp, textDirection = TextDirection.Rtl),
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.padding(end = 12.dp)
+            )
           }
-        }
-        val p = preview
-        if (!p.isNullOrBlank()) {
-          Text(
-            p,
-            maxLines = if (target is LinkTarget.Note) 6 else 3,
-            overflow = TextOverflow.Ellipsis,
-            style = if (target is LinkTarget.Idea) MaterialTheme.typography.bodyMedium
-            else if (target is LinkTarget.Note) MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Content)
-            else TextStyle(fontFamily = arabic, fontSize = 18.sp, lineHeight = 30.sp, textDirection = TextDirection.Rtl),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-        } else if (target is LinkTarget.Hadith && preview == null) {
-          Spacer(Modifier.height(4.dp))
-        }
-        if (link.note.isNotBlank()) {
-          // the reader's own comment on why this is here
-          Row(
-            Modifier
-              .fillMaxWidth()
-              .clip(RoundedCornerShape(8.dp))
-              .background(relationColor(link.relation).copy(alpha = 0.08f))
-              .clickable(onClick = onComment)
-              .padding(10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-          ) {
-            Icon(QuranIcons.Chat, contentDescription = null, tint = relationColor(link.relation), modifier = Modifier.size(16.dp).padding(top = 2.dp))
-            Text(link.note, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+          if (link.note.isNotBlank()) {
+            // the reader's own comment on why this is here
+            Row(
+              Modifier
+                .padding(end = 12.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(accent.copy(alpha = 0.08f))
+                .clickable(onClick = onComment)
+                .padding(8.dp),
+              horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+              Icon(QuranIcons.Chat, contentDescription = null, tint = accent, modifier = Modifier.size(15.dp).padding(top = 2.dp))
+              Text(link.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            }
           }
-        }
-        // put a verse, hadith, note or idea under this one
-        Box {
-          TextButton(onClick = { addMenu = true }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
-            Icon(Plus, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(4.dp))
-            Text(stringResource(R.string.research_add_under), style = MaterialTheme.typography.labelLarge)
-          }
-          DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
-            listOf(
-              Triple(LinkTarget.Ayah.KIND, R.string.research_add_verse, QuranIcons.MenuBook),
-              Triple(LinkTarget.Hadith.KIND, R.string.research_add_hadith, Library),
-              Triple(LinkTarget.Note.KIND, R.string.research_add_note, Quote),
-              Triple(LinkTarget.Idea.KIND, R.string.research_add_idea, LightBulb)
-            ).forEach { (kind, label, icon) ->
-              DropdownMenuItem(
-                text = { Text(stringResource(label)) },
-                leadingIcon = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                enabled = kind != LinkTarget.Idea.KIND || canAddIdea,
-                onClick = { addMenu = false; onAddUnder(kind) }
+          if (under > 0) {
+            Row(
+              Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onToggle)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = if (isCollapsed) 0.14f else 0.07f))
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Icon(
+                QuranIcons.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp).rotate(if (isCollapsed) -90f else 0f)
+              )
+              Spacer(Modifier.width(4.dp))
+              Text(
+                stringResource(if (isCollapsed) R.string.research_show_under else R.string.research_hide_under, under),
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary
               )
             }
           }
         }
       }
     }
-  }
   }
 }
 
@@ -969,7 +1128,7 @@ fun HadithLibraryScreen(
 }
 
 @Composable
-private fun GradeChip(grade: String) {
+internal fun GradeChip(grade: String) {
   if (grade.isBlank()) return
   val g = grade.lowercase()
   val color = when {

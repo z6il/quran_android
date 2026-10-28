@@ -72,6 +72,7 @@ turbineVersion = "1.2.1"
 koverVersion = "0.9.11"
 
 [libraries]
+adhan = { module = "com.batoulapps.adhan:adhan", version = "1.2.1" }
 androidx-junit = { module = "androidx.test.ext:junit", version.ref = "junit" }
 androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3ExoplayerVersion" }
 androidx-media3-session = { module = "androidx.media3:media3-session", version.ref = "media3ExoplayerVersion" }

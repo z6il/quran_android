@@ -73,4 +73,10 @@
   <string name="research_note_source_hint">Scholar, book, page, or your own</string>
   <string name="research_map_notes">Notes</string>
   <string name="research_add_under">Add under this</string>
+  <string name="research_done">Done</string>
+  <string name="research_edit">Edit</string>
+  <string name="research_collapse_all">Collapse all</string>
+  <string name="research_expand_all">Expand all</string>
+  <string name="research_show_under">Show %1$d under this</string>
+  <string name="research_hide_under">Hide %1$d under this</string>
 </resources>

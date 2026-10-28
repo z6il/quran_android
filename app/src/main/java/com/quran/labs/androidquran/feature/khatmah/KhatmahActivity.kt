@@ -34,7 +34,7 @@ class KhatmahActivity : AppCompatActivity() {
       setContent {
         QuranTheme {
           val progress by khatmahStore.progress.collectAsState()
-          WithBottomBar(this@KhatmahActivity, AppTab.KHATMAH) {
+          WithBottomBar(this@KhatmahActivity, AppTab.MORE, showBar = false) {
           KhatmahScreen(
             progress = progress,
             totalPages = khatmahStore.totalPages,

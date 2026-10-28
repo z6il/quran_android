@@ -317,6 +317,9 @@ dependencies {
   // Number Picker
   implementation(libs.number.picker)
 
+  // prayer times and qibla
+  implementation(libs.adhan)
+
 }
 
 // Kover coverage configuration
