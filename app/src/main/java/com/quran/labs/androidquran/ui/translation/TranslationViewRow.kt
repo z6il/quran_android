@@ -16,7 +16,9 @@ internal class TranslationViewRow @JvmOverloads constructor(
   val linkPage: Int? = null,
   val isArabic: Boolean = false,
   val ayat: List<IntRange> = emptyList(),
-  private val footnotes: List<IntRange> = emptyList()
+  private val footnotes: List<IntRange> = emptyList(),
+  /** the translation or tafsir file the text comes from, for highlighting quotes */
+  val source: String? = null
 ) {
 
   fun footnoteCognizantText(

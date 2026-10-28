@@ -7,6 +7,9 @@ import android.content.res.Configuration
 import android.content.Context
 import android.graphics.Typeface
 import android.text.SpannableString
+import com.quran.labs.androidquran.feature.research.ResearchActivity
+import com.quran.labs.androidquran.feature.research.TafsirQuote
+import com.quran.labs.androidquran.feature.research.TafsirQuotes
 import com.quran.labs.androidquran.ui.translation.TafsirStyle
 import com.quran.labs.androidquran.util.QuranUtils
 import android.text.SpannableStringBuilder
@@ -178,13 +181,37 @@ class InlineTranslationView @JvmOverloads constructor(
         }
         setTextIsSelectable(true)
       }
-      val full = stylize(ayah.texts[i], translations[i].languageCode, translationText)
+      val tafsirFile = translations[i].filename
+      val quotes = runCatching { TafsirQuotes.get(context).forAyah(tafsirFile, ayah.sura, ayah.ayah) }.getOrDefault(emptyList())
+      val full = highlightQuotes(stylize(ayah.texts[i], translations[i].languageCode, translationText), quotes)
+      // select a passage, then "Add to research" quotes it into an idea with its reference
+      val source = translations[i].resolveTranslatorName() + " · " + context.getString(R.string.sura_ayah, ayah.sura, ayah.ayah)
+      body.customSelectionActionModeCallback = QuoteActionMode(body) { selected ->
+        context.startActivity(ResearchActivity.quoteTafsirIntent(context, selected, source, tafsirFile, ayah.sura, ayah.ayah))
+      }
       // a long tafsir opens on its first sentences; the rest is a tap away
       val cut = if (full.length > LONG_TAFSIR) TafsirStyle.cutPoint(full, PREVIEW_LENGTH) else -1
       body.text = if (cut == -1) full else full.subSequence(0, cut + 1)
       card.addView(body, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
         topMargin = dp(6)
       })
+      if (quotes.isNotEmpty()) {
+        // what was quoted from here, and a way back to the idea
+        val chip = TextView(context).apply {
+          text = context.getString(R.string.research_quoted_here, quotes.size)
+          setTextColor(accent)
+          textSize = 13f
+          setTypeface(null, Typeface.BOLD)
+          background = rounded(quoteHighlight(), 50f)
+          setPadding(dp(12), dp(6), dp(12), dp(6))
+          if (arabic) layoutDirection = View.LAYOUT_DIRECTION_RTL
+          setOnClickListener { context.startActivity(ResearchActivity.openNoteIntent(context, quotes.last().noteUid)) }
+        }
+        card.addView(chip, LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+          topMargin = dp(8)
+          gravity = if (arabic) android.view.Gravity.END else android.view.Gravity.START
+        })
+      }
       if (cut != -1) {
         val minutes = QuranUtils.getLocalizedNumber(TafsirStyle.minutes(full))
         val readAll = context.getString(if (arabic) R.string.tafsir_read_all_ar else R.string.tafsir_read_all_en, minutes)
@@ -265,6 +292,22 @@ class InlineTranslationView @JvmOverloads constructor(
     )
     // Arabic tafsir: chains of narration step back so the explanation stands out
     return if (languageCode == "ar") TafsirStyle.style(text, inlineAyahColor, tint(ayahTextColor, 0x8C)) else text
+  }
+
+  private fun quoteHighlight() = if (isNight) 0x4DFFC107 else 0x66FFE082.toInt()
+
+  /** marks the passages already quoted into the research */
+  private fun highlightQuotes(text: CharSequence, quotes: List<TafsirQuote>): CharSequence {
+    if (quotes.isEmpty()) return text
+    val out = SpannableStringBuilder(text)
+    val plain = text.toString()
+    quotes.forEach { quote ->
+      val start = plain.indexOf(quote.text)
+      if (start >= 0) {
+        out.setSpan(android.text.style.BackgroundColorSpan(quoteHighlight()), start, start + quote.text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+      }
+    }
+    return out
   }
 
   companion object {

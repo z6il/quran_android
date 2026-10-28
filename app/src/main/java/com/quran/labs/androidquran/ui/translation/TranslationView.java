@@ -161,7 +161,8 @@ public class TranslationView extends FrameLayout implements View.OnClickListener
               metadata == null ? null : metadata.getLinkPageNumber(),
               "ar".equals(sortedTranslations[j].getLanguageCode()),
               metadata == null ? Collections.emptyList() : metadata.getAyat(),
-              metadata == null ? Collections.emptyList() : metadata.getFootnotes()
+              metadata == null ? Collections.emptyList() : metadata.getFootnotes(),
+              sortedTranslations[j].getFilename()
               ));
         }
       }

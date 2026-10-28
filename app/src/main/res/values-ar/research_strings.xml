@@ -79,4 +79,6 @@
   <string name="research_expand_all">توسيع الكل</string>
   <string name="research_show_under">إظهار %1$d تحته</string>
   <string name="research_hide_under">إخفاء %1$d تحته</string>
+  <string name="research_quote_tafsir">أضف إلى البحث</string>
+  <string name="research_quoted_here">مقتبس في بحثك (%1$d)</string>
 </resources>

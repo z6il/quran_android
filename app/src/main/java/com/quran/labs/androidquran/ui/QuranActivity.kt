@@ -48,6 +48,8 @@ import com.quran.labs.androidquran.feature.home.AppNav
 import com.quran.labs.androidquran.feature.home.AppTab
 import com.quran.labs.androidquran.feature.adhkar.AdhkarStore
 import com.quran.labs.androidquran.feature.khatmah.KhatmahActivity
+import com.quran.labs.androidquran.feature.update.UpdateController
+import com.quran.labs.androidquran.feature.update.UpdatePrompt
 import com.quran.labs.androidquran.feature.khatmah.KhatmahStore
 import com.quran.labs.androidquran.feature.reading.model.LatestPageTracker
 import com.quran.labs.androidquran.presenter.data.QuranIndexEventLogger
@@ -151,6 +153,8 @@ class QuranActivity : AppCompatActivity(),
 
   private var jumpToPageOnResume: Int? = null
 
+  private val updates = UpdateController(this)
+
   public override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
@@ -198,8 +202,10 @@ class QuranActivity : AppCompatActivity(),
     findViewById<ComposeView>(R.id.bottom_bar).setContent {
       QuranTheme {
         AppBottomBar(AppTab.QURAN, onSelect = { AppNav.go(this@QuranActivity, AppTab.QURAN, it) })
+        UpdatePrompt(updates)
       }
     }
+    updates.checkOnStart()
     jumpToPageOnResume = if (isRtl) {
       TITLES.size - 1
     } else {
@@ -237,6 +243,7 @@ class QuranActivity : AppCompatActivity(),
   }
 
   public override fun onResume() {
+    updates.onResume()
     super.onResume()
     // pages read while away, or a new day, change the khatmah and adhkar cards
     khatmahStore.refresh()

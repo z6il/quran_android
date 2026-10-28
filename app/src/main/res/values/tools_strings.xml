@@ -172,4 +172,14 @@
   <string name="qibla_upright">Held upright: the direction is where the back of the phone points</string>
   <string name="more_research_detail">Ideas linked to verses and hadith</string>
   <string name="prayer_sound_qassas_missing">This adhan isn\'t available to download yet. Meanwhile, choose «Adhan» and pick an adhan file from your phone.</string>
+  <string name="app_update_available">Update available</string>
+  <string name="app_update_now">Update</string>
+  <string name="app_update_later">Later</string>
+  <string name="app_update_downloading">Downloading… %1$d%%</string>
+  <string name="app_update_none">You have the latest version</string>
+  <string name="app_update_check_failed">Couldn\'t check for updates. Check your connection.</string>
+  <string name="app_update_download_failed">The update didn\'t download (%1$s). Try again.</string>
+  <string name="app_update_allow_installs">Allow installs from this app, then come back to finish the update</string>
+  <string name="app_update_check">Check for updates</string>
+  <string name="app_update_this_version">This version: %1$s</string>
 </resources>

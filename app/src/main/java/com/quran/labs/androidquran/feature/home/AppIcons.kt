@@ -50,6 +50,7 @@ object AppIcons {
       "v2.06C6.83,3.52 3.52,6.83 3.06,11H1v2h2.06c0.46,4.17 3.77,7.48 7.94,7.94V23h2v-2.06c4.17,-0.46 7.48,-3.77 7.94,-7.94H23v-2h-2.06z" +
       "M12,19c-3.87,0 -7,-3.13 -7,-7s3.13,-7 7,-7 7,3.13 7,7 -3.13,7 -7,7z")
   }
+  val Download by lazy { icon("Update", "M19,9h-4V3H9v6H5l7,7 7,-7zM5,18v2h14v-2H5z") }
   val ChevronLeft by lazy { icon("Previous", "M15.41,7.41L14,6l-6,6 6,6 1.41,-1.41L10.83,12z") }
   val ChevronRight by lazy { icon("Next", "M10,6L8.59,7.41 13.17,12l-4.58,4.59L10,18l6,-6z") }
   val Star by lazy { icon("Favourite", "M12,17.27L18.18,21l-1.64,-7.03L22,9.24l-7.19,-0.61L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21z") }

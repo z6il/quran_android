@@ -172,4 +172,14 @@
   <string name="qibla_upright">الجهاز قائم: الاتجاه هو ما يشير إليه ظهر الجهاز</string>
   <string name="more_research_detail">أفكار مربوطة بالآيات والأحاديث</string>
   <string name="prayer_sound_qassas_missing">هذا الأذان غير متاح للتحميل بعد. يمكنك مؤقتًا اختيار «الأذان» واختيار ملف أذان من جهازك.</string>
+  <string name="app_update_available">يتوفر تحديث</string>
+  <string name="app_update_now">تحديث</string>
+  <string name="app_update_later">لاحقًا</string>
+  <string name="app_update_downloading">جارٍ التحميل… %1$d%%</string>
+  <string name="app_update_none">لديك أحدث إصدار</string>
+  <string name="app_update_check_failed">تعذّر البحث عن تحديثات. تحقق من الاتصال.</string>
+  <string name="app_update_download_failed">لم يكتمل تحميل التحديث (%1$s). حاول مجددًا.</string>
+  <string name="app_update_allow_installs">اسمح بالتثبيت من هذا التطبيق ثم عُد لإكمال التحديث</string>
+  <string name="app_update_check">البحث عن تحديثات</string>
+  <string name="app_update_this_version">هذا الإصدار: %1$s</string>
 </resources>

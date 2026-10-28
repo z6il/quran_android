@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- "Add to research" in the text selection menu of a tafsir -->
+  <item name="quote_to_research" type="id" />
+</resources>

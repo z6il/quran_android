@@ -980,7 +980,10 @@ fun PickIdeaScreen(
   text: ResearchText,
   hadith: suspend (LinkTarget.Hadith) -> HadithEntry?,
   onPick: (ideaId: Long?, newTitle: String?, relation: Relation) -> Unit,
-  onBack: () -> Unit
+  onBack: () -> Unit,
+  /** a note not saved yet, such as a tafsir quote: its source and text */
+  noteTitle: String? = null,
+  noteText: String? = null
 ) {
   var chosen by rememberSaveable { mutableStateOf<Long?>(ideas.firstOrNull()?.idea?.id) }
   var newTitle by rememberSaveable { mutableStateOf("") }
@@ -989,7 +992,8 @@ fun PickIdeaScreen(
     value = when (target) {
       is LinkTarget.Ayah -> text.verseText(target)
       is LinkTarget.Hadith -> hadith(target)?.displayText
-      is LinkTarget.Idea, is LinkTarget.Note -> null
+      is LinkTarget.Note -> noteText
+      is LinkTarget.Idea -> null
     }
   }
   val arabic = arabicFont()
@@ -1002,12 +1006,13 @@ fun PickIdeaScreen(
               when (target) {
                 is LinkTarget.Ayah -> text.suraName(target.sura) + " " + target.ref
                 is LinkTarget.Hadith -> text.collectionName(target.collection) + " " + target.number
-                is LinkTarget.Idea, is LinkTarget.Note -> ""
+                is LinkTarget.Note -> noteTitle.orEmpty()
+                is LinkTarget.Idea -> ""
               },
               style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary
             )
             preview?.let {
-              Text(it, maxLines = 4, overflow = TextOverflow.Ellipsis,
+              Text(it, maxLines = if (noteText != null) 8 else 4, overflow = TextOverflow.Ellipsis,
                 style = TextStyle(fontFamily = arabic, fontSize = 19.sp, lineHeight = 32.sp, textDirection = TextDirection.Rtl))
             }
           }

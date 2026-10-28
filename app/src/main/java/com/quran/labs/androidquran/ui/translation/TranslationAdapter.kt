@@ -8,6 +8,7 @@ import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.method.LinkMovementMethod
+import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
@@ -25,6 +26,7 @@ import com.quran.data.model.SuraAyah
 import com.quran.data.model.highlight.HighlightType
 import com.quran.labs.androidquran.R
 import com.quran.labs.androidquran.common.QuranAyahInfo
+import com.quran.labs.androidquran.feature.research.TafsirQuotes
 import com.quran.labs.androidquran.model.translation.ArabicDatabaseUtils
 import com.quran.labs.androidquran.ui.helpers.ExpandFootnoteSpan
 import com.quran.labs.androidquran.ui.helpers.ExpandTafseerSpan
@@ -395,7 +397,8 @@ internal class TranslationAdapter(
                 )
               )
               // Arabic tafsir: chains of narration step back so the explanation stands out
-              val spannable = if (row.isArabic) TafsirStyle.style(footnoted, inlineAyahColor, tint(textColor, 0x8C)) else footnoted
+              val styled = if (row.isArabic) TafsirStyle.style(footnoted, inlineAyahColor, tint(textColor, 0x8C)) else footnoted
+              val spannable = highlightQuotes(styled, row)
 
               when {
                 row.link != null && !expandHyperlink -> SpannableString(getAyahLink(row.link)).apply {
@@ -456,6 +459,23 @@ internal class TranslationAdapter(
       }
     }
     updateHighlight(row, holder)
+  }
+
+  /** passages already quoted into the research, marked so the reader remembers them */
+  private fun highlightQuotes(text: CharSequence, row: TranslationViewRow): CharSequence {
+    val source = row.source ?: return text
+    val quotes = runCatching {
+      TafsirQuotes.get(context).forAyah(source, row.ayahInfo.sura, row.ayahInfo.ayah)
+    }.getOrDefault(emptyList())
+    if (quotes.isEmpty()) return text
+    val out = SpannableStringBuilder(text)
+    val plain = text.toString()
+    val color = if (isNightMode) 0x4DFFC107 else 0x66FFE082
+    quotes.forEach { quote ->
+      val start = plain.indexOf(quote.text)
+      if (start >= 0) out.setSpan(BackgroundColorSpan(color), start, start + quote.text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+    return out
   }
 
   private fun collapsedFootnoteSpan(number: Int): SpannableString {

@@ -59,6 +59,8 @@ class ResearchActivity : AppCompatActivity() {
     data class Library(val forIdea: Long?, val under: Long? = null) : Screen
     data class HadithDetail(val entry: HadithEntry, val forIdea: Long?, val under: Long? = null) : Screen
     data class PickIdea(val target: LinkTarget) : Screen
+    /** a passage quoted from a tafsir, to become a note in an idea */
+    data class PickQuote(val text: String, val source: String, val tafsir: String, val sura: Int, val ayah: Int) : Screen
     data object Map : Screen
   }
 
@@ -98,6 +100,28 @@ class ResearchActivity : AppCompatActivity() {
     if (target != null && savedInstanceState == null) {
       stack.clear()
       stack.add(Screen.PickIdea(target))
+    }
+    val quote = intent.getStringExtra(EXTRA_QUOTE_TEXT)
+    if (quote != null && savedInstanceState == null) {
+      stack.clear()
+      stack.add(
+        Screen.PickQuote(
+          quote, intent.getStringExtra(EXTRA_QUOTE_SOURCE).orEmpty(), intent.getStringExtra(EXTRA_QUOTE_TAFSIR).orEmpty(),
+          intent.getIntExtra(EXTRA_QUOTE_SURA, 0), intent.getIntExtra(EXTRA_QUOTE_AYAH, 0)
+        )
+      )
+    }
+    val openNote = intent.getStringExtra(EXTRA_OPEN_NOTE)
+    if (openNote != null && savedInstanceState == null) {
+      lifecycleScope.launch {
+        val idea = store.ideasLinking(LinkTarget.Note(openNote)).firstOrNull()
+        if (idea != null) {
+          stack.add(Screen.IdeaDetail(idea.id))
+        } else {
+          // the note was removed from the research since; stop highlighting it
+          TafsirQuotes.get(this@ResearchActivity).remove(openNote)
+        }
+      }
     }
     if (savedInstanceState == null) readShared(intent)
     onBackPressedDispatcher.addCallback(this) { back() }
@@ -237,6 +261,27 @@ class ResearchActivity : AppCompatActivity() {
         },
         onBack = { back() }
       )
+      is Screen.PickQuote -> PickIdeaScreen(
+        target = LinkTarget.Note(""),
+        ideas = ideas,
+        text = text,
+        hadith = { library.hadith(it) },
+        noteTitle = screen.source,
+        noteText = screen.text,
+        onPick = { ideaId, newTitle, relation ->
+          scope.launch {
+            val id = ideaId ?: store.createIdea(newTitle.orEmpty())
+            val uid = store.addNote(id, screen.text, screen.source, relation)
+            withContext(Dispatchers.IO) {
+              TafsirQuotes.get(this@ResearchActivity).add(TafsirQuote(uid, screen.tafsir, screen.sura, screen.ayah, screen.text))
+            }
+            stack.clear()
+            stack.add(Screen.Ideas)
+            stack.add(Screen.IdeaDetail(id))
+          }
+        },
+        onBack = { back() }
+      )
       Screen.Map -> ResearchMap(
         store = store,
         text = text,
@@ -327,6 +372,24 @@ class ResearchActivity : AppCompatActivity() {
     private const val EXTRA_KIND = "kind"
     private const val EXTRA_REF = "ref"
     private const val PREF_AUTHOR = "author"
+    private const val EXTRA_QUOTE_TEXT = "quote_text"
+    private const val EXTRA_QUOTE_SOURCE = "quote_source"
+    private const val EXTRA_QUOTE_TAFSIR = "quote_tafsir"
+    private const val EXTRA_QUOTE_SURA = "quote_sura"
+    private const val EXTRA_QUOTE_AYAH = "quote_ayah"
+    private const val EXTRA_OPEN_NOTE = "open_note"
+
+    /** a passage selected in a tafsir, to add to an idea as a note with its reference */
+    fun quoteTafsirIntent(context: Context, text: String, source: String, tafsir: String, sura: Int, ayah: Int): Intent =
+      intent(context)
+        .putExtra(EXTRA_QUOTE_TEXT, text)
+        .putExtra(EXTRA_QUOTE_SOURCE, source)
+        .putExtra(EXTRA_QUOTE_TAFSIR, tafsir)
+        .putExtra(EXTRA_QUOTE_SURA, sura)
+        .putExtra(EXTRA_QUOTE_AYAH, ayah)
+
+    /** opens the idea a note (e.g. a tafsir quote) belongs to */
+    fun openNoteIntent(context: Context, noteUid: String): Intent = intent(context).putExtra(EXTRA_OPEN_NOTE, noteUid)
 
     fun intent(context: Context): Intent = Intent(context, ResearchActivity::class.java)
 

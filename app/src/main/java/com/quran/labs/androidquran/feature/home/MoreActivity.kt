@@ -41,10 +41,20 @@ import com.quran.labs.androidquran.feature.khatmah.KhatmahActivity
 import com.quran.labs.androidquran.feature.prayer.AppTopBar
 import com.quran.labs.androidquran.feature.prayer.QiblaActivity
 import com.quran.labs.androidquran.feature.prayer.cardColor
+import com.quran.labs.androidquran.feature.update.AppUpdater
+import com.quran.labs.androidquran.feature.update.UpdateController
+import com.quran.labs.androidquran.feature.update.UpdatePrompt
 
 /** Everything that isn't in the bottom bar. */
 class MoreActivity : AppCompatActivity() {
   private class Entry(val icon: ImageVector, val title: Int, val detail: Int, val open: () -> Intent)
+
+  private val updates = UpdateController(this)
+
+  override fun onResume() {
+    super.onResume()
+    updates.onResume()
+  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
@@ -58,6 +68,7 @@ class MoreActivity : AppCompatActivity() {
     setContentView(ComposeView(this).apply {
       setContent {
         QuranTheme {
+          UpdatePrompt(updates)
           WithBottomBar(this@MoreActivity, AppTab.MORE) {
             Scaffold(topBar = { AppTopBar(stringResource(R.string.nav_more), onBack = null) }, containerColor = MaterialTheme.colorScheme.surface) { padding ->
               LazyVerticalGrid(
@@ -67,6 +78,9 @@ class MoreActivity : AppCompatActivity() {
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
               ) {
+                item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+                  UpdateTile(checking = updates.checking, onCheck = updates::checkNow)
+                }
                 items(entries) { entry ->
                   Surface(
                     onClick = { startActivity(entry.open()) },
@@ -97,5 +111,32 @@ class MoreActivity : AppCompatActivity() {
         }
       }
     })
+  }
+}
+
+/** this version, and a check for a newer one on GitHub */
+@androidx.compose.runtime.Composable
+private fun UpdateTile(checking: Boolean, onCheck: () -> Unit) {
+  Surface(onClick = onCheck, enabled = !checking, shape = RoundedCornerShape(20.dp), color = cardColor(), modifier = Modifier.fillMaxWidth()) {
+    androidx.compose.foundation.layout.Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+      Box(
+        Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.13f)),
+        contentAlignment = Alignment.Center
+      ) {
+        if (checking) {
+          androidx.compose.material3.CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.5.dp)
+        } else {
+          Icon(AppIcons.Download, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+        }
+      }
+      Spacer(Modifier.size(14.dp))
+      Column(Modifier.weight(1f)) {
+        Text(stringResource(R.string.app_update_check), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(
+          stringResource(R.string.app_update_this_version, "3.6.4-z6il." + AppUpdater.currentBuild),
+          style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+      }
+    }
   }
 }

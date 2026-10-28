@@ -14,6 +14,8 @@
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+  <!-- installing updates from the fork's GitHub releases; Android asks the reader each time -->
+  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
 
   <!-- foreground services need this when targeting Android 9+ (Api 28+) -->
   <uses-permission-sdk-23 android:name="android.permission.FOREGROUND_SERVICE"/>

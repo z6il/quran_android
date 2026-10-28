@@ -10,4 +10,8 @@
   <files-path
       name="prayer"
       path="prayer/" />
+  <!-- a downloaded update, handed to the installer -->
+  <cache-path
+      name="update"
+      path="update/" />
 </paths>

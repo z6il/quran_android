@@ -79,4 +79,6 @@
   <string name="research_expand_all">Expand all</string>
   <string name="research_show_under">Show %1$d under this</string>
   <string name="research_hide_under">Hide %1$d under this</string>
+  <string name="research_quote_tafsir">Add to research</string>
+  <string name="research_quoted_here">Quoted in your research (%1$d)</string>
 </resources>

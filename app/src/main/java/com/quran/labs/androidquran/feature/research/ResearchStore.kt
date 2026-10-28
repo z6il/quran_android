@@ -115,11 +115,12 @@ class ResearchStore @Inject constructor(
       mutableIdeas.value = loadSummaries()
     }
 
-  /** adds a note source (a quote or finding) and links [ideaId] to it */
-  suspend fun addNote(ideaId: Long, text: String, source: String, relation: Relation, parentId: Long? = null) {
+  /** adds a note source (a quote or finding), links [ideaId] to it, and returns its uid */
+  suspend fun addNote(ideaId: Long, text: String, source: String, relation: Relation, parentId: Long? = null): String {
     val uid = UUID.randomUUID().toString()
     withContext(Dispatchers.IO) { saveNote(helper.writableDatabase, uid, text, source) }
     addLink(ideaId, LinkTarget.Note(uid), relation, parentId = parentId)
+    return uid
   }
 
   suspend fun updateNote(ideaId: Long, uid: String, text: String, source: String) = withContext(Dispatchers.IO) {
