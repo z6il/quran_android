@@ -90,7 +90,7 @@ enum class HadithTopic(@StringRes val label: Int) {
  * Approximate, and said so where it's shown.
  */
 object HadithTopicMap {
-  val COLLECTIONS = setOf("ahmad", "darimi")
+  val COLLECTIONS = setOf("darimi")
 
   @Volatile private var map: Map<String, Map<HadithTopic, List<String>>>? = null
 
@@ -136,7 +136,8 @@ enum class GradeLevel(@StringRes val label: Int, val color: Color) {
         "munkar" in g || "shadh" in g || "jiddan" in g || "منكر" in g || "شاذ" in g -> VERY_WEAK
         DAIF_WORDS.containsMatchIn(g) -> DAIF
         "hasan sahih" in g || "حسن صحيح" in g || "متفق عليه" in g -> SAHIH
-        "hasan" in g || "حسن" in g -> HASAN
+        // "qawi" (a strong chain): counted with hasan, to be cautious
+        "hasan" in g || "حسن" in g || "qawi" in g || "قوي" in g -> HASAN
         "sahih" in g || "صحيح" in g -> SAHIH
         collection == "bukhari" || collection == "muslim" -> SAHIH
         else -> UNGRADED

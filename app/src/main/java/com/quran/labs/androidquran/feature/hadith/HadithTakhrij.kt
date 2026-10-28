@@ -39,7 +39,7 @@ object HadithTakhrij {
     else -> GradeLevel.of(takhrij, "")
   }
 
-  private val WITH_TAKHRIJ = setOf("riyadussalihin", "bulugh", "nawawi40", "qudsi40")
+  private val WITH_TAKHRIJ = setOf("riyadussalihin", "bulugh", "nawawi40", "qudsi40", "shahwaliullah40")
 
   @Volatile private var parallels: Map<String, List<Parallel>>? = null
 

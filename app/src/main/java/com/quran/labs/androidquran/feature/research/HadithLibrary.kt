@@ -258,12 +258,12 @@ class HadithLibrary @Inject constructor(
   )
 
   companion object {
-    const val DOWNLOAD_URL = "https://github.com/z6il/quran_android/releases/download/hadith-library-v2/hadith.zip"
-    private const val EXPECTED_ZIP_BYTES = 23_824_969L
+    const val DOWNLOAD_URL = "https://github.com/z6il/quran_android/releases/download/hadith-library-v3/hadith.zip"
+    private const val EXPECTED_ZIP_BYTES = 16_938_463L
     /** the library this app expects; an older one installed is offered as an update */
-    const val CURRENT_VERSION = 2
+    const val CURRENT_VERSION = 3
     /** collections whose books are only ranges of numbers, or single short books: left out of the topic index */
-    val NOT_IN_TOPICS = setOf("nawawi40", "qudsi40")
+    val NOT_IN_TOPICS = setOf("nawawi40", "qudsi40", "shahwaliullah40", "ahmad")
 
     private val HARAKAT = Regex("[\\u0610-\\u061A\\u064B-\\u065F\\u0670\\u06D6-\\u06ED\\u0640\\u200f\\u200e]")
 

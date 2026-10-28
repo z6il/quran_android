@@ -30,7 +30,7 @@
   <string name="research_remove_link">إزالة الرابط</string>
   <string name="research_back">رجوع</string>
   <string name="research_hadith_library">مكتبة الحديث</string>
-  <string name="research_library_intro">ستة عشر كتابًا بالعربية: الكتب الستة ومسند الإمام أحمد وموطأ مالك وسنن الدارمي ورياض الصالحين والأدب المفرد وغيرها، مع الأحكام حيث يذكرها المصدر. تُنزَّل مرة واحدة، نحو %1$d ميغابايت، ثم تعمل دون اتصال.</string>
+  <string name="research_library_intro">ثمانية عشر كتابًا بالعربية كما في sunnah.com: الكتب التسعة ورياض الصالحين والأدب المفرد ومشكاة المصابيح والأربعينات وغيرها، مع أحكامها. تُنزَّل مرة واحدة، نحو %1$d ميغابايت، ثم تعمل دون اتصال.</string>
   <string name="research_download">تنزيل</string>
   <string name="research_downloading">جارٍ التنزيل… %1$d٪</string>
   <string name="research_download_failed">لم يكتمل التنزيل (%1$s). تحقّق من الاتصال وأعد المحاولة.</string>
