@@ -91,6 +91,7 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quran.labs.androidquran.R
+import com.quran.mobile.common.ui.core.R as UiCoreR
 import com.quran.labs.androidquran.common.ui.core.QuranIcons
 import com.quran.labs.androidquran.feature.khatmah.ProgressRing
 import kotlinx.coroutines.delay
@@ -520,7 +521,23 @@ private fun DhikrPage(
         modifier = Modifier.fillMaxWidth()
       )
       AdhkarVirtues.of(dhikr)?.let { VirtueCard(it, arabicFont) }
-      if (dhikr.reference.isNotBlank()) {
+      val suraNames = LocalContext.current.resources.getStringArray(UiCoreR.array.sura_names)
+      val arabicSource = remember(dhikr.reference) {
+        if (isArabicUi()) AdhkarSources.arabic(dhikr.reference) { suraNames[it - 1] } else null
+      }
+      if (arabicSource != null) {
+        // short enough to show as it is
+        Surface(shape = RoundedCornerShape(8.dp), color = cardColor(), modifier = Modifier.fillMaxWidth()) {
+          Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(R.string.adhkar_reference), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(
+              arabicSource,
+              style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Rtl),
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
+        }
+      } else if (dhikr.reference.isNotBlank() && !isArabicUi()) {
         Surface(
           onClick = { showReference = !showReference },
           shape = RoundedCornerShape(8.dp),

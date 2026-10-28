@@ -58,6 +58,7 @@ class HadithActivity : AppCompatActivity() {
   private var collections by mutableStateOf<List<HadithCollection>>(emptyList())
   private var ofTheDay by mutableStateOf<HadithEntry?>(null)
   private var topics by mutableStateOf<List<Pair<HadithTopic, List<HadithBook>>>>(emptyList())
+  private val searchState = HadithSearchState()
 
   private val names = CollectionNames { slug ->
     val c = collections.firstOrNull { it.slug == slug }
@@ -111,6 +112,7 @@ class HadithActivity : AppCompatActivity() {
         favorites = starredSet,
         ofTheDay = ofTheDay,
         topics = topics,
+        searchState = searchState,
         search = { q, c -> library.search(q, c) },
         onDownload = { lifecycleScope.launch { library.download() } },
         onTopic = { stack.add(Screen.Topic(it)) },

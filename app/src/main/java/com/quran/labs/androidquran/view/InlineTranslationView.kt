@@ -7,6 +7,8 @@ import android.content.res.Configuration
 import android.content.Context
 import android.graphics.Typeface
 import android.text.SpannableString
+import com.quran.labs.androidquran.ui.translation.TafsirStyle
+import com.quran.labs.androidquran.util.QuranUtils
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextUtils
@@ -174,12 +176,38 @@ class InlineTranslationView @JvmOverloads constructor(
           layoutDirection = View.LAYOUT_DIRECTION_RTL
           textDirection = View.TEXT_DIRECTION_RTL
         }
-        text = stylize(ayah.texts[i], translations[i].languageCode, translationText)
         setTextIsSelectable(true)
       }
+      val full = stylize(ayah.texts[i], translations[i].languageCode, translationText)
+      // a long tafsir opens on its first sentences; the rest is a tap away
+      val cut = if (full.length > LONG_TAFSIR) TafsirStyle.cutPoint(full, PREVIEW_LENGTH) else -1
+      body.text = if (cut == -1) full else full.subSequence(0, cut + 1)
       card.addView(body, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
         topMargin = dp(6)
       })
+      if (cut != -1) {
+        val minutes = QuranUtils.getLocalizedNumber(TafsirStyle.minutes(full))
+        val readAll = context.getString(if (arabic) R.string.tafsir_read_all_ar else R.string.tafsir_read_all_en, minutes)
+        val showLess = context.getString(if (arabic) R.string.tafsir_show_less_ar else R.string.tafsir_show_less_en)
+        val toggle = TextView(context).apply {
+          text = readAll
+          setTextColor(accent)
+          textSize = 14f
+          setTypeface(null, Typeface.BOLD)
+          background = rounded(tint(accent, if (isNight) 0x33 else 0x1A), 50f)
+          setPadding(dp(14), dp(7), dp(14), dp(7))
+          if (arabic) layoutDirection = View.LAYOUT_DIRECTION_RTL
+          setOnClickListener {
+            val open = body.text.length < full.length
+            body.text = if (open) full else full.subSequence(0, cut + 1)
+            text = if (open) showLess else readAll
+          }
+        }
+        card.addView(toggle, LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+          topMargin = dp(10)
+          gravity = if (arabic) android.view.Gravity.END else android.view.Gravity.START
+        })
+      }
     }
     linearLayout.addView(card, cardParams)
   }
@@ -229,11 +257,18 @@ class InlineTranslationView @JvmOverloads constructor(
       )
     }
 
-    return metadata.footnoteCognizantText(
+    val text = metadata.footnoteCognizantText(
       spannableStringBuilder,
       listOf(),
       ::collapsedFootnoteSpan,
       ::expandedFootnote
     )
+    // Arabic tafsir: chains of narration step back so the explanation stands out
+    return if (languageCode == "ar") TafsirStyle.style(text, inlineAyahColor, tint(ayahTextColor, 0x8C)) else text
+  }
+
+  companion object {
+    private const val LONG_TAFSIR = 750
+    private const val PREVIEW_LENGTH = 480
   }
 }

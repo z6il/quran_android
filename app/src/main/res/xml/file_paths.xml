@@ -6,4 +6,8 @@
   <cache-path
       name="shared"
       path="shared/" />
+  <!-- the adhan file chosen for prayer alerts, read by the system when it plays the sound -->
+  <files-path
+      name="prayer"
+      path="prayer/" />
 </paths>

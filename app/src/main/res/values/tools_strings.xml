@@ -143,4 +143,15 @@
   <string name="hadith_topic_end_times">Last day and trials</string>
   <string name="hadith_topic_other">Other</string>
   <string name="adhkar_virtue">Its virtue</string>
+  <string name="prayer_sound">Alert sound</string>
+  <string name="prayer_sound_adhan">Adhan</string>
+  <string name="prayer_sound_adhan_detail">Choose an adhan audio file from your phone</string>
+  <string name="prayer_sound_default">Phone notification sound</string>
+  <string name="prayer_sound_phone">Another phone sound</string>
+  <string name="prayer_sound_phone_detail">Pick from your phone sounds</string>
+  <string name="prayer_sound_vibrate">Vibrate only</string>
+  <string name="prayer_sound_silent">Silent</string>
+  <string name="prayer_sound_test">Test the alert</string>
+  <string name="prayer_stop_adhan">Stop</string>
+  <string name="prayer_sound_failed">Couldn\'t read that file. Try another audio file.</string>
 </resources>

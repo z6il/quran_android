@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -73,6 +74,20 @@ private val CardShape = RoundedCornerShape(16.dp)
 
 private fun Int.localized(): String = String.format(Locale.getDefault(), "%,d", this)
 
+/**
+ * The home screen's search and where it was scrolled, kept by the activity so that opening a
+ * hadith and coming back returns to the same results.
+ */
+class HadithSearchState {
+  var query by mutableStateOf("")
+  var collection by mutableStateOf<String?>(null)
+  var grade by mutableStateOf<GradeLevel?>(null)
+  var results by mutableStateOf<List<HadithEntry>?>(null)
+  /** what [results] were found for, so returning doesn't search again */
+  internal var searched: Pair<String, String?>? = null
+  val list = LazyListState()
+}
+
 /** names of the books, in the reader's language */
 fun interface CollectionNames {
   fun name(slug: String): String
@@ -89,6 +104,7 @@ fun HadithHome(
   favorites: Set<LinkTarget.Hadith>,
   ofTheDay: HadithEntry?,
   topics: List<Pair<HadithTopic, List<HadithBook>>>,
+  searchState: HadithSearchState,
   search: suspend (String, String?) -> List<HadithEntry>,
   onDownload: () -> Unit,
   onTopic: (HadithTopic) -> Unit,
@@ -97,12 +113,17 @@ fun HadithHome(
   onOpen: (HadithEntry) -> Unit,
   onToggleFavorite: (HadithEntry) -> Unit
 ) {
-  var query by rememberSaveable { mutableStateOf("") }
-  var collection by rememberSaveable { mutableStateOf<String?>(null) }
-  var gradeFilter by rememberSaveable { mutableStateOf<GradeLevel?>(null) }
-  var results by remember { mutableStateOf<List<HadithEntry>?>(null) }
+  var query by searchState::query
+  var collection by searchState::collection
+  var gradeFilter by searchState::grade
+  val results = searchState.results
   LaunchedEffect(state, collection) {
-    snapshotFlow { query }.debounce(300).collect { q -> results = if (q.isBlank()) null else search(q, collection) }
+    snapshotFlow { query }.debounce(300).collect { q ->
+      val key = q to collection
+      if (key == searchState.searched) return@collect
+      searchState.results = if (q.isBlank()) null else search(q, collection)
+      searchState.searched = key
+    }
   }
   Scaffold(
     topBar = {
@@ -118,6 +139,7 @@ fun HadithHome(
     }
     LazyColumn(
       Modifier.padding(padding),
+      state = searchState.list,
       contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 24.dp),
       verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {

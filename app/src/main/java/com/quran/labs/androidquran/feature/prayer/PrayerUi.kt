@@ -465,6 +465,8 @@ fun PrayerSettingsScreen(
   settings: PrayerSettings,
   onChange: ((PrayerSettings) -> PrayerSettings) -> Unit,
   onChooseCity: () -> Unit,
+  onChooseSound: (AlertSound) -> Unit,
+  onTestSound: () -> Unit,
   onBack: () -> Unit
 ) {
   Scaffold(topBar = { AppTopBar(stringResource(R.string.prayer_settings), onBack) }, containerColor = MaterialTheme.colorScheme.surface) { padding ->
@@ -479,6 +481,27 @@ fun PrayerSettingsScreen(
           Spacer(Modifier.width(12.dp))
           Text(settings.place?.name ?: stringResource(R.string.prayer_choose_city), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
           Icon(AppIcons.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+      }
+
+      SectionTitle(stringResource(R.string.prayer_sound))
+      SectionCard(padding = PaddingValues(vertical = 6.dp)) {
+        Column {
+          AlertSound.entries.forEach { sound ->
+            val detail = when (sound) {
+              AlertSound.ADHAN -> if (settings.sound == sound && settings.soundName != null) settings.soundName
+                else stringResource(R.string.prayer_sound_adhan_detail)
+              AlertSound.PHONE -> if (settings.sound == sound && settings.soundName != null) settings.soundName
+                else stringResource(R.string.prayer_sound_phone_detail)
+              else -> null
+            }
+            Choice(stringResource(sound.label), detail, settings.sound == sound) { onChooseSound(sound) }
+          }
+          TextButton(onClick = onTestSound, modifier = Modifier.padding(start = 8.dp)) {
+            Icon(AppIcons.Bell, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.prayer_sound_test))
+          }
         }
       }
 

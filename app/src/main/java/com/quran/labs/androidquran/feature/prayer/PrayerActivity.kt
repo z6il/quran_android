@@ -6,7 +6,14 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.provider.Settings
+import android.media.RingtoneManager
+import androidx.core.content.FileProvider
+import androidx.core.content.IntentCompat
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 import android.widget.Toast
 import androidx.activity.addCallback
 import androidx.activity.enableEdgeToEdge
@@ -44,6 +51,13 @@ class PrayerActivity : AppCompatActivity() {
     if (granted.values.any { it }) locate() else Toast.makeText(this, R.string.prayer_location_denied, Toast.LENGTH_LONG).show()
   }
   private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { refreshPermissions() }
+  private val pickAdhan = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(::useAdhanFile) }
+  private val pickPhoneSound = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+    val uri = result.data?.let { IntentCompat.getParcelableExtra(it, RingtoneManager.EXTRA_RINGTONE_PICKED_URI, Uri::class.java) }
+      ?: return@registerForActivityResult
+    val name = runCatching { RingtoneManager.getRingtone(this, uri)?.getTitle(this) }.getOrNull()
+    store.update { it.copy(sound = AlertSound.PHONE, soundUri = uri.toString(), soundName = name) }
+  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
@@ -70,6 +84,10 @@ class PrayerActivity : AppCompatActivity() {
                   settings = settings,
                   onChange = { store.update(it) },
                   onChooseCity = { choosingCity = true },
+                  onChooseSound = ::chooseSound,
+                  onTestSound = {
+                    if (!notificationsAllowed) askNotifications() else PrayerAlarms.test(this@PrayerActivity)
+                  },
                   onBack = { showSettings = false }
                 )
               } else {
@@ -124,6 +142,47 @@ class PrayerActivity : AppCompatActivity() {
   private fun refreshPermissions() {
     notificationsAllowed = NotificationManagerCompat.from(this).areNotificationsEnabled()
     exactAllowed = PrayerAlarms.canAlertOnTime(this)
+  }
+
+  private fun chooseSound(sound: AlertSound) {
+    when (sound) {
+      // a file or a phone sound to pick first; the choice is saved once picked
+      AlertSound.ADHAN -> pickAdhan.launch(arrayOf("audio/*"))
+      AlertSound.PHONE -> pickPhoneSound.launch(
+        Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
+          .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALL)
+          .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+          .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, false)
+          .putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, getString(R.string.prayer_sound))
+      )
+      else -> store.update { it.copy(sound = sound, soundUri = null, soundName = null) }
+    }
+  }
+
+  /** keeps a copy, so the alert still plays if the original file moves or goes */
+  private fun useAdhanFile(source: Uri) {
+    lifecycleScope.launch {
+      val saved = withContext(Dispatchers.IO) {
+        runCatching {
+          val name = contentResolver.query(source, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+          } ?: "adhan"
+          val dir = File(filesDir, "prayer").apply { mkdirs() }
+          dir.listFiles()?.forEach { it.delete() }
+          // a new name each time, so the alert channel sees a new sound
+          val extension = name.substringAfterLast('.', "mp3").take(5)
+          val file = File(dir, "adhan_${System.currentTimeMillis()}.$extension")
+          contentResolver.openInputStream(source)?.use { input -> file.outputStream().use { input.copyTo(it) } }
+            ?: error("unreadable")
+          FileProvider.getUriForFile(this@PrayerActivity, getString(R.string.file_authority), file) to name.substringBeforeLast('.')
+        }.getOrNull()
+      }
+      if (saved == null) {
+        Toast.makeText(this@PrayerActivity, R.string.prayer_sound_failed, Toast.LENGTH_LONG).show()
+      } else {
+        store.update { it.copy(sound = AlertSound.ADHAN, soundUri = saved.first.toString(), soundName = saved.second) }
+      }
+    }
   }
 
   private fun useLocation() {

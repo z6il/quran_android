@@ -2,6 +2,7 @@ package com.quran.labs.androidquran.ui.translation
 
 import android.content.Context
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.SpannableString
 import android.text.SpannableStringBuilder
@@ -9,6 +10,7 @@ import android.text.Spanned
 import android.text.method.LinkMovementMethod
 import android.text.style.ForegroundColorSpan
 import android.text.style.RelativeSizeSpan
+import android.text.style.StyleSpan
 import android.text.style.SuperscriptSpan
 import android.view.LayoutInflater
 import android.view.View
@@ -384,7 +386,7 @@ internal class TranslationAdapter(
               }
 
               val expandedFootnotes = expandedFootnotes[row.ayahInfo] ?: emptyList()
-              val spannable = SpannableString(
+              val footnoted = SpannableString(
                 row.footnoteCognizantText(
                   spannableBuilder,
                   expandedFootnotes,
@@ -392,13 +394,15 @@ internal class TranslationAdapter(
                   ::expandedFootnote
                 )
               )
+              // Arabic tafsir: chains of narration step back so the explanation stands out
+              val spannable = if (row.isArabic) TafsirStyle.style(footnoted, inlineAyahColor, tint(textColor, 0x8C)) else footnoted
 
               when {
                 row.link != null && !expandHyperlink -> SpannableString(getAyahLink(row.link)).apply {
                   setSpan(ForegroundColorSpan(inlineAyahColor), 0, this.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
                 length > MAX_TAFSEER_LENGTH ->
-                  truncateTextIfNeeded(spannable, row.ayahInfo.ayahId, row.translationIndex)
+                  truncateTextIfNeeded(spannable, row.ayahInfo.ayahId, row.translationIndex, row.isArabic)
                 else -> spannable
               }
             }
@@ -490,35 +494,38 @@ internal class TranslationAdapter(
     return context.getString(R.string.see_tafseer_of_verse, link.ayah)
   }
 
+  /**
+   * A long tafsir opens on its first few sentences, with how long the whole takes to read,
+   * so a quick look stays quick. Once opened it can be folded again.
+   */
   private fun truncateTextIfNeeded(
     text: CharSequence,
     ayahId: Int,
-    translationIndex: Int
+    translationIndex: Int,
+    arabic: Boolean
   ): CharSequence {
-    if (text.length > MAX_TAFSEER_LENGTH &&
-      !expandedTafseerAyahs.contains(ayahId to translationIndex)
-    ) {
-      // let's truncate
-      val lastSpace = text.indexOf(' ', MAX_TAFSEER_LENGTH)
-      if (lastSpace != -1) {
-        return SpannableStringBuilder(text.subSequence(0, lastSpace + 1)).apply {
-          append(context.getString(R.string.more_arabic))
-          setSpan(
-            ExpandTafseerSpan(expandClickListener),
-            lastSpace + 1,
-            this.length,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-          )
-          setSpan(
-            ForegroundColorSpan(inlineAyahColor),
-            lastSpace + 1,
-            this.length,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-          )
-        }
-      }
+    if (text.length <= MAX_TAFSEER_LENGTH) return text
+    val expanded = expandedTafseerAyahs.contains(ayahId to translationIndex)
+    val builder: SpannableStringBuilder
+    val label: String
+    if (expanded) {
+      builder = SpannableStringBuilder(text).append("\n")
+      label = context.getString(if (arabic) R.string.tafsir_show_less_ar else R.string.tafsir_show_less_en)
+    } else {
+      val cut = TafsirStyle.cutPoint(text, PREVIEW_LENGTH)
+      if (cut == -1) return text
+      builder = SpannableStringBuilder(text.subSequence(0, cut + 1)).append(" ")
+      label = context.getString(
+        if (arabic) R.string.tafsir_read_all_ar else R.string.tafsir_read_all_en,
+        QuranUtils.getLocalizedNumber(TafsirStyle.minutes(text))
+      )
     }
-    return text
+    val labelStart = builder.length
+    builder.append(label)
+    builder.setSpan(ExpandTafseerSpan(expandClickListener), labelStart, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    builder.setSpan(ForegroundColorSpan(inlineAyahColor), labelStart, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    builder.setSpan(StyleSpan(Typeface.BOLD), labelStart, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    return builder
   }
 
   override fun onBindViewHolder(holder: RowViewHolder, position: Int, payloads: List<Any>) {
@@ -568,6 +575,8 @@ internal class TranslationAdapter(
   companion object {
     const val ARABIC_MULTIPLIER = 1.4f
     private const val MAX_TAFSEER_LENGTH = 750
+    /** how much of a long tafsir shows before "read all" */
+    private const val PREVIEW_LENGTH = 480
     private const val HIGHLIGHT_CHANGE = 1
   }
 }

@@ -32,7 +32,10 @@ class PrayerStore private constructor(private val context: Context) {
       alerts = prefs.getStringSet(ALERTS, null)
         ?.mapNotNull { name -> PrayerName.entries.firstOrNull { it.name == name } }?.toSet()
         ?: defaults.alerts,
-      hijriAdjust = prefs.getInt(HIJRI_ADJUST, 0)
+      hijriAdjust = prefs.getInt(HIJRI_ADJUST, 0),
+      sound = enumOr(prefs.getString(SOUND, null), defaults.sound),
+      soundUri = prefs.getString(SOUND_URI, null),
+      soundName = prefs.getString(SOUND_NAME, null)
     )
   }
 
@@ -51,6 +54,9 @@ class PrayerStore private constructor(private val context: Context) {
       putBoolean(RAMADAN_ISHA, s.ramadanIsha)
       putStringSet(ALERTS, s.alerts.map { it.name }.toSet())
       putInt(HIJRI_ADJUST, s.hijriAdjust)
+      putString(SOUND, s.sound.name)
+      putString(SOUND_URI, s.soundUri)
+      putString(SOUND_NAME, s.soundName)
     }.apply()
     mutable.value = s
     PrayerAlarms.schedule(context)
@@ -67,6 +73,9 @@ class PrayerStore private constructor(private val context: Context) {
     private const val RAMADAN_ISHA = "ramadan_isha"
     private const val ALERTS = "alerts"
     private const val HIJRI_ADJUST = "hijri_adjust"
+    private const val SOUND = "sound"
+    private const val SOUND_URI = "sound_uri"
+    private const val SOUND_NAME = "sound_name"
 
     @Volatile private var instance: PrayerStore? = null
 

@@ -143,4 +143,15 @@
   <string name="hadith_topic_end_times">الفتن والآخرة</string>
   <string name="hadith_topic_other">متفرقات</string>
   <string name="adhkar_virtue">فضل الذكر</string>
+  <string name="prayer_sound">صوت التنبيه</string>
+  <string name="prayer_sound_adhan">الأذان</string>
+  <string name="prayer_sound_adhan_detail">اختر ملف أذان صوتيًا من جهازك</string>
+  <string name="prayer_sound_default">صوت إشعارات الجهاز</string>
+  <string name="prayer_sound_phone">صوت آخر من الجهاز</string>
+  <string name="prayer_sound_phone_detail">اختر من أصوات جهازك</string>
+  <string name="prayer_sound_vibrate">اهتزاز فقط</string>
+  <string name="prayer_sound_silent">صامت</string>
+  <string name="prayer_sound_test">تجربة التنبيه</string>
+  <string name="prayer_stop_adhan">إيقاف</string>
+  <string name="prayer_sound_failed">تعذّرت قراءة الملف. جرّب ملفًا صوتيًا آخر.</string>
 </resources>

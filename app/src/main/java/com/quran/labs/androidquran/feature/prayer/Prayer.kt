@@ -77,6 +77,18 @@ enum class HighLatitude(@StringRes val label: Int, val rule: HighLatitudeRule) {
   TWILIGHT_ANGLE(R.string.prayer_high_lat_angle, HighLatitudeRule.TWILIGHT_ANGLE)
 }
 
+/** What a prayer alert sounds like. */
+enum class AlertSound(@StringRes val label: Int) {
+  /** an adhan recording the reader picked from their files */
+  ADHAN(R.string.prayer_sound_adhan),
+  /** the phone's notification sound */
+  DEFAULT(R.string.prayer_sound_default),
+  /** any sound from the phone's sound picker */
+  PHONE(R.string.prayer_sound_phone),
+  VIBRATE(R.string.prayer_sound_vibrate),
+  SILENT(R.string.prayer_sound_silent)
+}
+
 data class Place(val latitude: Double, val longitude: Double, val name: String, val country: String?)
 
 data class PrayerSettings(
@@ -88,7 +100,11 @@ data class PrayerSettings(
   val ramadanIsha: Boolean = true,
   val alerts: Set<PrayerName> = PrayerName.entries.filter { it.isPrayer }.toSet(),
   /** days added to the calculated Hijri date, to follow the local sighting */
-  val hijriAdjust: Int = 0
+  val hijriAdjust: Int = 0,
+  val sound: AlertSound = AlertSound.DEFAULT,
+  /** the sound for [AlertSound.ADHAN] or [AlertSound.PHONE], and a name to show for it */
+  val soundUri: String? = null,
+  val soundName: String? = null
 ) {
   /** the method in use, with [Method.AUTO] resolved */
   val effectiveMethod: Method get() = if (method == Method.AUTO) Method.forCountry(place?.country) else method
