@@ -186,7 +186,7 @@
   <string name="hadith_match_previous">Previous match</string>
   <string name="hadith_match_next">Next match</string>
   <string name="hadith_more_books">New hadith collections and gradings</string>
-  <string name="hadith_more_books_detail">The nine books as on sunnah.com, with a graded Musnad Ahmad, the Muwatta, Riyad as-Salihin and more. Tap to update the library (about 17 MB).</string>
+  <string name="hadith_more_books_detail">The collections of sunnah.com, with a graded Musnad Ahmad, the Muwatta, Riyad as-Salihin and more. Tap to update the library (about 17 MB).</string>
   <string name="hadith_grade_not_in_source">This source gives no grading</string>
   <string name="hadith_has_shahid">%1$s (shahid)</string>
   <string name="hadith_shahid_note">This chain isn\'t graded in the source; the grading is of the same words narrated below</string>

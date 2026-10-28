@@ -259,7 +259,7 @@ class HadithLibrary @Inject constructor(
 
   companion object {
     const val DOWNLOAD_URL = "https://github.com/z6il/quran_android/releases/download/hadith-library-v3/hadith.zip"
-    private const val EXPECTED_ZIP_BYTES = 16_938_463L
+    private const val EXPECTED_ZIP_BYTES = 16_125_873L
     /** the library this app expects; an older one installed is offered as an update */
     const val CURRENT_VERSION = 3
     /** collections whose books are only ranges of numbers, or single short books: left out of the topic index */

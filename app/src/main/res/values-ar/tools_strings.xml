@@ -186,7 +186,7 @@
   <string name="hadith_match_previous">النتيجة السابقة</string>
   <string name="hadith_match_next">النتيجة التالية</string>
   <string name="hadith_more_books">كتب وأحكام جديدة في الحديث</string>
-  <string name="hadith_more_books_detail">الكتب التسعة كما في sunnah.com، مع مسند أحمد محكومًا عليه، والموطأ ورياض الصالحين وغيرها. اضغط لتحديث المكتبة (نحو ١٧ ميغابايت).</string>
+  <string name="hadith_more_books_detail">كتب sunnah.com، مع مسند أحمد محكومًا عليه، والموطأ ورياض الصالحين وغيرها. اضغط لتحديث المكتبة (نحو ١٧ ميغابايت).</string>
   <string name="hadith_grade_not_in_source">لم يذكر المصدر حكمًا</string>
   <string name="hadith_has_shahid">له شاهد %1$s</string>
   <string name="hadith_shahid_note">لم يحكم المصدر على هذا الإسناد؛ الحكم للرواية التي بمعناه أدناه</string>

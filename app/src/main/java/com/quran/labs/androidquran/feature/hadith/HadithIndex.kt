@@ -90,7 +90,7 @@ enum class HadithTopic(@StringRes val label: Int) {
  * Approximate, and said so where it's shown.
  */
 object HadithTopicMap {
-  val COLLECTIONS = setOf("darimi")
+  val COLLECTIONS = emptySet<String>()
 
   @Volatile private var map: Map<String, Map<HadithTopic, List<String>>>? = null
 
