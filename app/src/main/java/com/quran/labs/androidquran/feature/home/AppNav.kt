@@ -28,7 +28,7 @@ import com.quran.labs.androidquran.R
 import com.quran.labs.androidquran.common.ui.core.QuranIcons
 import com.quran.labs.androidquran.feature.hadith.HadithActivity
 import com.quran.labs.androidquran.feature.prayer.PrayerActivity
-import com.quran.labs.androidquran.feature.research.ResearchActivity
+import com.quran.labs.androidquran.feature.adhkar.AdhkarActivity
 import com.quran.labs.androidquran.ui.QuranActivity
 
 /** The app's main places, in the bottom bar. */
@@ -36,7 +36,7 @@ enum class AppTab(@StringRes val label: Int) {
   QURAN(R.string.nav_quran),
   HADITH(R.string.nav_hadith),
   PRAYER(R.string.nav_prayer),
-  RESEARCH(R.string.research_title),
+  ADHKAR(R.string.nav_adhkar),
   MORE(R.string.nav_more);
 
   val icon: ImageVector
@@ -44,7 +44,7 @@ enum class AppTab(@StringRes val label: Int) {
       QURAN -> QuranIcons.MenuBook
       HADITH -> AppIcons.Book
       PRAYER -> AppIcons.Clock
-      RESEARCH -> AppIcons.Bulb
+      ADHKAR -> AppIcons.Tap
       MORE -> AppIcons.Grid
     }
 }
@@ -61,7 +61,7 @@ object AppNav {
         .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
       AppTab.HADITH -> Intent(from, HadithActivity::class.java)
       AppTab.PRAYER -> PrayerActivity.intent(from)
-      AppTab.RESEARCH -> ResearchActivity.intent(from)
+      AppTab.ADHKAR -> AdhkarActivity.intent(from)
       AppTab.MORE -> Intent(from, MoreActivity::class.java)
     }
     val fade = ActivityOptionsCompat.makeCustomAnimation(from, android.R.anim.fade_in, android.R.anim.fade_out)

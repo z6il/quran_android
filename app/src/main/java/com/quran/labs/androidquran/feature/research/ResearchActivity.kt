@@ -113,7 +113,7 @@ class ResearchActivity : AppCompatActivity() {
           LaunchedEffect(libraryState) {
             if (libraryState is HadithLibraryState.Installed) collections = library.collections()
           }
-          WithBottomBar(this@ResearchActivity, AppTab.RESEARCH, showBar = stack.size == 1 && stack.last() == Screen.Ideas) {
+          WithBottomBar(this@ResearchActivity, AppTab.MORE, showBar = false) {
           AnimatedContent(
             targetState = stack.last(),
             transitionSpec = {

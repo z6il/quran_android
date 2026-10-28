@@ -68,7 +68,7 @@ class AdhkarActivity : AppCompatActivity() {
       setContent {
         QuranTheme {
           val state by adhkarStore.state.collectAsState()
-          WithBottomBar(this@AdhkarActivity, AppTab.MORE, showBar = false) {
+          WithBottomBar(this@AdhkarActivity, AppTab.ADHKAR, showBar = openSet == null) {
           AnimatedContent(
             targetState = openSet,
             transitionSpec = {

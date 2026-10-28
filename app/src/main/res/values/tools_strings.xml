@@ -170,4 +170,6 @@
   <string name="qibla_hold_flat">Hold the phone flat, screen up, for an accurate direction</string>
   <string name="qibla_flat">The phone is level</string>
   <string name="qibla_upright">Held upright: the direction is where the back of the phone points</string>
+  <string name="more_research_detail">Ideas linked to verses and hadith</string>
+  <string name="prayer_sound_qassas_missing">This adhan isn\'t available to download yet. Meanwhile, choose «Adhan» and pick an adhan file from your phone.</string>
 </resources>

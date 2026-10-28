@@ -182,7 +182,9 @@ class PrayerActivity : AppCompatActivity() {
       if (error == null) {
         select()
       } else {
-        Toast.makeText(this@PrayerActivity, getString(R.string.prayer_sound_qassas_failed, error), Toast.LENGTH_LONG).show()
+        val message = if (error == AdhanDownload.NOT_PUBLISHED) getString(R.string.prayer_sound_qassas_missing)
+        else getString(R.string.prayer_sound_qassas_failed, error)
+        Toast.makeText(this@PrayerActivity, message, Toast.LENGTH_LONG).show()
       }
     }
   }

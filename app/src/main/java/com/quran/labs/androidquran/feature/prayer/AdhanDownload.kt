@@ -16,6 +16,8 @@ import java.net.URL
  */
 object AdhanDownload {
   const val URL = "https://github.com/z6il/quran_android/releases/download/adhan-v1/adhan_qassas.mp3"
+  /** what [download] answers when the file isn't on the server (yet) */
+  const val NOT_PUBLISHED = "not published"
 
   private fun file(context: Context) = File(File(context.filesDir, "prayer"), "adhan_qassas.mp3")
 
@@ -36,6 +38,7 @@ object AdhanDownload {
         connection.disconnect()
         connection = URL(next).openConnection() as HttpURLConnection
       }
+      if (connection.responseCode == 404) return@withContext NOT_PUBLISHED
       if (connection.responseCode != 200) error("HTTP ${connection.responseCode}")
       val total = connection.contentLengthLong.takeIf { it > 0 }
       var read = 0L

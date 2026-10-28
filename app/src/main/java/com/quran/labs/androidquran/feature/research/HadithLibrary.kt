@@ -104,6 +104,7 @@ class HadithLibrary @Inject constructor(
         db?.close()
         db = null
         if (!tmp.renameTo(file)) error("couldn't install")
+        allBooksCache = null
       }
       mutableState.value = HadithLibraryState.Installed
     } catch (e: Exception) {
@@ -119,34 +120,35 @@ class HadithLibrary @Inject constructor(
     }
   }
 
-  suspend fun books(collection: String): List<HadithBook> = withContext(Dispatchers.IO) {
-    val db = database() ?: return@withContext emptyList()
-    db.rawQuery(
-      "SELECT b.number, b.name_ar, b.name_en, COUNT(h.id) FROM books b " +
-        "LEFT JOIN hadith h ON h.collection = b.collection AND h.book = b.number " +
-        "WHERE b.collection = ? GROUP BY b.number ORDER BY b.position",
-      arrayOf(collection)
-    ).use { c ->
-      buildList {
-        while (c.moveToNext()) add(HadithBook(collection, c.getString(0), c.getString(1) ?: "", c.getString(2) ?: "", c.getInt(3)))
-      }
-    }
-  }
+  @Volatile
+  private var allBooksCache: List<HadithBook>? = null
 
-  /** every book of every collection, for the topic index */
+  suspend fun books(collection: String): List<HadithBook> = allBooks().filter { it.collection == collection }
+
+  /**
+   * Every book of every collection with its number of hadith, for the topic index. Counted in
+   * one pass over the hadith (a join per book took seconds) and kept for the session.
+   */
   suspend fun allBooks(): List<HadithBook> = withContext(Dispatchers.IO) {
+    allBooksCache?.let { return@withContext it }
     val db = database() ?: return@withContext emptyList()
+    val counts = HashMap<String, Int>()
+    db.rawQuery("SELECT collection, book, COUNT(*) FROM hadith GROUP BY collection, book", null).use { c ->
+      while (c.moveToNext()) counts[c.getString(0) + "/" + c.getString(1)] = c.getInt(2)
+    }
     db.rawQuery(
-      "SELECT b.collection, b.number, b.name_ar, b.name_en, COUNT(h.id) FROM books b " +
-        "JOIN collections c ON c.slug = b.collection " +
-        "LEFT JOIN hadith h ON h.collection = b.collection AND h.book = b.number " +
-        "GROUP BY b.collection, b.number ORDER BY c.position, b.position",
+      "SELECT b.collection, b.number, b.name_ar, b.name_en FROM books b " +
+        "JOIN collections c ON c.slug = b.collection ORDER BY c.position, b.position",
       null
     ).use { c ->
       buildList {
-        while (c.moveToNext()) add(HadithBook(c.getString(0), c.getString(1), c.getString(2) ?: "", c.getString(3) ?: "", c.getInt(4)))
+        while (c.moveToNext()) {
+          val collection = c.getString(0)
+          val number = c.getString(1)
+          add(HadithBook(collection, number, c.getString(2) ?: "", c.getString(3) ?: "", counts["$collection/$number"] ?: 0))
+        }
       }
-    }
+    }.also { allBooksCache = it }
   }
 
   /** a book's hadith in the collection's order */

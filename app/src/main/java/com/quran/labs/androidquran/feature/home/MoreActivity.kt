@@ -36,7 +36,7 @@ import com.quran.labs.androidquran.QuranPreferenceActivity
 import com.quran.labs.androidquran.R
 import com.quran.labs.androidquran.common.ui.core.QuranIcons
 import com.quran.labs.androidquran.common.ui.core.QuranTheme
-import com.quran.labs.androidquran.feature.adhkar.AdhkarActivity
+import com.quran.labs.androidquran.feature.research.ResearchActivity
 import com.quran.labs.androidquran.feature.khatmah.KhatmahActivity
 import com.quran.labs.androidquran.feature.prayer.AppTopBar
 import com.quran.labs.androidquran.feature.prayer.QiblaActivity
@@ -50,9 +50,9 @@ class MoreActivity : AppCompatActivity() {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
     val entries = listOf(
+      Entry(AppIcons.Bulb, R.string.research_title, R.string.more_research_detail) { ResearchActivity.intent(this) },
       Entry(AppIcons.Kaaba, R.string.qibla_title, R.string.more_qibla_detail) { Intent(this, QiblaActivity::class.java) },
       Entry(AppIcons.Flag, R.string.nav_khatmah, R.string.more_khatmah_detail) { Intent(this, KhatmahActivity::class.java) },
-      Entry(AppIcons.Tap, R.string.nav_adhkar, R.string.more_adhkar_detail) { AdhkarActivity.intent(this) },
       Entry(QuranIcons.Settings, R.string.menu_settings, R.string.more_settings_detail) { Intent(this, QuranPreferenceActivity::class.java) }
     )
     setContentView(ComposeView(this).apply {

@@ -47,6 +47,7 @@ import com.quran.labs.androidquran.feature.home.AppBottomBar
 import com.quran.labs.androidquran.feature.home.AppNav
 import com.quran.labs.androidquran.feature.home.AppTab
 import com.quran.labs.androidquran.feature.adhkar.AdhkarStore
+import com.quran.labs.androidquran.feature.khatmah.KhatmahActivity
 import com.quran.labs.androidquran.feature.khatmah.KhatmahStore
 import com.quran.labs.androidquran.feature.reading.model.LatestPageTracker
 import com.quran.labs.androidquran.presenter.data.QuranIndexEventLogger
@@ -374,6 +375,9 @@ class QuranActivity : AppCompatActivity(),
       }
       R.id.last_page -> {
         jumpToLastPage()
+      }
+      R.id.khatmah -> {
+        startActivity(Intent(this, KhatmahActivity::class.java))
       }
       R.id.help -> {
         startActivity(Intent(this, HelpActivity::class.java))

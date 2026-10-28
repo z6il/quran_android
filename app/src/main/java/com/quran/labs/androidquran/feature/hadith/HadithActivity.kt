@@ -39,6 +39,8 @@ import com.quran.labs.androidquran.feature.research.ResearchActivity
 import com.quran.labs.androidquran.feature.research.isArabicUi
 import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.launch
+import org.json.JSONObject
+import java.util.Calendar
 
 /** Read the six books: browse by book, search, keep favourites. */
 class HadithActivity : AppCompatActivity() {
@@ -71,6 +73,8 @@ class HadithActivity : AppCompatActivity() {
     (application as QuranApplication).applicationComponent.inject(this)
     onBackPressedDispatcher.addCallback(this) { back() }
     lifecycleScope.launch { favorites.refresh() }
+    // today's hadith shows at once when it was already picked today
+    ofTheDay = cachedOfTheDay()
 
     setContentView(ComposeView(this).apply {
       setContent {
@@ -79,9 +83,12 @@ class HadithActivity : AppCompatActivity() {
           LaunchedEffect(state) {
             if (state is HadithLibraryState.Installed) {
               collections = library.collections()
+              // today's hadith first: it's at the top of the page
+              if (ofTheDay == null) {
+                ofTheDay = library.ofTheDay(today().toLong())?.also(::cacheOfTheDay)
+              }
               val byTopic = library.allBooks().groupBy(HadithTopic::of)
               topics = HadithTopic.entries.mapNotNull { t -> byTopic[t]?.let { t to it } }
-              ofTheDay = library.ofTheDay(System.currentTimeMillis() / 86_400_000L)
             }
           }
           WithBottomBar(this@HadithActivity, AppTab.HADITH, showBar = stack.size == 1) {
@@ -165,6 +172,31 @@ class HadithActivity : AppCompatActivity() {
     }
   }
 
+  private val dailyPrefs by lazy { getSharedPreferences("hadith_of_the_day", MODE_PRIVATE) }
+
+  /** the local date as yyyymmdd, so the hadith changes at midnight where the reader is */
+  private fun today(): Int = Calendar.getInstance().let {
+    it.get(Calendar.YEAR) * 10_000 + (it.get(Calendar.MONTH) + 1) * 100 + it.get(Calendar.DAY_OF_MONTH)
+  }
+
+  private fun cachedOfTheDay(): HadithEntry? {
+    if (dailyPrefs.getInt(DAY, 0) != today()) return null
+    return runCatching {
+      val json = JSONObject(dailyPrefs.getString(ENTRY, null) ?: return null)
+      HadithEntry(
+        json.getString("collection"), json.getString("number"), json.optString("chapter"),
+        json.getString("text"), json.optString("matn"), json.optString("grade")
+      )
+    }.getOrNull()
+  }
+
+  private fun cacheOfTheDay(entry: HadithEntry) {
+    val json = JSONObject()
+      .put("collection", entry.collection).put("number", entry.number).put("chapter", entry.chapter)
+      .put("text", entry.text).put("matn", entry.matn).put("grade", entry.grade)
+    dailyPrefs.edit().putInt(DAY, today()).putString(ENTRY, json.toString()).apply()
+  }
+
   private fun shareText(entry: HadithEntry): String = buildString {
     append(entry.text.trim())
     append("\n\n")
@@ -180,6 +212,11 @@ class HadithActivity : AppCompatActivity() {
   private fun share(entry: HadithEntry) {
     val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, shareText(entry))
     startActivity(Intent.createChooser(send, getString(R.string.hadith_share)))
+  }
+
+  companion object {
+    private const val DAY = "day"
+    private const val ENTRY = "entry"
   }
 
   private fun back() {

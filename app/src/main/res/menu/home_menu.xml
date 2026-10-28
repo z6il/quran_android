@@ -40,16 +40,21 @@
     </menu>
   </item>
   <item
+      android:id="@+id/khatmah"
+      android:icon="@drawable/ic_khatmah"
+      android:title="@string/nav_khatmah"
+      app:showAsAction="always" />
+  <item
       android:id="@+id/last_page"
       android:icon="@drawable/ic_goto_quran"
       android:title="@string/menu_jump_last_page"
-      app:showAsAction="ifRoom" />
+      app:showAsAction="always" />
   <item
       android:id="@+id/search"
       android:icon="@drawable/ic_ab_search"
       android:title="@string/menu_search"
       app:actionViewClass="androidx.appcompat.widget.SearchView"
-      app:showAsAction="ifRoom|collapseActionView" />
+      app:showAsAction="always|collapseActionView" />
   <item
       android:id="@+id/jump"
       android:title="@string/menu_jump"

@@ -170,4 +170,6 @@
   <string name="qibla_hold_flat">أمسك الجهاز مستويًا والشاشة للأعلى ليكون الاتجاه دقيقًا</string>
   <string name="qibla_flat">الجهاز مستوٍ</string>
   <string name="qibla_upright">الجهاز قائم: الاتجاه هو ما يشير إليه ظهر الجهاز</string>
+  <string name="more_research_detail">أفكار مربوطة بالآيات والأحاديث</string>
+  <string name="prayer_sound_qassas_missing">هذا الأذان غير متاح للتحميل بعد. يمكنك مؤقتًا اختيار «الأذان» واختيار ملف أذان من جهازك.</string>
 </resources>
