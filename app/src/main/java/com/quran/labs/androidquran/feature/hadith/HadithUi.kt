@@ -1,6 +1,8 @@
 package com.quran.labs.androidquran.feature.hadith
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -120,6 +122,7 @@ fun HadithHome(
   var query by searchState::query
   var collection by searchState::collection
   var gradeFilter by searchState::grade
+  val context = androidx.compose.ui.platform.LocalContext.current
   val results = searchState.results
   LaunchedEffect(state, collection) {
     snapshotFlow { query }.debounce(300).collect { q ->
@@ -162,7 +165,7 @@ fun HadithHome(
       if (query.isNotBlank()) {
         val r = results?.let { all ->
           val level = gradeFilter
-          if (level == null) all else all.filter { GradeLevel.of(it.grade, it.collection) == level }
+          if (level == null) all else all.filter { knownGrade(context, it).level == level }
         }
         item {
           LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -323,14 +326,24 @@ private fun CollectionCard(collection: HadithCollection, onClick: () -> Unit) {
 /** the grade as a coloured pill: green sahih, light green hasan, orange da'if, red very weak, dark red fabricated */
 @Composable
 fun GradeBadge(entry: HadithEntry) {
-  val level = GradeLevel.of(entry.grade, entry.collection)
+  val context = androidx.compose.ui.platform.LocalContext.current
+  val known = remember(entry) { knownGrade(context, entry) }
+  val level = known.level
+  // a grade the source gives is filled; one taken from a parallel is only outlined
+  val shahid = known is KnownGrade.Shahid
   Row(
-    Modifier.clip(RoundedCornerShape(50)).background(level.color.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 3.dp),
+    Modifier.clip(RoundedCornerShape(50))
+      .background(level.color.copy(alpha = if (shahid) 0.05f else 0.14f))
+      .then(if (shahid) Modifier.border(1.dp, level.color.copy(alpha = 0.5f), RoundedCornerShape(50)) else Modifier)
+      .padding(horizontal = 10.dp, vertical = 3.dp),
     verticalAlignment = Alignment.CenterVertically
   ) {
     Box(Modifier.size(8.dp).clip(CircleShape).background(level.color))
     Spacer(Modifier.width(6.dp))
-    Text(stringResource(level.label), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = level.color)
+    Text(
+      if (shahid) stringResource(R.string.hadith_has_shahid, stringResource(level.label)) else stringResource(level.label),
+      style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = level.color
+    )
   }
 }
 
@@ -499,6 +512,12 @@ fun BookScreen(
     }
     LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
       item { SectionTitle(names.name(book.collection)) }
+      if (book.number.startsWith(HadithTopic.TOPIC_BOOK)) {
+        item {
+          Text(stringResource(R.string.hadith_topic_approximate), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp))
+        }
+      }
       itemsIndexed(list.orEmpty(), key = { i, h -> "${h.number}:$i" }) { _, h ->
         HadithCard(h, names, h.target in favorites, showSource = false, onOpen = { onOpen(h) }, onToggleFavorite = { onToggleFavorite(h) })
       }
@@ -566,6 +585,7 @@ private fun searchPreview(entry: HadithEntry, query: String?, mark: androidx.com
 @Composable
 fun HadithDetailScreen(
   entry: HadithEntry,
+  onOpenParallel: (Parallel) -> Unit,
   /** the search that led here, to mark its words */
   highlight: String?,
   names: CollectionNames,
@@ -644,7 +664,7 @@ fun HadithDetailScreen(
         }
       }
       Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        GradeCard(entry, Modifier.weight(1f))
+        GradeCard(entry, names, onOpenParallel, Modifier.weight(1f))
         remember(entry.text) { narratorOf(entry.text) }?.let { NarratorCard(it, Modifier.weight(1f)) }
       }
       Surface(
@@ -668,8 +688,11 @@ fun HadithDetailScreen(
 }
 
 @Composable
-private fun GradeCard(entry: HadithEntry, modifier: Modifier) {
-  val level = GradeLevel.of(entry.grade, entry.collection)
+private fun GradeCard(entry: HadithEntry, names: CollectionNames, onOpenParallel: (Parallel) -> Unit, modifier: Modifier) {
+  val context = androidx.compose.ui.platform.LocalContext.current
+  val known = remember(entry) { knownGrade(context, entry) }
+  val parallels = remember(entry) { HadithTakhrij.parallels(context, entry) }
+  val level = known.level
   val grader = graderOf(entry.grade)
   val detail = gradeDetailOf(entry.grade)
   Surface(shape = CardShape, color = level.color.copy(alpha = 0.11f), modifier = modifier) {
@@ -678,9 +701,28 @@ private fun GradeCard(entry: HadithEntry, modifier: Modifier) {
       Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(10.dp).clip(CircleShape).background(level.color))
         Spacer(Modifier.width(6.dp))
-        Text(stringResource(level.label), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = level.color)
+        Text(
+          if (known is KnownGrade.Shahid) stringResource(R.string.hadith_has_shahid, stringResource(level.label)) else stringResource(level.label),
+          style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = level.color
+        )
+      }
+      when (known) {
+        is KnownGrade.Takhrij -> Text(known.text, style = MaterialTheme.typography.labelMedium.copy(textDirection = TextDirection.Rtl),
+          color = MaterialTheme.colorScheme.onSurfaceVariant)
+        is KnownGrade.Shahid -> Text(stringResource(R.string.hadith_shahid_note), style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else -> Unit
+      }
+      // the same words elsewhere, each with its own grading; tap to read it
+      parallels.forEach { p ->
+        Text(
+          "↳ " + names.name(p.collection) + " " + p.number + " · " + stringResource(p.level.label),
+          style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = p.level.color,
+          modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { onOpenParallel(p) }.padding(vertical = 3.dp)
+        )
       }
       val note = when {
+        known !is KnownGrade.Source && known !is KnownGrade.Unknown -> null
         grader != null -> stringResource(R.string.hadith_graded_by, graderName(grader)) +
           (if (detail.isNotBlank() && detail.split(' ').size > 1) " · $detail" else "")
         entry.collection == "bukhari" || entry.collection == "muslim" -> stringResource(R.string.hadith_grade_sahihain)

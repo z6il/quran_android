@@ -71,11 +71,49 @@ enum class HadithTopic(@StringRes val label: Int) {
       FAITH to listOf("faith", "belief", "revelation", "tawheed", "oneness", "destiny", "qadar", "divine", "hypocrite", "introduction")
     )
 
+    /** a topic "book" of a collection filed by topic, e.g. the Musnad's "topic:PRAYER" */
+    const val TOPIC_BOOK = "topic:"
+
     fun of(book: HadithBook): HadithTopic {
+      if (book.number.startsWith(TOPIC_BOOK)) {
+        return entries.firstOrNull { it.name == book.number.removePrefix(TOPIC_BOOK) } ?: OTHER
+      }
       val name = book.nameEn.lowercase()
       return RULES.firstOrNull { (_, words) -> words.any { it in name } }?.first ?: OTHER
     }
   }
+}
+
+/**
+ * The Musnad and Darimi come without books in their edition, so each hadith is filed under the
+ * topic of the closest hadith in the six books (worked out ahead, see hadith_topics.tsv).
+ * Approximate, and said so where it's shown.
+ */
+object HadithTopicMap {
+  val COLLECTIONS = setOf("ahmad", "darimi")
+
+  @Volatile private var map: Map<String, Map<HadithTopic, List<String>>>? = null
+
+  /** topic to hadith numbers, in the collection's order */
+  fun of(context: android.content.Context, collection: String): Map<HadithTopic, List<String>> {
+    val all = map ?: synchronized(this) { map ?: load(context).also { map = it } }
+    return all[collection].orEmpty()
+  }
+
+  private fun load(context: android.content.Context): Map<String, Map<HadithTopic, List<String>>> =
+    runCatching {
+      val out = HashMap<String, MutableMap<HadithTopic, MutableList<String>>>()
+      context.assets.open("hadith_topics.tsv").bufferedReader().useLines { lines ->
+        lines.forEach { line ->
+          val p = line.split('\t')
+          if (p.size == 3) {
+            val topic = HadithTopic.entries.firstOrNull { it.name == p[2] } ?: HadithTopic.OTHER
+            out.getOrPut(p[0]) { HashMap() }.getOrPut(topic) { ArrayList() }.add(p[1])
+          }
+        }
+      }
+      out
+    }.getOrDefault(emptyMap())
 }
 
 /** How strong a hadith is, read from its grading text (English or Arabic). */

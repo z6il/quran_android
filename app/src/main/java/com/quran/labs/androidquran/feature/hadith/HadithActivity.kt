@@ -35,6 +35,7 @@ import com.quran.labs.androidquran.feature.research.HadithCollection
 import com.quran.labs.androidquran.feature.research.HadithEntry
 import com.quran.labs.androidquran.feature.research.HadithLibrary
 import com.quran.labs.androidquran.feature.research.HadithLibraryState
+import com.quran.labs.androidquran.feature.research.LinkTarget
 import com.quran.labs.androidquran.feature.research.ResearchActivity
 import com.quran.labs.androidquran.feature.research.isArabicUi
 import dev.zacsweers.metro.Inject
@@ -160,6 +161,11 @@ class HadithActivity : AppCompatActivity() {
       )
       is Screen.Detail -> HadithDetailScreen(
         entry = screen.entry,
+        onOpenParallel = { p ->
+          lifecycleScope.launch {
+            library.hadith(LinkTarget.Hadith(p.collection, p.number))?.let { stack.add(Screen.Detail(it)) }
+          }
+        },
         highlight = screen.highlight,
         names = names,
         favorite = screen.entry.target in starredSet,

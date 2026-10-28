@@ -6,6 +6,8 @@ import com.quran.data.di.AppScope
 import com.quran.mobile.di.qualifier.ApplicationContext
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import com.quran.labs.androidquran.feature.hadith.HadithTopic
+import com.quran.labs.androidquran.feature.hadith.HadithTopicMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -156,12 +158,47 @@ class HadithLibrary @Inject constructor(
           add(HadithBook(collection, number, c.getString(2) ?: "", c.getString(3) ?: "", counts["$collection/$number"] ?: 0))
         }
       }
-    }.also { allBooksCache = it }
+    }.let(::withTopicBooks).also { allBooksCache = it }
+  }
+
+  /** the Musnad and Darimi by topic, in place of their ranges of numbers */
+  private fun withTopicBooks(books: List<HadithBook>): List<HadithBook> {
+    val out = ArrayList<HadithBook>(books.size)
+    for (book in books) {
+      if (book.collection !in HadithTopicMap.COLLECTIONS) {
+        out += book
+      } else if (out.none { it.collection == book.collection }) {
+        val topics = HadithTopicMap.of(context, book.collection)
+        if (topics.isEmpty()) {
+          out += books.filter { it.collection == book.collection }
+        } else {
+          HadithTopic.entries.forEach { t ->
+            val numbers = topics[t] ?: return@forEach
+            val name = context.getString(t.label)
+            out += HadithBook(book.collection, HadithTopic.TOPIC_BOOK + t.name, name, "", numbers.size)
+          }
+        }
+      }
+    }
+    return out
   }
 
   /** a book's hadith in the collection's order */
   suspend fun inBook(book: HadithBook): List<HadithEntry> = withContext(Dispatchers.IO) {
     val db = database() ?: return@withContext emptyList()
+    if (book.number.startsWith(HadithTopic.TOPIC_BOOK)) {
+      val topic = HadithTopic.of(book)
+      val numbers = HadithTopicMap.of(context, book.collection)[topic].orEmpty()
+      // small batches without sorting: each fits one cursor window, and the list is already in order
+      return@withContext numbers.chunked(100).flatMap { chunk ->
+        val found = db.rawQuery(
+          "SELECT collection, number, chapter_ar, text_ar, matn_ar, grade FROM hadith WHERE collection = ? AND number IN (" +
+            chunk.joinToString(",") { "?" } + ")",
+          arrayOf(book.collection) + chunk.toTypedArray()
+        ).use { c -> buildList { while (c.moveToNext()) add(c.toEntry()) } }.associateBy { it.number }
+        chunk.mapNotNull { found[it] }
+      }
+    }
     db.rawQuery(
       "SELECT collection, number, chapter_ar, text_ar, matn_ar, grade FROM hadith WHERE collection = ? AND book = ? ORDER BY id",
       arrayOf(book.collection, book.number)
@@ -226,7 +263,7 @@ class HadithLibrary @Inject constructor(
     /** the library this app expects; an older one installed is offered as an update */
     const val CURRENT_VERSION = 2
     /** collections whose books are only ranges of numbers, or single short books: left out of the topic index */
-    val NOT_IN_TOPICS = setOf("ahmad", "darimi", "nawawi40", "qudsi40")
+    val NOT_IN_TOPICS = setOf("nawawi40", "qudsi40")
 
     private val HARAKAT = Regex("[\\u0610-\\u061A\\u064B-\\u065F\\u0670\\u06D6-\\u06ED\\u0640\\u200f\\u200e]")
 

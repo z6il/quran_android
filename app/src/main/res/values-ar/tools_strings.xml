@@ -188,4 +188,7 @@
   <string name="hadith_more_books">جديد: مسند أحمد والموطأ وغيرهما</string>
   <string name="hadith_more_books_detail">عشرة كتب أخرى، منها سنن الدارمي ورياض الصالحين والأدب المفرد. اضغط لتحديث المكتبة (نحو ٢٤ ميغابايت).</string>
   <string name="hadith_grade_not_in_source">لم يذكر المصدر حكمًا</string>
+  <string name="hadith_has_shahid">له شاهد %1$s</string>
+  <string name="hadith_shahid_note">لم يحكم المصدر على هذا الإسناد؛ الحكم للرواية التي بمعناه أدناه</string>
+  <string name="hadith_topic_approximate">لا أبواب لهذا الكتاب في نسخته، فصُنّفت أحاديثه بحسب أقرب حديث لها في الكتب الستة. التصنيف تقريبي.</string>
 </resources>
