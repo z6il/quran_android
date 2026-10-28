@@ -18,6 +18,7 @@ object AdhanDownload {
   const val URL = "https://github.com/z6il/quran_android/releases/download/adhan-v1/adhan_qassas.mp3"
   /** what [download] answers when the file isn't on the server (yet) */
   const val NOT_PUBLISHED = "not published"
+  private const val EXPECTED_BYTES = 3_535_192L
 
   private fun file(context: Context) = File(File(context.filesDir, "prayer"), "adhan_qassas.mp3")
 
@@ -40,7 +41,8 @@ object AdhanDownload {
       }
       if (connection.responseCode == 404) return@withContext NOT_PUBLISHED
       if (connection.responseCode != 200) error("HTTP ${connection.responseCode}")
-      val total = connection.contentLengthLong.takeIf { it > 0 }
+      // GitHub's redirect can hide the size; the published file's is known
+      val total = connection.contentLengthLong.takeIf { it > 0 } ?: EXPECTED_BYTES
       var read = 0L
       connection.inputStream.use { input ->
         tmp.outputStream().use { output ->
@@ -50,7 +52,7 @@ object AdhanDownload {
             if (n < 0) break
             output.write(buffer, 0, n)
             read += n
-            if (total != null) onProgress((read / total.toFloat()).coerceAtMost(1f))
+            onProgress((read / total.toFloat()).coerceAtMost(1f))
           }
         }
       }
