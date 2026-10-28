@@ -88,7 +88,7 @@
   <string name="qibla_field">Magnetic field %1$d µT</string>
 
   <string name="hadith_title">Hadith</string>
-  <string name="hadith_books">The six books</string>
+  <string name="hadith_books">Collections</string>
   <string name="hadith_of_the_day">Hadith of the day</string>
   <string name="hadith_count">%1$s hadith</string>
   <string name="hadith_favorites">Favourites</string>
@@ -185,4 +185,7 @@
   <string name="hadith_matches">%1$d of %2$d · «%3$s»</string>
   <string name="hadith_match_previous">Previous match</string>
   <string name="hadith_match_next">Next match</string>
+  <string name="hadith_more_books">New: Musnad Ahmad, the Muwatta and more</string>
+  <string name="hadith_more_books_detail">Ten more collections, including Sunan ad-Darimi, Riyad as-Salihin and Al-Adab Al-Mufrad. Tap to update the library (about 24 MB).</string>
+  <string name="hadith_grade_not_in_source">This source gives no grading</string>
 </resources>

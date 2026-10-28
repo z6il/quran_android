@@ -61,6 +61,8 @@ class HadithActivity : AppCompatActivity() {
   private var collections by mutableStateOf<List<HadithCollection>>(emptyList())
   private var ofTheDay by mutableStateOf<HadithEntry?>(null)
   private var topics by mutableStateOf<List<Pair<HadithTopic, List<HadithBook>>>>(emptyList())
+  /** an older library is installed: more collections are a download away */
+  private var libraryOutdated by mutableStateOf(false)
   private val searchState = HadithSearchState()
 
   private val names = CollectionNames { slug ->
@@ -86,11 +88,12 @@ class HadithActivity : AppCompatActivity() {
           LaunchedEffect(state) {
             if (state is HadithLibraryState.Installed) {
               collections = library.collections()
+              libraryOutdated = library.version() < HadithLibrary.CURRENT_VERSION
               // today's hadith first: it's at the top of the page
               if (ofTheDay == null) {
                 ofTheDay = library.ofTheDay(today().toLong())?.also(::cacheOfTheDay)
               }
-              val byTopic = library.allBooks().groupBy(HadithTopic::of)
+              val byTopic = library.allBooks().filter { it.collection !in HadithLibrary.NOT_IN_TOPICS }.groupBy(HadithTopic::of)
               topics = HadithTopic.entries.mapNotNull { t -> byTopic[t]?.let { t to it } }
             }
           }
@@ -122,6 +125,7 @@ class HadithActivity : AppCompatActivity() {
         favorites = starredSet,
         ofTheDay = ofTheDay,
         topics = topics,
+        libraryOutdated = libraryOutdated,
         searchState = searchState,
         search = { q, c -> library.search(q, c) },
         onDownload = { lifecycleScope.launch { library.download() } },

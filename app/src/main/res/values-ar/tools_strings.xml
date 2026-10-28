@@ -88,7 +88,7 @@
   <string name="qibla_field">المجال المغناطيسي %1$d ميكروتسلا</string>
 
   <string name="hadith_title">الحديث</string>
-  <string name="hadith_books">الكتب الستة</string>
+  <string name="hadith_books">كتب الحديث</string>
   <string name="hadith_of_the_day">حديث اليوم</string>
   <string name="hadith_count">%1$s حديث</string>
   <string name="hadith_favorites">المفضلة</string>
@@ -185,4 +185,7 @@
   <string name="hadith_matches">%1$d من %2$d · «%3$s»</string>
   <string name="hadith_match_previous">النتيجة السابقة</string>
   <string name="hadith_match_next">النتيجة التالية</string>
+  <string name="hadith_more_books">جديد: مسند أحمد والموطأ وغيرهما</string>
+  <string name="hadith_more_books_detail">عشرة كتب أخرى، منها سنن الدارمي ورياض الصالحين والأدب المفرد. اضغط لتحديث المكتبة (نحو ٢٤ ميغابايت).</string>
+  <string name="hadith_grade_not_in_source">لم يذكر المصدر حكمًا</string>
 </resources>

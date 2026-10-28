@@ -107,6 +107,7 @@ fun HadithHome(
   favorites: Set<LinkTarget.Hadith>,
   ofTheDay: HadithEntry?,
   topics: List<Pair<HadithTopic, List<HadithBook>>>,
+  libraryOutdated: Boolean,
   searchState: HadithSearchState,
   search: suspend (String, String?) -> List<HadithEntry>,
   onDownload: () -> Unit,
@@ -195,6 +196,21 @@ fun HadithHome(
           HadithCard(h, names, h.target in favorites, highlight = query, onOpen = { onOpen(h) }, onToggleFavorite = { onToggleFavorite(h) })
         }
         return@LazyColumn
+      }
+      if (libraryOutdated) {
+        item {
+          // Musnad Ahmad, the Muwatta and the rest came in a newer library
+          Surface(onClick = onDownload, shape = CardShape, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), modifier = Modifier.fillMaxWidth()) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+              Badge { Icon(AppIcons.Download, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp)) }
+              Spacer(Modifier.width(14.dp))
+              Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.hadith_more_books), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.hadith_more_books_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+              }
+            }
+          }
+        }
       }
       if (ofTheDay != null) {
         item { DailyHadith(ofTheDay, names) { onOpen(ofTheDay) } }
@@ -384,7 +400,7 @@ private fun Download(state: HadithLibraryState, onDownload: () -> Unit, modifier
       contentAlignment = Alignment.Center
     ) { Icon(AppIcons.Book, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(44.dp)) }
     Spacer(Modifier.height(20.dp))
-    Text(stringResource(R.string.research_library_intro, 13), textAlign = TextAlign.Center)
+    Text(stringResource(R.string.research_library_intro, 24), textAlign = TextAlign.Center)
     Spacer(Modifier.height(24.dp))
     when (state) {
       is HadithLibraryState.Downloading -> {
@@ -668,6 +684,7 @@ private fun GradeCard(entry: HadithEntry, modifier: Modifier) {
         grader != null -> stringResource(R.string.hadith_graded_by, graderName(grader)) +
           (if (detail.isNotBlank() && detail.split(' ').size > 1) " · $detail" else "")
         entry.collection == "bukhari" || entry.collection == "muslim" -> stringResource(R.string.hadith_grade_sahihain)
+        entry.grade.isBlank() -> stringResource(R.string.hadith_grade_not_in_source)
         else -> null
       }
       if (note != null) {

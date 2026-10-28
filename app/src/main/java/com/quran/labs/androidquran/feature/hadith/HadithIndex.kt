@@ -97,7 +97,7 @@ enum class GradeLevel(@StringRes val label: Int, val color: Color) {
         "maudu" in g || "mawdu" in g || "موضوع" in g -> MAWDU
         "munkar" in g || "shadh" in g || "jiddan" in g || "منكر" in g || "شاذ" in g -> VERY_WEAK
         DAIF_WORDS.containsMatchIn(g) -> DAIF
-        "hasan sahih" in g || "حسن صحيح" in g -> SAHIH
+        "hasan sahih" in g || "حسن صحيح" in g || "متفق عليه" in g -> SAHIH
         "hasan" in g || "حسن" in g -> HASAN
         "sahih" in g || "صحيح" in g -> SAHIH
         collection == "bukhari" || collection == "muslim" -> SAHIH

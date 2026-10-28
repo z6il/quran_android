@@ -113,6 +113,14 @@ class HadithLibrary @Inject constructor(
     }
   }
 
+  /** the installed library's version; 0 when there is none */
+  suspend fun version(): Int = withContext(Dispatchers.IO) {
+    val db = database() ?: return@withContext 0
+    runCatching {
+      db.rawQuery("SELECT value FROM properties WHERE property = 'version'", null).use { if (it.moveToFirst()) it.getString(0).toInt() else 1 }
+    }.getOrDefault(1)
+  }
+
   suspend fun collections(): List<HadithCollection> = withContext(Dispatchers.IO) {
     val db = database() ?: return@withContext emptyList()
     db.rawQuery("SELECT slug, name_ar, name_en, count FROM collections ORDER BY position", null).use { c ->
@@ -213,8 +221,12 @@ class HadithLibrary @Inject constructor(
   )
 
   companion object {
-    const val DOWNLOAD_URL = "https://github.com/z6il/quran_android/releases/download/hadith-library-v1/hadith.zip"
-    private const val EXPECTED_ZIP_BYTES = 12_500_000L
+    const val DOWNLOAD_URL = "https://github.com/z6il/quran_android/releases/download/hadith-library-v2/hadith.zip"
+    private const val EXPECTED_ZIP_BYTES = 23_824_969L
+    /** the library this app expects; an older one installed is offered as an update */
+    const val CURRENT_VERSION = 2
+    /** collections whose books are only ranges of numbers, or single short books: left out of the topic index */
+    val NOT_IN_TOPICS = setOf("ahmad", "darimi", "nawawi40", "qudsi40")
 
     private val HARAKAT = Regex("[\\u0610-\\u061A\\u064B-\\u065F\\u0670\\u06D6-\\u06ED\\u0640\\u200f\\u200e]")
 
