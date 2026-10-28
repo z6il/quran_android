@@ -115,6 +115,13 @@ private val Edit by lazy {
   icon("Edit", "M3,17.25V21h3.75L17.81,9.94l-3.75,-3.75L3,17.25zM20.71,7.04c0.39,-0.39 0.39,-1.02 0,-1.41l-2.34,-2.34" +
     "c-0.39,-0.39 -1.02,-0.39 -1.41,0l-1.83,1.83 3.75,3.75 1.83,-1.83z")
 }
+/** an open book, for a tafsir */
+private val TafsirBook by lazy {
+  icon("Tafsir", "M21,5c-1.11,-0.35 -2.33,-0.5 -3.5,-0.5 -1.95,0 -4.05,0.4 -5.5,1.5 -1.45,-1.1 -3.55,-1.5 -5.5,-1.5S2.45,4.9 1,6v14.65" +
+    "c0,0.25 0.25,0.5 0.5,0.5 0.1,0 0.15,-0.05 0.25,-0.05C3.1,20.45 5.05,20 6.5,20c1.95,0 4.05,0.4 5.5,1.5 1.35,-0.85 3.8,-1.5 5.5,-1.5" +
+    " 1.65,0 3.35,0.3 4.75,1.05 0.1,0.05 0.15,0.05 0.25,0.05 0.25,0 0.5,-0.25 0.5,-0.5V6c-0.6,-0.45 -1.25,-0.75 -2,-1zM21,18.5" +
+    "c-1.1,-0.35 -2.3,-0.5 -3.5,-0.5 -1.7,0 -4.15,0.65 -5.5,1.5V8c1.35,-0.85 3.8,-1.5 5.5,-1.5 1.2,0 2.4,0.15 3.5,0.5v11.5z")
+}
 internal val Quote by lazy { icon("Quote", "M6,17h3l2,-4V7H5v6h3zM14,17h3l2,-4V7h-6v6h3z") }
 internal val Share by lazy {
   icon("Share", "M18,16.08c-0.76,0 -1.44,0.3 -1.96,0.77L8.91,12.7c0.05,-0.23 0.09,-0.46 0.09,-0.7s-0.04,-0.47 -0.09,-0.7l7.05,-4.11" +
@@ -433,6 +440,7 @@ fun IdeaScreen(
   onRemoveLink: (IdeaLink) -> Unit,
   onEditLink: (IdeaLink, Relation, String) -> Unit,
   onPickHadith: (parentId: Long?) -> Unit,
+  onPickTafsir: (parentId: Long?) -> Unit,
   onOpenTarget: (LinkTarget) -> Unit,
   onShare: () -> Unit,
   onDelete: () -> Unit,
@@ -553,6 +561,7 @@ fun IdeaScreen(
               when (kind) {
                 LinkTarget.Ayah.KIND -> addingVerse = true
                 LinkTarget.Hadith.KIND -> onPickHadith(null)
+                TAFSIR_KIND -> onPickTafsir(null)
                 LinkTarget.Idea.KIND -> linkingIdea = true
                 else -> addingNote = true
               }
@@ -598,6 +607,7 @@ fun IdeaScreen(
             when (kind) {
               LinkTarget.Ayah.KIND -> addingVerse = true
               LinkTarget.Hadith.KIND -> onPickHadith(link.id)
+              TAFSIR_KIND -> onPickTafsir(link.id)
               LinkTarget.Idea.KIND -> linkingIdea = true
               else -> addingNote = true
             }
@@ -642,7 +652,11 @@ fun IdeaScreen(
   }
 }
 
+/** not a kind of link: a tafsir quote is saved as a note; this only picks the menu entry */
+internal const val TAFSIR_KIND = "tafsir"
+
 private fun kindIcon(kind: String): ImageVector = when (kind) {
+  TAFSIR_KIND -> TafsirBook
   LinkTarget.Ayah.KIND -> QuranIcons.MenuBook
   LinkTarget.Hadith.KIND -> Library
   LinkTarget.Idea.KIND -> LightBulb
@@ -663,6 +677,7 @@ private fun AddMenu(expanded: Boolean, canAddIdea: Boolean, onDismiss: () -> Uni
     listOf(
       LinkTarget.Ayah.KIND to R.string.research_add_verse,
       LinkTarget.Hadith.KIND to R.string.research_add_hadith,
+      TAFSIR_KIND to R.string.research_add_tafsir,
       LinkTarget.Note.KIND to R.string.research_add_note,
       LinkTarget.Idea.KIND to R.string.research_add_idea
     ).forEach { (kind, label) ->
@@ -913,11 +928,11 @@ private fun LinkNoteDialog(link: IdeaLink, onSave: (Relation, String) -> Unit, o
 
 @Composable
 private fun AddVerseDialog(text: ResearchText, onAdd: (LinkTarget.Ayah, Relation) -> Unit, onDismiss: () -> Unit) {
-  var sura by rememberSaveable { mutableStateOf("") }
+  var sura by rememberSaveable { mutableStateOf<Int?>(null) }
+  val s = sura
   var from by rememberSaveable { mutableStateOf("") }
   var to by rememberSaveable { mutableStateOf("") }
   var relation by rememberSaveable { mutableStateOf(Relation.RELATED) }
-  val s = sura.toIntOrNull()
   val a = from.toIntOrNull()
   val b = to.toIntOrNull() ?: a
   val valid = s != null && s in 1..114 && a != null && b != null && a in 1..text.verseCount(s) && b in a..text.verseCount(s)
@@ -927,16 +942,14 @@ private fun AddVerseDialog(text: ResearchText, onAdd: (LinkTarget.Ayah, Relation
     text = {
       Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         val numbers = KeyboardOptions(keyboardType = KeyboardType.Number)
-        OutlinedTextField(sura, { sura = it.filter(Char::isDigit).take(3) }, singleLine = true, keyboardOptions = numbers,
-          label = { Text(stringResource(R.string.research_sura)) },
-          supportingText = { if (s != null && s in 1..114) Text(text.suraName(s)) })
+        SuraPicker(sura, text, onPick = { sura = it; if (from.isEmpty()) from = "1" })
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           OutlinedTextField(from, { from = it.filter(Char::isDigit).take(3) }, singleLine = true, keyboardOptions = numbers,
             label = { Text(stringResource(R.string.research_from_ayah)) }, modifier = Modifier.weight(1f))
           OutlinedTextField(to, { to = it.filter(Char::isDigit).take(3) }, singleLine = true, keyboardOptions = numbers,
             label = { Text(stringResource(R.string.research_to_ayah)) }, modifier = Modifier.weight(1f))
         }
-        if (sura.isNotEmpty() && from.isNotEmpty() && !valid) {
+        if (s != null && from.isNotEmpty() && !valid) {
           Text(stringResource(R.string.research_invalid_verse), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
         Text(stringResource(R.string.research_relation_question), style = MaterialTheme.typography.labelLarge)

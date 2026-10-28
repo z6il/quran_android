@@ -19,7 +19,7 @@
   <string name="research_relation_related">Related</string>
   <string name="research_relation_contrasts">Contrasts</string>
   <string name="research_relation_question">How does it relate?</string>
-  <string name="research_sura">Surah number</string>
+  <string name="research_sura">Surah</string>
   <string name="research_from_ayah">From verse</string>
   <string name="research_to_ayah">To verse</string>
   <string name="research_invalid_verse">There\'s no such verse.</string>
@@ -81,4 +81,14 @@
   <string name="research_hide_under">Hide %1$d under this</string>
   <string name="research_quote_tafsir">Add to research</string>
   <string name="research_quoted_here">Quoted in your research (%1$d)</string>
+  <string name="research_add_tafsir">Tafsir quote</string>
+  <string name="research_which_verse">Which verse?</string>
+  <string name="research_ayah">Verse</string>
+  <string name="research_which_tafsir">From which tafsir?</string>
+  <string name="research_select_hint">Select the part you want and tap «Add to research», or quote it all.</string>
+  <string name="research_quote_all">Quote it all</string>
+  <string name="research_no_tafsir">No tafsir is downloaded yet. Get one (e.g. Tabari, Ibn Kathir or Al-Muyassar) and come back.</string>
+  <string name="research_get_tafsir">Get a tafsir</string>
+  <string name="research_no_tafsir_text">This tafsir has nothing for this verse; it may be explained with the verses before it.</string>
+  <string name="research_sura_search">Name or number</string>
 </resources>

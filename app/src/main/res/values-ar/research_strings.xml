@@ -19,7 +19,7 @@
   <string name="research_relation_related">ذو صلة</string>
   <string name="research_relation_contrasts">يعارض</string>
   <string name="research_relation_question">ما صلته بالفكرة؟</string>
-  <string name="research_sura">رقم السورة</string>
+  <string name="research_sura">السورة</string>
   <string name="research_from_ayah">من آية</string>
   <string name="research_to_ayah">إلى آية</string>
   <string name="research_invalid_verse">لا توجد آية بهذا الرقم.</string>
@@ -81,4 +81,14 @@
   <string name="research_hide_under">إخفاء %1$d تحته</string>
   <string name="research_quote_tafsir">أضف إلى البحث</string>
   <string name="research_quoted_here">مقتبس في بحثك (%1$d)</string>
+  <string name="research_add_tafsir">اقتباس من تفسير</string>
+  <string name="research_which_verse">أي آية؟</string>
+  <string name="research_ayah">الآية</string>
+  <string name="research_which_tafsir">من أي تفسير؟</string>
+  <string name="research_select_hint">حدد الجزء الذي تريده واضغط «أضف إلى البحث»، أو اقتبس النص كله.</string>
+  <string name="research_quote_all">اقتباس النص كله</string>
+  <string name="research_no_tafsir">لا يوجد تفسير محمّل بعد. حمّل تفسيرًا (كالطبري أو ابن كثير أو الميسر) ثم عُد.</string>
+  <string name="research_get_tafsir">تحميل تفسير</string>
+  <string name="research_no_tafsir_text">لا نص لهذه الآية في هذا التفسير، فقد تُفسَّر مع الآيات قبلها.</string>
+  <string name="research_sura_search">الاسم أو الرقم</string>
 </resources>

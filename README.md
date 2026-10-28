@@ -8,8 +8,10 @@
 [![Downloads](https://img.shields.io/github/downloads/z6il/quran_android/total?logo=Github)](https://github.com/z6il/quran_android/releases)
 
 A Madani mushaf Quran app for Android, built on the open-source
-[Quran for Android](https://github.com/quran/quran_android), with Abdullah Al-Mousa
-(عبدالله الموسى) added as a reciter.
+[Quran for Android](https://github.com/quran/quran_android): the Quran with hadith,
+prayer times, qibla, adhkar, a khatmah planner and a research notebook, in one app.
+
+Made by **Abdullah**.
 
 **[Download the latest APK](https://github.com/z6il/quran_android/releases/latest)**
 
@@ -20,7 +22,8 @@ A Madani mushaf Quran app for Android, built on the open-source
 This is a fork of [quran/quran_android](https://github.com/quran/quran_android), the
 open-source code behind the Quran for Android app. All of the reading, search,
 translation and audio features come from that project and its contributors. This
-fork adds a reciter and fixes on top of it.
+fork, by Abdullah, adds the features below, a refreshed design, more reciters and
+fixes on top of it.
 
 It installs as its own app (`com.z6il.quran`), so it sits alongside the official
 Quran app instead of replacing it. If you want the official app, get it from
@@ -28,6 +31,50 @@ Quran app instead of replacing it. If you want the official app, get it from
 or the [upstream releases](https://github.com/quran/quran_android/releases/latest).
 
 ## What's different from the original
+
+The bottom bar leads to the app's main places: **Quran · Hadith · Prayer · Adhkar ·
+More** (Research, Qibla, Khatmah, Settings).
+
+### Hadith
+
+The six books (Bukhari, Muslim, Abu Dawud, Tirmidhi, Nasa'i, Ibn Majah) in Arabic,
+downloaded once and read offline: a topic index across all six, browsing by book,
+search with filters by book and grade, a hadith of the day and favourites. Each
+hadith shows its grade in colour (sahih, hasan, da'if, very weak, fabricated), who
+graded it, and the narrating companion.
+
+### Prayer times and qibla
+
+Prayer times for your location or any city, worked out on the phone with the method
+used in your country, with a countdown, the Hijri date, an alert at each prayer
+(an adhan, including Mohammed bin Marwan Qassas's, or any sound), and an optional
+reminder before it. A qibla compass with a spirit level.
+
+### Adhkar
+
+Hisn al-Muslim with a counter, morning and evening reminders, the virtue (fadl) of
+each dhikr from the Sunnah, and its sources.
+
+### Research
+
+A notebook for ideas linked to verses, hadith, tafsir quotes, notes and other ideas,
+each with how it relates (explains, supports, related, contrasts) and a comment, as
+deep a tree as you like. Quoted tafsir passages stay highlighted in the tafsir.
+Ideas can be shared and imported as files, and seen as a 3D map.
+
+### Khatmah
+
+A plan to finish the Quran in a chosen number of days, with daily targets, progress
+and a streak.
+
+### Reading
+
+Easier Arabic tafsir: chains of narration are dimmed so the explanation stands out,
+and long entries open on a short preview with the reading time.
+
+### Updates
+
+The app checks this repository's releases and installs new versions itself.
 
 ### New reciter: Abdullah Al-Mousa (عبدالله الموسى)
 
@@ -146,8 +193,12 @@ is under its authors' own licenses, typically
 
 ## Credits
 
-All credit for the app goes to the [Quran for Android](https://github.com/quran/quran_android)
-project and its [contributors and translators](CONTRIBUTORS.md). May Allah reward them.
+This edition is made by **Abdullah**. The app itself is the work of the
+[Quran for Android](https://github.com/quran/quran_android) project and its
+[contributors and translators](CONTRIBUTORS.md). May Allah reward them.
+
+- Hadith texts and gradings from [sunnah.com](https://sunnah.com); adhkar from
+  Hisn al-Muslim; prayer times calculated with [Adhan](https://github.com/batoulapps/adhan-java).
 
 - Madani page images from the [quran images project](https://github.com/quran/quran.com-images).
 - Qaloon images used with permission of Nous Memes Editions Et Diffusion (Tunisia).

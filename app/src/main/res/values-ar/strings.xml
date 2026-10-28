@@ -301,7 +301,9 @@
   <string name="prefs_megabytes_int">%1$d م ب</string>
   <string name="storage_permission_please_restart">يرجى إعادة تشغيل التطبيق لتفعيل الإذن</string>
   <string name="storage_permission_rationale">تطبيق قرآن يحتاج إلى إذنك بالوصول إلى الذاكرة الخارجية. التطبيق سيعمل دون الإذن، لكن عند مسح البيانات أو حذف التطبيق، ستحذف جميع صفحات المصحف والبيانات والصوت. هل تريد الإذن لتطبيق قرآن؟</string>
-  <string name="about_contributors_summary">قائمة بأسماء المساهمين في تطوير تطبيق قرآن أندرويد</string>
+  <string name="about_contributors_summary">عبدالله، صاحب هذه النسخة، والمساهمون في تطوير تطبيق قرآن أندرويد</string>
+  <string name="about_edition">هذه النسخة</string>
+  <string name="about_edition_summary">من إعداد عبدالله. صفحة المشروع وإصداراته على GitHub</string>
   <string name="about_contributors">المساهمون</string>
   <string name="about_others">أخرى</string>
   <string name="about_open_source">مشاريع مفتوحة المصدر</string>

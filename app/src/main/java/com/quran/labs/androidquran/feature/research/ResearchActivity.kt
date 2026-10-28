@@ -41,6 +41,12 @@ import com.quran.labs.androidquran.ui.PagerActivity
 import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import com.quran.data.model.VerseRange
+import com.quran.labs.androidquran.database.DatabaseHandler
+import com.quran.labs.androidquran.database.TranslationsDBAdapter
+import com.quran.labs.androidquran.ui.TranslationManagerActivity
+import com.quran.labs.androidquran.util.QuranFileUtils
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -51,6 +57,8 @@ class ResearchActivity : AppCompatActivity() {
   @Inject lateinit var quranInfo: QuranInfo
   @Inject lateinit var quranDisplayData: QuranDisplayData
   @Inject lateinit var arabicDatabaseUtils: ArabicDatabaseUtils
+  @Inject lateinit var translationsDb: TranslationsDBAdapter
+  @Inject lateinit var quranFileUtils: QuranFileUtils
 
   private sealed interface Screen {
     data object Ideas : Screen
@@ -59,6 +67,8 @@ class ResearchActivity : AppCompatActivity() {
     data class Library(val forIdea: Long?, val under: Long? = null) : Screen
     data class HadithDetail(val entry: HadithEntry, val forIdea: Long?, val under: Long? = null) : Screen
     data class PickIdea(val target: LinkTarget) : Screen
+    /** quoting a tafsir into [forIdea], under the link [under] if set */
+    data class QuoteTafsir(val forIdea: Long, val under: Long?) : Screen
     /** a passage quoted from a tafsir, to become a note in an idea */
     data class PickQuote(val text: String, val source: String, val tafsir: String, val sura: Int, val ayah: Int) : Screen
     data object Map : Screen
@@ -213,6 +223,7 @@ class ResearchActivity : AppCompatActivity() {
           onRemoveLink = { link -> scope.launch { store.removeLink(link) } },
           onEditLink = { link, relation, note -> scope.launch { store.updateLink(link, relation, note) } },
           onPickHadith = { under -> stack.add(Screen.Library(current.id, under)) },
+          onPickTafsir = { under -> stack.add(Screen.QuoteTafsir(current.id, under)) },
           onOpenTarget = { openTarget(it) },
           onShare = { withName { share(setOf(current.id)) } },
           onDelete = { scope.launch { store.deleteIdea(current.id); back() } },
@@ -261,6 +272,30 @@ class ResearchActivity : AppCompatActivity() {
         },
         onBack = { back() }
       )
+      is Screen.QuoteTafsir -> {
+        val tafsirs by produceState(emptyList<TafsirChoice>()) {
+          value = translationsDb.getTranslations().first().map {
+            TafsirChoice(it.filename, it.resolveTranslatorName(), it.languageCode == "ar")
+          }
+        }
+        TafsirQuoteScreen(
+          tafsirs = tafsirs,
+          text = text,
+          load = { file, sura, ayah -> tafsirText(file, sura, ayah) },
+          onQuote = { quote, choice, sura, ayah, relation ->
+            scope.launch {
+              val source = choice.name + " · " + text.suraName(sura) + " " + getString(R.string.sura_ayah, sura, ayah)
+              val uid = store.addNote(screen.forIdea, quote, source, relation, screen.under)
+              withContext(Dispatchers.IO) {
+                TafsirQuotes.get(this@ResearchActivity).add(TafsirQuote(uid, choice.file, sura, ayah, quote))
+              }
+              back()
+            }
+          },
+          onGetTafsirs = { startActivity(Intent(this@ResearchActivity, TranslationManagerActivity::class.java)) },
+          onBack = { back() }
+        )
+      }
       is Screen.PickQuote -> PickIdeaScreen(
         target = LinkTarget.Note(""),
         ideas = ideas,
@@ -343,6 +378,15 @@ class ResearchActivity : AppCompatActivity() {
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
       startActivity(Intent.createChooser(send, getString(R.string.research_share)))
     }
+  }
+
+  /** one verse's text from an installed translation or tafsir */
+  private suspend fun tafsirText(file: String, sura: Int, ayah: Int): String? = withContext(Dispatchers.IO) {
+    runCatching {
+      DatabaseHandler.getDatabaseHandler(this@ResearchActivity, file, quranFileUtils)
+        .getVerses(VerseRange(sura, ayah, sura, ayah, 1), DatabaseHandler.TextType.TRANSLATION)
+        .firstOrNull()?.text
+    }.getOrNull()?.takeIf { it.isNotBlank() }
   }
 
   private fun back() {

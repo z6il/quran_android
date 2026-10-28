@@ -3,6 +3,8 @@ Quran Android Contributors
 
 ### Code
 
+* [Abdullah](https://github.com/z6il) - the z6il edition: hadith, prayer times
+    and qibla, adhkar, research, khatmah, added reciters and the new design
 * [Asim Mohiuddin](https://github.com/asimmohiuddin) - images, gapless audio
     and work on the Naskh version
 * [g360230](https://github.com/g360230) - images and work on the Qaloon

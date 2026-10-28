@@ -94,8 +94,11 @@
   <string name="about_sliding_panel_url" translatable="false">https://github.com/umano/AndroidSlidingUpPanel</string>
   <string name="about_others">Others</string>
   <string name="about_contributors">Contributors</string>
-  <string name="about_contributors_summary">A list of people who contributed to the development of Quran for Android</string>
-  <string name="about_contributors_url" translatable="false">https://github.com/quran/quran_android/blob/main/CONTRIBUTORS.md</string>
+  <string name="about_contributors_summary">Abdullah, who made this edition, and the people who built Quran for Android</string>
+  <string name="about_edition">This edition</string>
+  <string name="about_edition_summary">Made by Abdullah. See the project and its releases on GitHub</string>
+  <string name="about_contributors_url" translatable="false">https://github.com/z6il/quran_android/blob/main/CONTRIBUTORS.md</string>
+  <string name="about_edition_url" translatable="false">https://github.com/z6il/quran_android</string>
 
   <!-- help -->
   <string name="help_title">Frequently Asked Questions</string>
