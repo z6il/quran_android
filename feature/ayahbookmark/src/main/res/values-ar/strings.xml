@@ -1,13 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <string name="ayahbookmark_done">تم</string>
+  <string name="ayahbookmark_saved">محفوظة</string>
+  <string name="ayahbookmark_not_saved">غير محفوظة</string>
+  <string name="ayahbookmark_reading_bookmark_is_here">علامة «%1$s» على هذه الآية</string>
+  <string name="ayahbookmark_reading_bookmark_move_here">انقل علامة «%1$s» إلى هنا</string>
+  <string name="ayahbookmark_reading_bookmark_set_here">ضع علامة «%1$s» هنا</string>
+  <string name="ayahbookmark_reading_bookmark_move">انقل</string>
+  <string name="ayahbookmark_reading_bookmark_set">ضع</string>
+  <string name="ayahbookmark_other_reading_bookmark">علامة قراءة أخرى</string>
+  <string name="ayahbookmark_highlight_title">التظليل</string>
+  <string name="ayahbookmark_highlight_saved_on_close">يُحفظ عند إغلاق هذه النافذة</string>
+  <string name="ayahbookmark_highlight_none">بلا تظليل</string>
   <string name="ayahbookmark_collections_header">المجموعات</string>
   <string name="ayahbookmark_new_collection">مجموعة جديدة</string>
   <string name="ayahbookmark_collection_name_hint">اسم المجموعة</string>
+  <string name="ayahbookmark_collection_name_error">لا يمكن استخدام هذا الاسم للمجموعة.</string>
+  <string name="ayahbookmark_collection_name_duplicate">توجد مجموعة باسم «%1$s» من قبل.</string>
+  <string name="ayahbookmark_collection_name_reserved">«%1$s» اسم محجوز.</string>
+  <string name="ayahbookmark_collection_name_empty">لا يمكن أن يكون اسم المجموعة فارغًا.</string>
+  <string name="ayahbookmark_collection_name_too_long">اسم المجموعة طويل جدًا.</string>
   <string name="ayahbookmark_cancel">إلغاء</string>
   <string name="ayahbookmark_create">إنشاء</string>
-  <string name="ayahbookmark_saved">محفوظة</string>
-  <string name="ayahbookmark_not_saved">غير محفوظة</string>
-  <string name="ayahbookmark_highlight_title">تمييز</string>
-  <string name="ayahbookmark_highlight_none">بلا</string>
+
+  <string name="readingbookmark_title">علامات القراءة</string>
+  <string name="readingbookmark_subtitle">كل علامة تحفظ موضعًا واحدًا، انقلها كلما تقدّمت في القراءة</string>
+  <string name="readingbookmark_placing_on">وضع العلامة على %1$s</string>
+  <string name="readingbookmark_at_location">عند %1$s</string>
+  <string name="readingbookmark_ayah_location">%1$s · صفحة %2$d</string>
+  <string name="readingbookmark_not_placed">لم توضع بعد</string>
+  <string name="readingbookmark_on_this_page">في هذه الصفحة</string>
+  <string name="readingbookmark_on_this_ayah">على هذه الآية</string>
+  <string name="readingbookmark_move_here">انقلها إلى هنا</string>
+  <string name="readingbookmark_set_here">ضعها هنا</string>
+  <string name="readingbookmark_clear">إزالة</string>
+  <string name="readingbookmark_back">رجوع</string>
+  <string name="readingbookmark_edit">تعديل</string>
+  <string name="readingbookmark_done_editing">إنهاء التعديل</string>
+  <string name="readingbookmark_editing_subtitle">سمِّ كل علامة باسم تعرفها به</string>
 </resources>

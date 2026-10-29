@@ -18,15 +18,20 @@ data class Parallel(val collection: String, val number: String, val grade: Strin
 object HadithTakhrij {
   private val MARKS = Regex("[\\u064B-\\u065F\\u0670\\u0640]")
   private val START = Regex("(متفق عليه|رواه|أخرجه|اخرجه)")
+  private val OWN_VERDICT = Regex("حديث (حسن صحيح|حسن|صحيح)")
 
   /** «رواه مسلم», «متفق عليه», «رواه الترمذي وقال: حديث حسن»: from the end of the text */
   fun of(entry: HadithEntry): String? {
     if (entry.collection == "tirmidhi") return tirmidhiVerdict(entry.text)
     if (entry.collection !in WITH_TAKHRIJ) return null
     val plain = MARKS.replace(entry.text, "")
-    val tail = plain.takeLast(260)
-    val match = START.findAll(tail).lastOrNull() ?: return null
-    return tail.substring(match.range.first)
+    // the compiler's own verdict, often just before where it was narrated:
+    // «حديث حسن، رواه ابن ماجه», «حديث حسن صحيح، رويناه في كتاب الحجة» (an-Nawawi)
+    val verdict = OWN_VERDICT.findAll(plain.takeLast(450)).lastOrNull()
+    val tail = if (verdict != null) plain.takeLast(450).substring(verdict.range.first) else plain.takeLast(260)
+    val match = if (verdict != null) verdict else START.findAll(tail).lastOrNull() ?: return null
+    val start = if (verdict != null) 0 else match.range.first
+    return tail.substring(start)
       .replace(Regex("[()\\[\\]«»\"'.]"), " ")
       .replace(Regex("\\s+"), " ")
       .trim()

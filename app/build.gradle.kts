@@ -38,7 +38,7 @@ android {
   defaultConfig {
     versionCode = 3642
     // this fork's release number: the in-app updater compares it with "v3.6.4-z6il.N" on GitHub
-    val forkBuild = 23
+    val forkBuild = 24
     versionName = "3.6.4-z6il.$forkBuild"
     buildConfigField("int", "FORK_BUILD", forkBuild.toString())
     testInstrumentationRunner = "com.quran.labs.androidquran.core.QuranTestRunner"

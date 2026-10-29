@@ -5,6 +5,7 @@
   <string name="from">من</string>
   <string name="to">إلى</string>
   <string name="loading">جاري التحميل…</string>
+  <string name="default_collection">المفضلة</string>
   <string name="canceling">جاري إلغاء اﻷمر…</string>
   <!-- names of the ayah highlight colors -->
   <string name="highlight_color_yellow">أصفر</string>
