@@ -46,7 +46,7 @@ class ResearchTest {
         db.execSQL("CREATE TABLE collections(slug TEXT PRIMARY KEY, name_ar TEXT, name_en TEXT, position INTEGER, count INTEGER)")
         db.execSQL("CREATE TABLE hadith(id INTEGER PRIMARY KEY, collection TEXT, number TEXT, book TEXT, chapter_ar TEXT, text_ar TEXT, matn_ar TEXT, grade TEXT)")
         db.execSQL("CREATE VIRTUAL TABLE hadith_fts USING fts4(content=\"\", norm)")
-        db.execSQL("INSERT INTO collections VALUES('bukhari','صحيح البخاري','Sahih al-Bukhari',0,1),('tirmidhi','جامع الترمذي','Jami at-Tirmidhi',1,1)")
+        db.execSQL("INSERT INTO collections VALUES('bukhari','صحيح البخاري','Sahih al-Bukhari',0,7277),('tirmidhi','جامع الترمذي','Jami at-Tirmidhi',1,5531)")
         val texts = listOf("إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ", "لاَ تُقْبَلُ صَلاَةٌ بِغَيْرِ طُهُورٍ")
         db.execSQL("INSERT INTO hadith VALUES(1,'bukhari','1','1','',?,?,'')", arrayOf(texts[0], texts[0]))
         db.execSQL("INSERT INTO hadith VALUES(2,'tirmidhi','1','1','',?,'','Sahih (Darussalam)')", arrayOf<Any>(texts[1]))

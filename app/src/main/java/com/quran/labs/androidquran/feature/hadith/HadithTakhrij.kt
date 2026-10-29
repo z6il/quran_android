@@ -21,6 +21,7 @@ object HadithTakhrij {
 
   /** «رواه مسلم», «متفق عليه», «رواه الترمذي وقال: حديث حسن»: from the end of the text */
   fun of(entry: HadithEntry): String? {
+    if (entry.collection == "tirmidhi") return tirmidhiVerdict(entry.text)
     if (entry.collection !in WITH_TAKHRIJ) return null
     val plain = MARKS.replace(entry.text, "")
     val tail = plain.takeLast(260)
@@ -39,7 +40,19 @@ object HadithTakhrij {
     else -> GradeLevel.of(takhrij, "")
   }
 
-  private val WITH_TAKHRIJ = setOf("riyadussalihin", "bulugh", "nawawi40", "qudsi40", "shahwaliullah40")
+  private val WITH_TAKHRIJ = setOf("riyadussalihin", "bulugh", "nawawi40", "qudsi40", "shahwaliullah40", "mishkat")
+
+  private val VERDICT = Regex("هذا حديث ([^.،:\"]{2,40})")
+
+  /** at-Tirmidhi grades his own hadith in the text: «قال أبو عيسى هذا حديث حسن صحيح» */
+  private fun tirmidhiVerdict(text: String): String? {
+    val plain = MARKS.replace(text, "")
+    val words = VERDICT.findAll(plain).lastOrNull()?.groupValues?.get(1)?.trim() ?: return null
+    val verdict = words.split(' ').takeWhile { it in VERDICT_WORDS }.joinToString(" ")
+    return if (verdict.isEmpty()) null else "قال الترمذي: هذا حديث $verdict"
+  }
+
+  private val VERDICT_WORDS = setOf("حسن", "صحيح", "غريب", "ضعيف", "مرسل", "منكر", "موقوف", "مضطرب", "مقلوب", "شاذ")
 
   @Volatile private var parallels: Map<String, List<Parallel>>? = null
 

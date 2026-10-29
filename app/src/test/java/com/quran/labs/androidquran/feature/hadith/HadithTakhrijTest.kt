@@ -27,4 +27,14 @@ class HadithTakhrijTest {
     val musnad = HadithEntry("ahmad", "1", "", "حدثنا وكيع رواه مسلم", "", "")
     assertThat(HadithTakhrij.of(musnad)).isNull()
   }
+
+  @Test
+  fun tirmidhisOwnVerdict() {
+    val e = HadithEntry("tirmidhi", "1", "", "حدثنا قتيبة ... قال أبو عيسى هذا حديث حسن صحيح غريب من هذا الوجه .", "", "")
+    val t = HadithTakhrij.of(e)
+    assertThat(t).isEqualTo("قال الترمذي: هذا حديث حسن صحيح غريب")
+    assertThat(HadithTakhrij.level(t!!)).isEqualTo(GradeLevel.SAHIH)
+    // a chapter note with no verdict says nothing
+    assertThat(HadithTakhrij.of(HadithEntry("tirmidhi", "2", "", "قال أبو عيسى وفي الباب عن أبي هريرة .", "", ""))).isNull()
+  }
 }

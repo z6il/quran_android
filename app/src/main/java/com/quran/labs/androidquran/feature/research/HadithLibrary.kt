@@ -35,7 +35,8 @@ data class HadithEntry(
   val grade: String
 ) {
   val target get() = LinkTarget.Hadith(collection, number)
-  val displayText get() = matn.ifBlank { text }
+  // a few sources mark only a fragment ("بهذا أمرت") as the prophetic text; then show it all
+  val displayText get() = matn.takeIf { it.length >= 40 } ?: text
 }
 
 sealed interface HadithLibraryState {
@@ -123,10 +124,50 @@ class HadithLibrary @Inject constructor(
     }.getOrDefault(1)
   }
 
+  /**
+   * Hadith with no grading from any source (their own, the takhrij, a parallel) are left out
+   * everywhere, worked out ahead in hadith_hidden.tsv. A link or favourite to one still opens.
+   */
+  @Volatile
+  private var hiddenCache: Hidden? = null
+
+  private class Hidden(val keys: Set<String>, val byBook: Map<String, Int>, val byCollection: Map<String, Int>)
+
+  private fun hidden(): Hidden = hiddenCache ?: synchronized(this) {
+    hiddenCache ?: runCatching {
+      val keys = HashSet<String>()
+      val byBook = HashMap<String, Int>()
+      val byCollection = HashMap<String, Int>()
+      context.assets.open("hadith_hidden.tsv").bufferedReader().useLines { lines ->
+        lines.forEach { line ->
+          val p = line.split('\t')
+          if (p.size == 3) {
+            keys += p[0] + ":" + p[1]
+            byBook.merge(p[0] + "/" + p[2], 1, Int::plus)
+            byCollection.merge(p[0], 1, Int::plus)
+          }
+        }
+      }
+      Hidden(keys, byBook, byCollection)
+    }.getOrElse { Hidden(emptySet(), emptyMap(), emptyMap()) }.also { hiddenCache = it }
+  }
+
+  private fun List<HadithEntry>.shown(): List<HadithEntry> {
+    val keys = hidden().keys
+    return filter { (it.collection + ":" + it.number) !in keys }
+  }
+
+  /** the collections with something to show, counting only what's shown */
   suspend fun collections(): List<HadithCollection> = withContext(Dispatchers.IO) {
     val db = database() ?: return@withContext emptyList()
+    val gone = hidden().byCollection
     db.rawQuery("SELECT slug, name_ar, name_en, count FROM collections ORDER BY position", null).use { c ->
-      buildList { while (c.moveToNext()) add(HadithCollection(c.getString(0), c.getString(1), c.getString(2), c.getInt(3))) }
+      buildList {
+        while (c.moveToNext()) {
+          val count = c.getInt(3) - (gone[c.getString(0)] ?: 0)
+          if (count > 0) add(HadithCollection(c.getString(0), c.getString(1), c.getString(2), count))
+        }
+      }
     }
   }
 
@@ -143,8 +184,12 @@ class HadithLibrary @Inject constructor(
     allBooksCache?.let { return@withContext it }
     val db = database() ?: return@withContext emptyList()
     val counts = HashMap<String, Int>()
+    val gone = hidden().byBook
     db.rawQuery("SELECT collection, book, COUNT(*) FROM hadith GROUP BY collection, book", null).use { c ->
-      while (c.moveToNext()) counts[c.getString(0) + "/" + c.getString(1)] = c.getInt(2)
+      while (c.moveToNext()) {
+        val key = c.getString(0) + "/" + c.getString(1)
+        counts[key] = c.getInt(2) - (gone[key] ?: 0)
+      }
     }
     db.rawQuery(
       "SELECT b.collection, b.number, b.name_ar, b.name_en FROM books b " +
@@ -158,7 +203,7 @@ class HadithLibrary @Inject constructor(
           add(HadithBook(collection, number, c.getString(2) ?: "", c.getString(3) ?: "", counts["$collection/$number"] ?: 0))
         }
       }
-    }.let(::withTopicBooks).also { allBooksCache = it }
+    }.filter { it.count > 0 }.let(::withTopicBooks).also { allBooksCache = it }
   }
 
   /** the Musnad and Darimi by topic, in place of their ranges of numbers */
@@ -197,12 +242,12 @@ class HadithLibrary @Inject constructor(
           arrayOf(book.collection) + chunk.toTypedArray()
         ).use { c -> buildList { while (c.moveToNext()) add(c.toEntry()) } }.associateBy { it.number }
         chunk.mapNotNull { found[it] }
-      }
+      }.shown()
     }
     db.rawQuery(
       "SELECT collection, number, chapter_ar, text_ar, matn_ar, grade FROM hadith WHERE collection = ? AND book = ? ORDER BY id",
       arrayOf(book.collection, book.number)
-    ).use { c -> buildList { while (c.moveToNext()) add(c.toEntry()) } }
+    ).use { c -> buildList { while (c.moveToNext()) add(c.toEntry()) } }.shown()
   }
 
   /** the same hadith all day, a different one each day, from Bukhari and Muslim */
@@ -230,7 +275,7 @@ class HadithLibrary @Inject constructor(
         val sql = "SELECT collection, number, chapter_ar, text_ar, matn_ar, grade FROM hadith WHERE number = ?" +
           (if (collection != null) " AND collection = ?" else "") + " ORDER BY id LIMIT $limit"
         val args = if (collection != null) arrayOf(number, collection) else arrayOf(number)
-        return@withContext db.rawQuery(sql, args).use { c -> buildList { while (c.moveToNext()) add(c.toEntry()) } }
+        return@withContext db.rawQuery(sql, args).use { c -> buildList { while (c.moveToNext()) add(c.toEntry()) } }.shown()
       }
       val words = normalizeArabic(query).split(Regex("\\s+")).filter { it.length > 1 }
       if (words.isEmpty()) return@withContext emptyList()
@@ -242,7 +287,9 @@ class HadithLibrary @Inject constructor(
         append(" ORDER BY h.id LIMIT $limit")
       }
       val args = if (collection != null) arrayOf(match, collection) else arrayOf(match)
-      db.rawQuery(sql, args).use { c -> buildList { while (c.moveToNext()) add(c.toEntry()) } }
+      // a little more than asked, since some may be hidden
+      db.rawQuery(sql.replace("LIMIT $limit", "LIMIT ${limit + limit / 2}"), args)
+        .use { c -> buildList { while (c.moveToNext()) add(c.toEntry()) } }.shown().take(limit)
     }
 
   suspend fun hadith(target: LinkTarget.Hadith): HadithEntry? = withContext(Dispatchers.IO) {
