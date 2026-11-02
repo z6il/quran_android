@@ -62,6 +62,16 @@ each with how it relates (explains, supports, related, contrasts) and a comment,
 deep a tree as you like. Quoted tafsir passages stay highlighted in the tafsir.
 Ideas can be shared and imported as files, and seen as a 3D map.
 
+### Library
+
+Under More: about 3,500 classical books (fiqh of the four madhhabs, usul, aqidah,
+hadith and their commentaries, tafsir, seerah, adhkar, fatwas, biographies) from
+the [OpenITI](https://openiti.org) corpus, each downloaded once and read offline
+with its chapters and printed page numbers. You can add your own PDF and EPUB
+files too. Every book can go on a shelf (want to read, reading, finished), keeps
+your place, and takes bookmarks with notes. In the classical books you can
+highlight words or lines in four colours, with a note, and search the whole book.
+
 ### Khatmah
 
 A plan to finish the Quran in a chosen number of days, with daily targets, progress
@@ -199,6 +209,8 @@ This edition is made by **Abdullah**. The app itself is the work of the
 
 - Hadith texts and gradings from [sunnah.com](https://sunnah.com); adhkar from
   Hisn al-Muslim; prayer times calculated with [Adhan](https://github.com/batoulapps/adhan-java).
+- Classical books from the [OpenITI](https://openiti.org) corpus (CC BY-NC-SA 4.0),
+  digitised from al-Maktaba al-Shamela and similar libraries.
 
 - Madani page images from the [quran images project](https://github.com/quran/quran.com-images).
 - Qaloon images used with permission of Nous Memes Editions Et Diffusion (Tunisia).

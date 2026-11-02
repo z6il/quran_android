@@ -132,6 +132,18 @@
         android:exported="false" />
 
     <activity
+        android:name=".feature.library.LibraryActivity"
+        android:theme="@style/QuranToolBarDayNight"
+        android:windowSoftInputMode="adjustResize"
+        android:exported="false" />
+
+    <activity
+        android:name=".feature.library.ReaderActivity"
+        android:theme="@style/QuranToolBarDayNight"
+        android:windowSoftInputMode="adjustResize"
+        android:exported="false" />
+
+    <activity
         android:name=".feature.home.MoreActivity"
         android:theme="@style/QuranToolBarDayNight"
         android:exported="false" />

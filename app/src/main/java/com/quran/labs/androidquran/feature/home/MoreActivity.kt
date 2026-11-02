@@ -38,6 +38,7 @@ import com.quran.labs.androidquran.common.ui.core.QuranIcons
 import com.quran.labs.androidquran.common.ui.core.QuranTheme
 import com.quran.labs.androidquran.feature.research.ResearchActivity
 import com.quran.labs.androidquran.feature.khatmah.KhatmahActivity
+import com.quran.labs.androidquran.feature.library.LibraryActivity
 import com.quran.labs.androidquran.feature.prayer.AppTopBar
 import com.quran.labs.androidquran.feature.prayer.QiblaActivity
 import com.quran.labs.androidquran.feature.prayer.cardColor
@@ -60,6 +61,7 @@ class MoreActivity : AppCompatActivity() {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
     val entries = listOf(
+      Entry(AppIcons.Library, R.string.library_title, R.string.more_library_detail) { LibraryActivity.intent(this) },
       Entry(AppIcons.Bulb, R.string.research_title, R.string.more_research_detail) { ResearchActivity.intent(this) },
       Entry(AppIcons.Kaaba, R.string.qibla_title, R.string.more_qibla_detail) { Intent(this, QiblaActivity::class.java) },
       Entry(AppIcons.Flag, R.string.nav_khatmah, R.string.more_khatmah_detail) { Intent(this, KhatmahActivity::class.java) },

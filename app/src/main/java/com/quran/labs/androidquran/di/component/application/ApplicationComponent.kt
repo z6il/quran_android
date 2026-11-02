@@ -20,6 +20,8 @@ import com.quran.labs.androidquran.di.module.widgets.BookmarksWidgetUpdaterModul
 import com.quran.labs.androidquran.feature.adhkar.AdhkarActivity
 import com.quran.labs.androidquran.feature.khatmah.KhatmahActivity
 import com.quran.labs.androidquran.feature.hadith.HadithActivity
+import com.quran.labs.androidquran.feature.library.LibraryActivity
+import com.quran.labs.androidquran.feature.library.ReaderActivity
 import com.quran.labs.androidquran.feature.research.ResearchActivity
 import com.quran.labs.androidquran.pageselect.PageSelectActivity
 import com.quran.labs.androidquran.service.AudioService
@@ -82,6 +84,8 @@ interface ApplicationComponent : QuranApplicationComponent {
   fun inject(adhkarActivity: AdhkarActivity)
   fun inject(researchActivity: ResearchActivity)
   fun inject(hadithActivity: HadithActivity)
+  fun inject(libraryActivity: LibraryActivity)
+  fun inject(readerActivity: ReaderActivity)
   fun inject(pageSelectActivity: PageSelectActivity)
   fun inject(showJumpFragmentActivity: ShowJumpFragmentActivity)
   fun inject(bookmarkListActivity: BookmarkListActivity)
