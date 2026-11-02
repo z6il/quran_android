@@ -91,4 +91,25 @@
   <string name="library_color_green">Green</string>
   <string name="library_color_blue">Blue</string>
   <string name="library_color_pink">Pink</string>
+  <string name="library_ocr_channel">Reading book text</string>
+  <string name="library_ocr_running">Reading a book\'s pages</string>
+  <string name="library_text_of_pdf">Text of this PDF</string>
+  <string name="library_text_layer">The PDF\'s own text (%1$d pages)</string>
+  <string name="library_text_ocr">OCR text (%1$d pages)</string>
+  <string name="library_text_run_ocr">Read the pages with OCR</string>
+  <string name="library_text_resume_ocr">Carry on reading with OCR</string>
+  <string name="library_text_stop_ocr">Stop OCR (%1$d of %2$d)</string>
+  <string name="library_no_layer">This PDF has no text of its own: it\'s scanned pages.</string>
+  <string name="library_ocr_title">Read this book with OCR?</string>
+  <string name="library_ocr_body">The phone reads each page\'s picture into text, offline, so you can search, copy and highlight it. %1$sIt takes a few seconds a page (about %2$d minutes for this book) and carries on in the background. Arabic OCR isn\'t perfect: some letters, especially tashkeel, may come out wrong. The PDF\'s own text, if it has any, stays: switch between them from this menu.</string>
+  <string name="library_ocr_model">It first downloads Arabic OCR (%1$s MB), once. </string>
+  <string name="library_ocr_start">Read with OCR</string>
+  <string name="library_scanned">This PDF is scanned, so it has no text. Read it with OCR to search and highlight.</string>
+  <string name="library_ocr_progress">Reading pages with OCR… %1$d of %2$d</string>
+  <string name="library_ocr_model_progress">Downloading Arabic OCR… %1$d%%</string>
+  <string name="library_ocr_failed">Stopped: %1$s</string>
+  <string name="library_retry">Try again</string>
+  <string name="library_copy">Copy</string>
+  <string name="library_copied">Copied</string>
+  <string name="library_adding">Adding…</string>
 </resources>

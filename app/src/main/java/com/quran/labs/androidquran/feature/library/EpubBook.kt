@@ -165,10 +165,9 @@ class PdfDocument(file: File) : Closeable {
   private val renderer = PdfRenderer(descriptor)
   val pageCount: Int get() = renderer.pageCount
 
-  /** each page's height over its width */
-  val ratios: List<Float> = List(renderer.pageCount) { i ->
-    renderer.openPage(i).use { it.height / it.width.toFloat().coerceAtLeast(1f) }
-  }
+  /** a page's height over its width; measuring opens the page, so a long book does it as it goes */
+  @Synchronized
+  fun ratio(index: Int): Float = renderer.openPage(index).use { it.height / it.width.toFloat().coerceAtLeast(1f) }
 
   @Synchronized
   fun render(index: Int, width: Int): Bitmap = renderer.openPage(index).use { page ->

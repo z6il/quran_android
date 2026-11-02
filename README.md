@@ -72,6 +72,13 @@ files too. Every book can go on a shelf (want to read, reading, finished), keeps
 your place, and takes bookmarks with notes. In the classical books you can
 highlight words or lines in four colours, with a note, and search the whole book.
 
+PDFs get the same: the app reads the text a PDF already has, and for scanned books
+(or a PDF whose text is poor) it can read the pages with Arabic OCR on the phone,
+offline, in the background ([Tesseract](https://github.com/tesseract-ocr/tesseract),
+its Arabic model downloaded once, 12.6 MB). Both texts are kept and you choose which
+a book uses. Then press and drag over words on the page to highlight or copy them,
+and search the book.
+
 ### Khatmah
 
 A plan to finish the Quran in a chosen number of days, with daily targets, progress
@@ -211,6 +218,9 @@ This edition is made by **Abdullah**. The app itself is the work of the
   Hisn al-Muslim; prayer times calculated with [Adhan](https://github.com/batoulapps/adhan-java).
 - Classical books from the [OpenITI](https://openiti.org) corpus (CC BY-NC-SA 4.0),
   digitised from al-Maktaba al-Shamela and similar libraries.
+- PDF text with [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android); OCR with
+  [Tesseract4Android](https://github.com/adaptech-cz/Tesseract4Android) and Tesseract's
+  Arabic model (Apache 2.0).
 
 - Madani page images from the [quran images project](https://github.com/quran/quran.com-images).
 - Qaloon images used with permission of Nous Memes Editions Et Diffusion (Tunisia).

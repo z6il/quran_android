@@ -26,6 +26,8 @@ import androidx.lifecycle.lifecycleScope
 import com.quran.labs.androidquran.QuranApplication
 import com.quran.labs.androidquran.R
 import com.quran.labs.androidquran.common.ui.core.QuranTheme
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
 import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.launch
 
@@ -46,6 +48,8 @@ class LibraryActivity : AppCompatActivity() {
   private var catalogBooks by mutableStateOf<List<CatalogBook>>(emptyList())
   /** a file picked to add, waiting for its shelf */
   private var picked by mutableStateOf<Uri?>(null)
+  /** a file being copied in: a big PDF takes a few seconds */
+  private var adding by mutableStateOf(false)
   internal val search = LibrarySearchState()
 
   private val pick = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) picked = uri }
@@ -71,6 +75,19 @@ class LibraryActivity : AppCompatActivity() {
             },
             label = "library"
           ) { screen -> Render(screen) }
+          if (adding) {
+            androidx.compose.material3.AlertDialog(
+              onDismissRequest = {},
+              confirmButton = {},
+              text = {
+                androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                  androidx.compose.material3.CircularProgressIndicator(androidx.compose.ui.Modifier.size(24.dp))
+                  androidx.compose.foundation.layout.Spacer(androidx.compose.ui.Modifier.size(16.dp))
+                  androidx.compose.material3.Text(getString(R.string.library_adding))
+                }
+              }
+            )
+          }
           picked?.let { uri ->
             ShelfPicker(
               current = Shelf.OTHER,
@@ -147,7 +164,12 @@ class LibraryActivity : AppCompatActivity() {
 
   private fun addFile(uri: Uri, shelf: Shelf) {
     lifecycleScope.launch {
-      val book = store.import(uri, shelf)
+      adding = true
+      val book = try {
+        store.import(uri, shelf)
+      } finally {
+        adding = false
+      }
       if (book == null) {
         Toast.makeText(this@LibraryActivity, R.string.library_add_failed, Toast.LENGTH_LONG).show()
       } else {

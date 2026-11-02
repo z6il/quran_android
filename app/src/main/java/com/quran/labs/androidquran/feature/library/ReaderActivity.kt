@@ -46,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -169,6 +170,29 @@ class ReaderActivity : AppCompatActivity() {
     LaunchedEffect(highlightsVersion) { highlights = store.highlights(book.id) }
     /** the paragraph being highlighted, and its text */
     var holding by remember { mutableStateOf<Pair<Int, String>?>(null) }
+    // a PDF's text: from the file, or OCR; what's chosen on a page, and a highlight tapped
+    val pdfText = remember { PdfTextState(book.id, PdfTextStore.get(this@ReaderActivity)) }
+    var selection by remember { mutableStateOf<PdfSelection?>(null) }
+    var tapped by remember { mutableStateOf<BookHighlight?>(null) }
+    var textMenu by remember { mutableStateOf(false) }
+    var confirmOcr by remember { mutableStateOf(false) }
+    val jobs by pdfText.store.jobs.collectAsState()
+    val job = jobs[book.id]
+    if (book.kind == BookKind.PDF) {
+      LaunchedEffect(job, state.total) { refreshPdfText(pdfText, book, state.total, job) }
+      // OCR follows the reader: a page they stay on that it hasn't reached is read next
+      var asked by remember { mutableIntStateOf(-1) }
+      LaunchedEffect(state.place.position, job?.running, pdfText.version) {
+        val running = job ?: return@LaunchedEffect
+        if (running.source != TextSource.OCR || !running.running) return@LaunchedEffect
+        kotlinx.coroutines.delay(3000)
+        val page = state.place.position
+        if (page != asked && pdfText.store.words(book.id, page, TextSource.OCR) == null) {
+          asked = page
+          pdfText.store.start(book.id, book.file, TextSource.OCR, page)
+        }
+      }
+    }
 
     // keep the place as it changes, a moment after scrolling stops
     LaunchedEffect(state.place, state.ready) {
@@ -186,11 +210,28 @@ class ReaderActivity : AppCompatActivity() {
           }, onJump = { state.jump = BookPlace(it) })
         } else {
           AppTopBar(book.title, onBack = ::finish) {
-            if (book.kind == BookKind.TEXT) {
+            if (book.kind == BookKind.TEXT || book.kind == BookKind.PDF && pdfText.source != null) {
               IconButton(onClick = { finding = true }) { Icon(QuranIcons.Search, contentDescription = stringResource(R.string.library_find)) }
             }
             IconButton(onClick = { showContents = true }) { Icon(AppIcons.Contents, contentDescription = stringResource(R.string.library_contents)) }
             IconButton(onClick = { addingMark = true }) { Icon(AppIcons.Bookmark, contentDescription = stringResource(R.string.library_add_bookmark)) }
+            if (book.kind == BookKind.PDF) {
+              Box {
+                IconButton(onClick = { textMenu = true }) { Icon(AppIcons.TextSize, contentDescription = stringResource(R.string.library_text_of_pdf)) }
+                PdfTextMenu(textMenu, pdfText, job, state.total, onDismiss = { textMenu = false }, onChoose = { source ->
+                  textMenu = false
+                  pdfText.store.choose(book.id, source)
+                  pdfText.source = source
+                  selection = null
+                }, onOcr = {
+                  textMenu = false
+                  confirmOcr = true
+                }, onStop = {
+                  textMenu = false
+                  pdfText.store.stop(book.id, TextSource.OCR)
+                })
+              }
+            }
             if (book.kind != BookKind.PDF) {
               Box {
                 IconButton(onClick = { sizeMenu = true }) { Icon(AppIcons.TextSize, contentDescription = stringResource(R.string.library_text_size)) }
@@ -210,13 +251,37 @@ class ReaderActivity : AppCompatActivity() {
           }
         }
       },
-      bottomBar = { ReaderBottom(book, state) },
+      bottomBar = {
+        val chosen = selection
+        if (chosen != null) {
+          SelectionBar(chosen, onColor = { color ->
+            selection = null
+            scope.launch {
+              store.addHighlight(book.id, chosen.page, chosen.range.first, chosen.range.last + 1, color, chosen.text, chosen.boxes)
+              highlightsVersion++
+            }
+          }, onCopy = {
+            copy(chosen.text)
+            selection = null
+          }, onClose = { selection = null })
+        } else {
+          ReaderBottom(book, state)
+        }
+      },
       containerColor = MaterialTheme.colorScheme.surface
     ) { padding ->
       Box(Modifier.padding(padding).fillMaxSize()) {
         when (book.kind) {
           BookKind.TEXT -> TextReader(File(book.file), state, scale, find, highlights, onHold = { i, text -> holding = i to text })
-          BookKind.PDF -> PdfReader(File(book.file), state)
+          BookKind.PDF -> Column {
+            PdfTextBanner(pdfText, job, state.total, onOcr = { confirmOcr = true }, onRetry = {
+              pdfText.store.start(book.id, book.file, job?.source ?: TextSource.OCR, state.place.position)
+            })
+            PdfReader(
+              File(book.file), state, pdfText, highlights, find, selection,
+              onSelection = { selection = it }, onTapHighlight = { tapped = it }
+            )
+          }
           BookKind.EPUB -> EpubReader(File(book.file), state, scale)
         }
         if (state.failed) {
@@ -239,6 +304,33 @@ class ReaderActivity : AppCompatActivity() {
           }
         })
       }
+    }
+    tapped?.let { h ->
+      ModalBottomSheet(onDismissRequest = { tapped = null }) {
+        Column(Modifier.padding(20.dp, 0.dp, 20.dp, 32.dp)) {
+          ExistingHighlight(h, onEdit = { old, color, note ->
+            tapped = null
+            scope.launch {
+              store.editHighlight(old.id, color, note)
+              highlightsVersion++
+            }
+          }, onDelete = { old ->
+            tapped = null
+            scope.launch {
+              store.deleteHighlight(old.id)
+              highlightsVersion++
+            }
+          })
+        }
+      }
+    }
+    if (confirmOcr) {
+      OcrDialog(pages = state.total, onStart = {
+        confirmOcr = false
+        // asking for OCR is choosing it; the file's own text stays a tap away
+        pdfText.store.choose(book.id, TextSource.OCR)
+        pdfText.store.start(book.id, book.file, TextSource.OCR, state.place.position)
+      }, onDismiss = { confirmOcr = false })
     }
     holding?.let { (position, text) ->
       ModalBottomSheet(onDismissRequest = { holding = null }) {
@@ -296,6 +388,35 @@ class ReaderActivity : AppCompatActivity() {
     }
   }
 
+  private fun copy(text: String) {
+    getSystemService(android.content.ClipboardManager::class.java)
+      ?.setPrimaryClip(android.content.ClipData.newPlainText(book?.title ?: "", text))
+    Toast.makeText(this, R.string.library_copied, Toast.LENGTH_SHORT).show()
+  }
+
+  /** how much text each source has, which is in use, and the file's own text read first */
+  private suspend fun refreshPdfText(text: PdfTextState, book: LibraryBook, total: Int, job: TextJob?) {
+    if (total <= 0) return
+    val store = text.store
+    text.layerPages = store.pagesWithText(book.id, TextSource.LAYER)
+    text.ocrPages = store.pagesWithText(book.id, TextSource.OCR)
+    val (layerDone, ocrDone) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+      store.donePages(book.id, TextSource.LAYER).size to store.donePages(book.id, TextSource.OCR).size
+    }
+    text.layerRead = layerDone >= total
+    text.ocrRead = ocrDone >= total
+    val chosen = store.chosen(book.id)?.takeIf { (if (it == TextSource.LAYER) text.layerPages else text.ocrPages) > 0 }
+    // unless the reader chose, whichever has more pages of text
+    text.source = chosen ?: when {
+      text.layerPages > 0 && text.layerPages >= text.ocrPages -> TextSource.LAYER
+      text.ocrPages > 0 -> TextSource.OCR
+      else -> null
+    }
+    text.version++
+    // a PDF added before this version: look for its own text now
+    if (!text.layerRead && job == null) store.start(book.id, book.file, TextSource.LAYER)
+  }
+
   @Composable
   private fun ReaderBottom(book: LibraryBook, state: ReaderState) {
     if (!state.ready || state.total <= 1) return
@@ -341,7 +462,7 @@ class ReaderActivity : AppCompatActivity() {
       PrimaryTabRow(selectedTabIndex = tab) {
         Tab(tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.library_contents)) })
         Tab(tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.library_bookmarks)) })
-        if (book.kind == BookKind.TEXT) Tab(tab == 2, onClick = { tab = 2 }, text = { Text(stringResource(R.string.library_highlights)) })
+        if (book.kind != BookKind.EPUB) Tab(tab == 2, onClick = { tab = 2 }, text = { Text(stringResource(R.string.library_highlights)) })
       }
       LazyColumn(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
         if (tab == 0) {

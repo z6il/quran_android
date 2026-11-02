@@ -16,6 +16,10 @@ dependencyResolutionManagement {
     maven("https://quran.github.io/mobile-sync/maven") {
       content { includeGroup("com.quran") }
     }
+    // Tesseract (Arabic OCR for scanned PDFs) is only published there
+    maven("https://jitpack.io") {
+      content { includeGroup("cz.adaptech.tesseract4android") }
+    }
   }
 }
 

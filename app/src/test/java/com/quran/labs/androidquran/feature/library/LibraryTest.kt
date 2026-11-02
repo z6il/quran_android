@@ -57,4 +57,30 @@ class LibraryTest {
     assertThat(EpubBook.resolve("OEBPS/text/", "../images/a%20b.png")).isEqualTo("OEBPS/images/a b.png")
     assertThat(EpubBook.resolve("", "ch1.xhtml")).isEqualTo("ch1.xhtml")
   }
+
+  @Test
+  fun ocrCommasAreNotQuotes() {
+    fun w(t: String) = PdfWord(t, 0f, 0f, 0f, 0f)
+    val fixed = fixCommas(listOf(w("دوائه»"), w("وقد"), w("«قال"), w("ذلك»"), w("ثم»"))).map { it.text }
+    assertThat(fixed).containsExactly("دوائه،", "وقد", "«قال", "ذلك»", "ثم،").inOrder()
+  }
+
+  @Test
+  fun pdfWordsRoundTrip() {
+    val words = listOf(PdfWord("الحمد", 0.1f, 0.2f, 0.3f, 0.25f), PdfWord("لله", 0.31f, 0.2f, 0.4f, 0.25f))
+    val back = PdfTextStore.decode(PdfTextStore.encode(words))
+    assertThat(back.map { it.text }).containsExactly("الحمد", "لله").inOrder()
+    assertThat(back[0].left).isWithin(0.0002f).of(0.1f)
+  }
+
+  @Test
+  fun aFingerBetweenWordsTakesTheWordOnItsLine() {
+    // the case seen on a scanned page: a stray word in the heading above sat closer than the next word along the line
+    val words = listOf(
+      PdfWord("نه", 0.525f, 0.1258f, 0.5477f, 0.1371f),
+      PdfWord("في", 0.5733f, 0.1347f, 0.595f, 0.1598f),
+      PdfWord("الدعا", 0.515f, 0.1319f, 0.5644f, 0.1566f)
+    )
+    assertThat(wordAt(words, 0.505f, 0.144f)).isEqualTo(2)
+  }
 }

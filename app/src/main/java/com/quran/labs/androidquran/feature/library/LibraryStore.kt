@@ -70,7 +70,9 @@ data class BookHighlight(
   val note: String,
   /** the words highlighted, kept for the list of highlights */
   val text: String,
-  val created: Long
+  val created: Long,
+  /** on a PDF page, the boxes it covers (fractions of the page), whichever text the page was read with */
+  val boxes: List<PdfWord> = emptyList()
 )
 
 enum class HighlightColor(val argb: Long, val title: Int) {
@@ -88,7 +90,7 @@ sealed interface BookDownload {
 
 @SingleIn(AppScope::class)
 class LibraryStore @Inject constructor(@ApplicationContext private val context: Context) {
-  private val helper = object : SQLiteOpenHelper(context, "library.db", null, 2) {
+  private val helper = object : SQLiteOpenHelper(context, "library.db", null, 3) {
     override fun onCreate(db: SQLiteDatabase) {
       db.execSQL(
         "CREATE TABLE books(id TEXT PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL, author TEXT NOT NULL DEFAULT '', " +
@@ -104,13 +106,14 @@ class LibraryStore @Inject constructor(@ApplicationContext private val context: 
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
       if (oldVersion < 2) createHighlights(db)
+      if (oldVersion == 2) db.execSQL("ALTER TABLE highlights ADD COLUMN boxes TEXT NOT NULL DEFAULT ''")
     }
 
     private fun createHighlights(db: SQLiteDatabase) {
       db.execSQL(
         "CREATE TABLE highlights(id INTEGER PRIMARY KEY AUTOINCREMENT, book TEXT NOT NULL, position INTEGER NOT NULL, " +
           "start INTEGER NOT NULL, \"end\" INTEGER NOT NULL, color TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', " +
-          "text TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL)"
+          "text TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL, boxes TEXT NOT NULL DEFAULT '')"
       )
     }
   }
@@ -211,6 +214,7 @@ class LibraryStore @Inject constructor(@ApplicationContext private val context: 
       put("added", now)
     })
     refresh()
+    if (kind == BookKind.PDF) PdfTextStore.get(context).start(id, file.path, TextSource.LAYER)
     book(id)
   }
 
@@ -260,6 +264,7 @@ class LibraryStore @Inject constructor(@ApplicationContext private val context: 
     helper.writableDatabase.delete("books", "id = ?", arrayOf(id))
     helper.writableDatabase.delete("marks", "book = ?", arrayOf(id))
     helper.writableDatabase.delete("highlights", "book = ?", arrayOf(id))
+    PdfTextStore.get(context).delete(id)
     refresh()
   }
 
@@ -297,25 +302,41 @@ class LibraryStore @Inject constructor(@ApplicationContext private val context: 
   /** in reading order */
   suspend fun highlights(book: String): List<BookHighlight> = withContext(Dispatchers.IO) {
     helper.readableDatabase.rawQuery(
-      "SELECT id, book, position, start, \"end\", color, note, text, created FROM highlights WHERE book = ? ORDER BY position, start",
+      "SELECT id, book, position, start, \"end\", color, note, text, created, boxes FROM highlights WHERE book = ? ORDER BY position, start",
       arrayOf(book)
     ).use { c ->
       buildList {
         while (c.moveToNext()) {
           val color = HighlightColor.entries.firstOrNull { it.name == c.getString(5) } ?: HighlightColor.YELLOW
-          add(BookHighlight(c.getLong(0), c.getString(1), c.getInt(2), c.getInt(3), c.getInt(4), color, c.getString(6), c.getString(7), c.getLong(8)))
+          add(
+            BookHighlight(
+              c.getLong(0), c.getString(1), c.getInt(2), c.getInt(3), c.getInt(4), color, c.getString(6), c.getString(7), c.getLong(8),
+              PdfTextStore.decode(c.getString(9))
+            )
+          )
         }
       }
     }
   }
 
   /** a new highlight over others in the paragraph replaces where they overlap */
-  suspend fun addHighlight(book: String, position: Int, start: Int, end: Int, color: HighlightColor, text: String) = withContext(Dispatchers.IO) {
+  suspend fun addHighlight(
+    book: String,
+    position: Int,
+    start: Int,
+    end: Int,
+    color: HighlightColor,
+    text: String,
+    boxes: List<PdfWord> = emptyList()
+  ) = withContext(Dispatchers.IO) {
     val db = helper.writableDatabase
-    db.delete(
-      "highlights", "book = ? AND position = ? AND start < ? AND \"end\" > ?",
-      arrayOf(book, position.toString(), end.toString(), start.toString())
-    )
+    // on a PDF page, where words are counted depends on the text used: boxes say where it is
+    if (boxes.isEmpty()) {
+      db.delete(
+        "highlights", "book = ? AND position = ? AND start < ? AND \"end\" > ?",
+        arrayOf(book, position.toString(), end.toString(), start.toString())
+      )
+    }
     db.insert("highlights", null, ContentValues().apply {
       put("book", book)
       put("position", position)
@@ -324,6 +345,7 @@ class LibraryStore @Inject constructor(@ApplicationContext private val context: 
       put("color", color.name)
       put("text", text)
       put("created", System.currentTimeMillis())
+      put("boxes", PdfTextStore.encode(boxes))
     })
     Unit
   }

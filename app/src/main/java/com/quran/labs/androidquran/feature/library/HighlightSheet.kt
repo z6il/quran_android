@@ -99,7 +99,7 @@ internal fun HighlightSheet(
 }
 
 @Composable
-private fun ExistingHighlight(h: BookHighlight, onEdit: (BookHighlight, HighlightColor, String) -> Unit, onDelete: (BookHighlight) -> Unit) {
+internal fun ExistingHighlight(h: BookHighlight, onEdit: (BookHighlight, HighlightColor, String) -> Unit, onDelete: (BookHighlight) -> Unit) {
   var note by remember(h.id) { mutableStateOf(h.note) }
   var color by remember(h.id) { mutableStateOf(h.color) }
   Surface(shape = RoundedCornerShape(16.dp), color = cardColor(), modifier = Modifier.fillMaxWidth()) {

@@ -91,4 +91,25 @@
   <string name="library_color_green">أخضر</string>
   <string name="library_color_blue">أزرق</string>
   <string name="library_color_pink">وردي</string>
+  <string name="library_ocr_channel">قراءة نصوص الكتب</string>
+  <string name="library_ocr_running">قراءة صفحات كتاب</string>
+  <string name="library_text_of_pdf">نص هذا الملف</string>
+  <string name="library_text_layer">نص الملف نفسه (%1$d صفحة)</string>
+  <string name="library_text_ocr">نص التعرف الضوئي (%1$d صفحة)</string>
+  <string name="library_text_run_ocr">اقرأ الصفحات بالتعرف الضوئي</string>
+  <string name="library_text_resume_ocr">أكمل القراءة بالتعرف الضوئي</string>
+  <string name="library_text_stop_ocr">أوقف التعرف الضوئي (%1$d من %2$d)</string>
+  <string name="library_no_layer">ليس في هذا الملف نص؛ صفحاته صور ممسوحة.</string>
+  <string name="library_ocr_title">أتقرأ هذا الكتاب بالتعرف الضوئي؟</string>
+  <string name="library_ocr_body">يقرأ الهاتف صورة كل صفحة ويحوّلها نصًا دون اتصال، فتبحث فيه وتنسخ وتظلّل. %1$sتستغرق الصفحة ثواني معدودة (نحو %2$d دقيقة لهذا الكتاب) ويستمر ذلك في الخلفية. التعرف الضوئي على العربية ليس تامًا، فقد تخطئ بعض الحروف ولا سيما التشكيل. ويبقى نص الملف نفسه إن كان فيه نص، وتنتقل بينهما من هذه القائمة.</string>
+  <string name="library_ocr_model">يُنزَّل أولًا نموذج التعرف على العربية (%1$s ميغابايت) مرة واحدة. </string>
+  <string name="library_ocr_start">اقرأ بالتعرف الضوئي</string>
+  <string name="library_scanned">هذا الملف صور ممسوحة بلا نص. اقرأه بالتعرف الضوئي لتبحث فيه وتظلّل.</string>
+  <string name="library_ocr_progress">قراءة الصفحات بالتعرف الضوئي… %1$d من %2$d</string>
+  <string name="library_ocr_model_progress">تنزيل نموذج التعرف على العربية… %1$d%%</string>
+  <string name="library_ocr_failed">توقف: %1$s</string>
+  <string name="library_retry">أعد المحاولة</string>
+  <string name="library_copy">نسخ</string>
+  <string name="library_copied">نُسخ</string>
+  <string name="library_adding">جارٍ الإضافة…</string>
 </resources>

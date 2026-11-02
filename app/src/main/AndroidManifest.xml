@@ -265,6 +265,12 @@
         android:name=".service.QuranDownloadService"
         android:foregroundServiceType="dataSync"/>
 
+    <!-- reading a PDF's text in the background (the library's OCR) -->
+    <service
+        android:name="androidx.work.impl.foreground.SystemForegroundService"
+        android:foregroundServiceType="dataSync"
+        tools:node="merge" />
+
     <service
         android:exported="false"
         android:name=".service.AudioService"
