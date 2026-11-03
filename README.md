@@ -73,11 +73,28 @@ your place, and takes bookmarks with notes. In the classical books you can
 highlight words or lines in four colours, with a note, and search the whole book.
 
 PDFs get the same: the app reads the text a PDF already has, and for scanned books
-(or a PDF whose text is poor) it can read the pages with Arabic OCR on the phone,
-offline, in the background ([Tesseract](https://github.com/tesseract-ocr/tesseract),
-its Arabic model downloaded once, 12.6 MB). Both texts are kept and you choose which
-a book uses. Then press and drag over words on the page to highlight or copy them,
-and search the book.
+(or a PDF whose text is poor) it reads the pages with Arabic OCR on the phone,
+offline, in the background: [OpenITI's model for printed Arabic](https://zenodo.org/records/7050270)
+(Benjamin Kiessling, public domain), which reads footnotes, references and tashkeel
+well, or [Tesseract](https://github.com/tesseract-ocr/tesseract) as a second opinion.
+Their models download once, when first asked for. All the texts are kept and you
+choose which a book uses. The jumbled forms OCR makes of printed honorifics
+(رضي الله عنه، صلى الله عليه وسلم، رحمه الله، عز وجل) are put back as words. A PDF the
+app recognises as a book of the catalogue offers its title, author and clean text.
+
+The reader has page themes (white, paper, sepia, mint, gray, night, black), text size,
+spacing, margins and font, and hides its bars at a tap. Hold on a word and drag to
+choose words: highlight them in a colour, add a note, copy them, or quote them into
+your research, where the quote keeps its reference and the book keeps it marked.
+Books have covers: an EPUB's own, a PDF's first page, a picture you choose, or one
+drawn for it.
+
+### Surah al-Kahf on Fridays
+
+From Maghrib on Thursday to Maghrib on Friday a card on the Quran's home tracks the
+twelve pages of al-Kahf as they're read, lighting a lamp for each, with the hadith of
+the light between the two Fridays and how many Fridays in a row. Reminders come on
+Friday morning and an hour before Maghrib if it isn't finished.
 
 ### Khatmah
 

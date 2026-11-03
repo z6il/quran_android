@@ -1,5 +1,9 @@
 package com.quran.labs.androidquran.feature.khatmah
 
+import android.content.Context
+import com.quran.labs.androidquran.feature.kahf.KahfStore
+import com.quran.mobile.di.qualifier.ApplicationContext
+
 import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -16,7 +20,8 @@ import kotlinx.coroutines.flow.onEach
  * pages doesn't count. Bound while the reading screen is in the foreground.
  */
 class KhatmahTracker @Inject constructor(
-  private val khatmahStore: KhatmahStore
+  private val khatmahStore: KhatmahStore,
+  @ApplicationContext private val context: Context
 ) {
   private val scope = MainScope()
   private var job: Job? = null
@@ -30,7 +35,11 @@ class KhatmahTracker @Inject constructor(
         delay(DWELL_MS)
         page
       }
-      .onEach { khatmahStore.markRead(it) }
+      .onEach {
+        khatmahStore.markRead(it)
+        // on Fridays, al-Kahf's pages count towards its card too
+        KahfStore.get(context).markRead(it)
+      }
       .launchIn(scope)
   }
 

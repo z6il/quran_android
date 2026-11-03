@@ -4,59 +4,52 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.view.ActionMode
+import android.view.Menu
+import android.view.MenuItem
+import android.view.View
+import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.calculatePan
-import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.ResolvedTextDirection
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
@@ -64,12 +57,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.quran.labs.androidquran.R
 import com.quran.labs.androidquran.feature.hadith.HadithHighlight
-import com.quran.labs.androidquran.feature.research.arabicFont
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import org.json.JSONTokener
 import java.io.ByteArrayInputStream
 import java.io.File
+
+/** Words chosen in a paragraph of a text book, [start] to [end] in its text. */
+data class TextSelection(val paragraph: Int, val start: Int, val end: Int, val text: String)
 
 // ---------------------------------------------------------------- classical text
 
@@ -77,10 +74,16 @@ import java.io.File
 internal fun TextReader(
   file: File,
   state: ReaderState,
-  scale: Float,
+  style: ReaderStyle,
+  theme: PageTheme,
   find: FindState,
   highlights: List<BookHighlight>,
-  onHold: (position: Int, text: String) -> Unit
+  selection: TextSelection?,
+  onSelection: (TextSelection?) -> Unit,
+  actions: SelectionActions,
+  onTapHighlight: (BookHighlight) -> Unit,
+  onTap: () -> Unit,
+  insets: PaddingValues
 ) {
   val context = LocalContext.current
   val blocks by produceState<List<TextBlock>?>(null, file) {
@@ -112,6 +115,7 @@ internal fun TextReader(
     snapshotFlow { listState.firstVisibleItemIndex }.collect { i ->
       state.place = BookPlace(i)
       state.label = placeLabel(context, list, headings, i, volumes)
+      state.chapterLeft = minutesLeftInChapter(list, headings, i)
     }
   }
   LaunchedEffect(state.jump) {
@@ -135,41 +139,54 @@ internal fun TextReader(
     found.getOrNull(find.current)?.let { listState.scrollToItem(it) }
   }
 
-  val arabic = arabicFont()
-  val quran = MaterialTheme.colorScheme.primary
-  val mark = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)
+  val font = readerFontFamily(style.font)
+  val mark = theme.accentColor.copy(alpha = 0.28f)
   val query = find.query.takeIf { find.results != null }
   val byPosition = remember(highlights) { highlights.groupBy { it.position } }
-  LazyColumn(state = listState, contentPadding = PaddingValues(20.dp, 12.dp, 20.dp, 40.dp)) {
+  val size = 20 * style.scale
+  val body = TextStyle(
+    fontFamily = font, fontSize = size.sp, lineHeight = (size * style.lineSpacing).sp, color = theme.textColor,
+    textDirection = TextDirection.Rtl, textAlign = if (style.justify) TextAlign.Justify else TextAlign.Start
+  )
+  val currentTap by rememberUpdatedState(onTap)
+  val currentSelection by rememberUpdatedState(selection)
+  LazyColumn(
+    Modifier
+      .fillMaxSize()
+      .background(theme.backgroundColor)
+      // taps between paragraphs show and hide the bars
+      .pointerInput(Unit) { detectTapGestures(onTap = { if (currentSelection != null) onSelection(null) else currentTap() }) },
+    state = listState,
+    contentPadding = PaddingValues(
+      start = style.margin.dp, end = style.margin.dp,
+      top = insets.calculateTopPadding() + 16.dp, bottom = insets.calculateBottomPadding() + 48.dp
+    )
+  ) {
     itemsIndexed(list) { i, block ->
       when (block) {
         is TextBlock.Heading -> Text(
           block.title,
           style = TextStyle(
-            fontFamily = arabic, fontWeight = FontWeight.Bold, textDirection = TextDirection.Rtl,
-            fontSize = (when (block.level) { 1 -> 25; 2 -> 22; else -> 20 } * scale).sp,
-            lineHeight = (when (block.level) { 1 -> 40; 2 -> 36; else -> 32 } * scale).sp,
+            fontFamily = font, fontWeight = FontWeight.Bold, textDirection = TextDirection.Rtl,
+            fontSize = (when (block.level) { 1 -> 25; 2 -> 22; else -> 20 } * style.scale).sp,
+            lineHeight = (when (block.level) { 1 -> 40; 2 -> 36; else -> 32 } * style.scale).sp,
             textAlign = if (block.level == 1) TextAlign.Center else TextAlign.Start,
-            color = MaterialTheme.colorScheme.primary
+            color = theme.accentColor
           ),
-          modifier = Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 8.dp)
+          modifier = Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 10.dp)
         )
-        is TextBlock.Paragraph -> Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        is TextBlock.Paragraph -> Column(Modifier.fillMaxWidth().padding(bottom = (10 * style.lineSpacing).dp)) {
           if (i in pageStarts) {
             Text(
               pageLabel(context, block.page, volumes),
-              style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp), textAlign = TextAlign.Center
+              style = TextStyle(color = theme.textColor.copy(alpha = 0.45f), fontSize = 11.sp, textAlign = TextAlign.Center),
+              modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
             )
           }
-          Text(
-            styled(block.text, query, quran, mark, byPosition[i].orEmpty()),
-            // hold to highlight
-            modifier = Modifier.pointerInput(block) { detectTapGestures(onLongPress = { onHold(i, block.text) }) },
-            style = TextStyle(
-              fontFamily = arabic, fontSize = (20 * scale).sp, lineHeight = (37 * scale).sp,
-              textDirection = TextDirection.Rtl, textAlign = TextAlign.Justify
-            )
+          Paragraph(
+            index = i, text = block.text, style = body, theme = theme, query = query, mark = mark,
+            highlights = byPosition[i].orEmpty(), selection = selection?.takeIf { it.paragraph == i },
+            onSelection = onSelection, actions = actions, onTapHighlight = onTapHighlight, onTap = onTap
           )
         }
       }
@@ -177,30 +194,140 @@ internal fun TextReader(
   }
 }
 
+/** a paragraph that can be held to choose words, with handles and the bar when it has the selection */
+@Composable
+private fun Paragraph(
+  index: Int,
+  text: String,
+  style: TextStyle,
+  theme: PageTheme,
+  query: String?,
+  mark: Color,
+  highlights: List<BookHighlight>,
+  selection: TextSelection?,
+  onSelection: (TextSelection?) -> Unit,
+  actions: SelectionActions,
+  onTapHighlight: (BookHighlight) -> Unit,
+  onTap: () -> Unit
+) {
+  var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+  var dragging by remember { mutableStateOf(false) }
+  val currentSelection by rememberUpdatedState(selection)
+  val currentHighlights by rememberUpdatedState(highlights)
+  val currentTap by rememberUpdatedState(onTap)
+  val selected = theme.accentColor.copy(alpha = 0.3f)
+  val styled = remember(text, query, highlights, selection, theme) { styled(text, query, theme, mark, highlights, selection, selected) }
+  Box {
+    Text(
+      styled, style = style, onTextLayout = { layout = it },
+      modifier = Modifier
+        .pointerInput(index) {
+          detectTapGestures(onTap = { at ->
+            val l = layout ?: return@detectTapGestures
+            val offset = l.getOffsetForPosition(at)
+            val hit = currentHighlights.lastOrNull { offset in it.start until it.end }
+            when {
+              currentSelection != null -> onSelection(null)
+              hit != null -> onTapHighlight(hit)
+              else -> currentTap()
+            }
+          })
+        }
+        // hold on a word, then drag over the rest
+        .pointerInput(index) {
+          var anchor = TextRange.Zero
+          detectDragGesturesAfterLongPress(
+            onDragStart = { at ->
+              val l = layout ?: return@detectDragGesturesAfterLongPress
+              anchor = l.getWordBoundary(l.getOffsetForPosition(at))
+              if (anchor.length > 0) onSelection(TextSelection(index, anchor.start, anchor.end, text.substring(anchor.start, anchor.end)))
+            },
+            onDrag = { change, _ ->
+              val l = layout ?: return@detectDragGesturesAfterLongPress
+              if (anchor.length == 0) return@detectDragGesturesAfterLongPress
+              change.consume()
+              val word = l.getWordBoundary(l.getOffsetForPosition(change.position))
+              val start = minOf(anchor.start, word.start)
+              val end = maxOf(anchor.end, word.end)
+              onSelection(TextSelection(index, start, end, text.substring(start, end)))
+            }
+          )
+        }
+    )
+    val l = layout
+    if (selection != null && l != null && selection.end <= text.length && selection.end > selection.start) {
+      val rtl = l.getParagraphDirection(selection.start) == ResolvedTextDirection.Rtl
+      val startPoint = Offset(l.getHorizontalPosition(selection.start, true), l.getLineBottom(l.getLineForOffset(selection.start)))
+      val endPoint = Offset(l.getHorizontalPosition(selection.end, true), l.getLineBottom(l.getLineForOffset(selection.end - 1)))
+      val move = { at: Offset, isStart: Boolean ->
+        dragging = true
+        val offset = l.getOffsetForPosition(at)
+        val sel = currentSelection
+        if (sel != null) {
+          val (s, e) = if (isStart) minOf(offset, sel.end - 1) to sel.end else sel.start to maxOf(offset, sel.start + 1)
+          val start = wordStart(text, s)
+          val end = wordEnd(text, e)
+          if (end > start) onSelection(TextSelection(index, start, end, text.substring(start, end)))
+        }
+      }
+      // an Arabic selection starts at its right: its start drop hangs to the right
+      SelectionHandle(startPoint, hangsLeft = !rtl, color = theme.accentColor, onDrag = { move(it, true) }, onDragEnd = { dragging = false })
+      SelectionHandle(endPoint, hangsLeft = rtl, color = theme.accentColor, onDrag = { move(it, false) }, onDragEnd = { dragging = false })
+      if (!dragging) SelectionToolbar(l.getPathForRange(selection.start, selection.end).getBounds(), actions)
+    }
+  }
+}
+
+private fun wordStart(text: String, at: Int): Int {
+  var i = at.coerceIn(0, text.length)
+  while (i > 0 && !text[i - 1].isWhitespace()) i--
+  return i
+}
+
+private fun wordEnd(text: String, at: Int): Int {
+  var i = at.coerceIn(0, text.length)
+  while (i < text.length && !text[i].isWhitespace()) i++
+  return i
+}
+
 private fun TextBlock.text(): String = when (this) {
   is TextBlock.Heading -> title
   is TextBlock.Paragraph -> text
 }
 
-/** the reader's highlights, Quran quotes in colour, and what's searched for marked */
-private fun styled(text: String, query: String?, quran: Color, mark: Color, highlights: List<BookHighlight>): AnnotatedString {
+/** the reader's highlights (research quotes underlined), Quran quotes in colour, search matches, the selection */
+private fun styled(
+  text: String,
+  query: String?,
+  theme: PageTheme,
+  mark: Color,
+  highlights: List<BookHighlight>,
+  selection: TextSelection?,
+  selected: Color
+): AnnotatedString {
   val base = HadithHighlight.annotate(text, query, mark)
-  if ('﴿' !in text && highlights.isEmpty()) return base
+  if ('﴿' !in text && highlights.isEmpty() && selection == null) return base
   return buildAnnotatedString {
     append(base)
-    highlights.forEach { h ->
-      val start = h.start.coerceIn(0, text.length)
-      val end = h.end.coerceIn(start, text.length)
-      addStyle(SpanStyle(background = Color(h.color.argb).copy(alpha = 0.45f)), start, end)
-    }
     var from = 0
     while (true) {
       val start = text.indexOf('﴿', from)
       if (start < 0) break
       val end = text.indexOf('﴾', start).let { if (it < 0) text.length else it + 1 }
-      addStyle(SpanStyle(color = quran), start, end)
+      addStyle(SpanStyle(color = theme.accentColor), start, end)
       from = end
     }
+    highlights.forEach { h ->
+      val start = h.start.coerceIn(0, text.length)
+      val end = h.end.coerceIn(start, text.length)
+      if (h.noteUid.isNotEmpty()) {
+        // quoted into the research: in the accent, on its tint
+        addStyle(SpanStyle(background = theme.accentColor.copy(alpha = 0.16f), color = theme.accentColor), start, end)
+      } else {
+        addStyle(SpanStyle(background = Color(h.color.argb).copy(alpha = if (theme.dark) 0.35f else 0.45f)), start, end)
+      }
+    }
+    if (selection != null) addStyle(SpanStyle(background = selected), selection.start, selection.end.coerceAtMost(text.length))
   }
 }
 
@@ -217,10 +344,33 @@ private fun placeLabel(context: Context, list: List<TextBlock>, headings: List<I
   return listOfNotNull(heading?.take(60), page?.let { pageLabel(context, it, volumes) }).joinToString(" · ")
 }
 
+/** minutes to the next heading, at a reading pace for classical Arabic (about 150 words a minute) */
+private fun minutesLeftInChapter(list: List<TextBlock>, headings: List<Int>, at: Int): Int {
+  val next = headings.firstOrNull { it > at } ?: list.size
+  var words = 0
+  for (i in at until next) words += (list[i] as? TextBlock.Paragraph)?.text?.count { it == ' ' }?.plus(1) ?: 0
+  return (words / 150).coerceAtLeast(if (words > 0) 1 else 0)
+}
+
 // ---------------------------------------------------------------- EPUB
 
+/** what was chosen in an EPUB chapter: its text, and where it sits in the chapter's text */
+data class EpubSelection(val chapter: Int, val start: Int, val end: Int, val text: String)
+
+enum class EpubAction { HIGHLIGHT, NOTE, RESEARCH }
+
 @Composable
-internal fun EpubReader(file: File, state: ReaderState, scale: Float) {
+internal fun EpubReader(
+  file: File,
+  state: ReaderState,
+  style: ReaderStyle,
+  theme: PageTheme,
+  highlights: List<BookHighlight>,
+  onSelection: (EpubAction, EpubSelection) -> Unit,
+  onTapHighlight: (Long) -> Unit,
+  onTap: () -> Unit,
+  insets: PaddingValues
+) {
   val context = LocalContext.current
   val opened by produceState<EpubBook?>(null, file) {
     value = withContext(Dispatchers.IO) { runCatching { EpubBook.open(file) }.getOrNull() }
@@ -229,9 +379,10 @@ internal fun EpubReader(file: File, state: ReaderState, scale: Float) {
   }
   val epub = opened ?: return
   var chapter by remember { mutableIntStateOf(state.place.position.coerceIn(0, epub.spine.lastIndex)) }
-  val colors = MaterialTheme.colorScheme
-  val dark = colors.surface.luminance() < 0.5f
-  val css = remember(colors, dark) { epubCss(colors.surface.toArgb(), colors.onSurface.toArgb(), colors.primary.toArgb(), dark) }
+  // CSS pixels are the same as dp
+  val top = insets.calculateTopPadding().value
+  val bottom = insets.calculateBottomPadding().value
+  val css = remember(theme, style, top, bottom) { epubCss(theme, style, top, bottom) }
   val view = remember(epub) { EpubView(context, epub).also { it.pendingOffset = state.place.offset } }
   view.css = css
   view.onChapter = { chapter = it }
@@ -239,6 +390,11 @@ internal fun EpubReader(file: File, state: ReaderState, scale: Float) {
     state.place = BookPlace(view.chapter, f)
     state.label = chapterLabel(context, epub, view.chapter, f)
   }
+  view.onSelection = onSelection
+  view.onMark = onTapHighlight
+  view.onTap = onTap
+  view.nextLabel = context.getString(R.string.library_next_chapter)
+  view.marks = highlights.filter { it.position == chapter }
 
   LaunchedEffect(epub) {
     state.total = epub.spine.size
@@ -257,54 +413,76 @@ internal fun EpubReader(file: File, state: ReaderState, scale: Float) {
     state.place = BookPlace(chapter, view.pendingOffset)
     state.label = chapterLabel(context, epub, chapter, view.pendingOffset)
   }
+  // a new highlight, or one changed: repaint this chapter's
+  LaunchedEffect(highlights, chapter) { view.paintMarks() }
+  // a new look: the chapter again, where the reader was
+  LaunchedEffect(css) { view.restyle() }
 
-  Column(Modifier.fillMaxSize()) {
-    AndroidView(
-      factory = { view.web },
-      update = { web ->
-        web.settings.textZoom = (scale * 100).toInt()
-        view.show(chapter)
-      },
-      modifier = Modifier.weight(1f).fillMaxWidth()
-    )
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-      TextButton(enabled = chapter > 0, onClick = {
-        view.pendingOffset = 0f
-        chapter--
-      }) { Text(stringResource(R.string.library_previous_chapter)) }
-      Spacer(Modifier.weight(1f))
-      TextButton(enabled = chapter < epub.spine.lastIndex, onClick = {
-        view.pendingOffset = 0f
-        chapter++
-      }) { Text(stringResource(R.string.library_next_chapter)) }
-    }
-  }
+  AndroidView(
+    factory = { view.web },
+    update = { web ->
+      web.settings.textZoom = (style.scale * 100).toInt()
+      web.setBackgroundColor(theme.backgroundColor.toArgb())
+      view.show(chapter)
+    },
+    modifier = Modifier.fillMaxSize().background(theme.backgroundColor)
+  )
 }
-
-private fun Color.luminance(): Float = 0.2126f * red + 0.7152f * green + 0.0722f * blue
 
 private fun chapterLabel(context: Context, epub: EpubBook, chapter: Int, offset: Float): String {
   val title = epub.toc.lastOrNull { it.chapter <= chapter }?.title
     ?: context.getString(R.string.library_chapter_of, chapter + 1, epub.spine.size)
   // isolated, so an Arabic title and the percentage keep their order
-  return "⁨" + title.take(60) + "⁩ · " + (offset * 100).toInt() + "%"
+  return "\u2068" + title.take(60) + "\u2069 · " + (offset * 100).toInt() + "%"
 }
 
-private fun hex(color: Int) = String.format("#%06X", color and 0xFFFFFF)
+private fun hex(color: Color) = String.format("#%06X", color.toArgb() and 0xFFFFFF)
 
-private fun epubCss(background: Int, text: Int, link: Int, dark: Boolean): String = buildString {
+private fun rgba(color: Color, alpha: Float) =
+  "rgba(${(color.red * 255).toInt()},${(color.green * 255).toInt()},${(color.blue * 255).toInt()},$alpha)"
+
+private fun epubCss(theme: PageTheme, style: ReaderStyle, top: Float, bottom: Float): String = buildString {
   append("@font-face{font-family:'AppArabic';src:url('https://${EpubView.HOST}/${EpubView.APP}/kitab.ttf');}")
-  append("html,body{background:${hex(background)} !important;color:${hex(text)} !important;}")
-  append("body{margin:0;padding:16px 18px 56px;line-height:1.85;font-family:'AppArabic',serif;overflow-wrap:break-word;}")
-  append("a{color:${hex(link)} !important;}")
+  append("html,body{background:${hex(theme.backgroundColor)} !important;color:${hex(theme.textColor)} !important;}")
+  val face = if (style.font == ReaderFont.KITAB) "'AppArabic',serif" else "serif"
+  append(
+    "body{margin:0;padding:${(top + 16).toInt()}px ${style.margin}px ${(bottom + 72).toInt()}px;line-height:${style.lineSpacing};" +
+      "font-family:$face;overflow-wrap:break-word;${if (style.justify) "text-align:justify;" else ""}}"
+  )
+  append("p{margin:0 0 0.6em 0;}")
+  append("h1,h2,h3,h4{color:${hex(theme.accentColor)} !important;line-height:1.5;}")
+  append("a{color:${hex(theme.accentColor)} !important;}")
   append("img,svg,video,table{max-width:100% !important;height:auto !important;}")
   // a book's own colours would be unreadable on a dark page
-  if (dark) append("*{color:inherit !important;background-color:transparent !important;border-color:${hex(text)}33 !important;}")
+  if (theme.dark) append("*{color:inherit !important;background-color:transparent !important;border-color:${hex(theme.textColor)}33 !important;}")
+  HighlightColor.entries.forEach { c ->
+    append("mark.hl-${c.name}{background:${rgba(Color(c.argb), if (theme.dark) 0.35f else 0.45f)} !important;color:inherit !important;}")
+  }
+  append("mark.research{background:${rgba(theme.accentColor, 0.14f)} !important;color:inherit !important;border-bottom:2px solid ${hex(theme.accentColor)};}")
+  append("a.__next{display:block;margin:48px auto 0;padding:14px 18px;text-align:center;border-radius:24px;")
+  append("border:1px solid ${hex(theme.accentColor)}66;text-decoration:none;font-weight:bold;}")
 }
+
+/** what runs in a chapter: choosing words, and painting highlights. The book's own scripts are taken out. */
+private const val SCRIPT = """
+(function(){
+function texts(){var w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,null);var a=[],n;while((n=w.nextNode()))a.push(n);return a;}
+function at(node,off){var r=document.createRange();r.setStart(document.body,0);r.setEnd(node,off);return r.toString().length;}
+window.__sel=function(){var s=window.getSelection();if(!s||s.rangeCount===0||s.isCollapsed)return null;var r=s.getRangeAt(0);
+return JSON.stringify({text:s.toString(),start:at(r.startContainer,r.startOffset),end:at(r.endContainer,r.endOffset)});};
+window.__clear=function(){var m=document.querySelectorAll('mark[data-id]');for(var i=0;i<m.length;i++){var e=m[i],p=e.parentNode;while(e.firstChild)p.insertBefore(e.firstChild,e);p.removeChild(e);p.normalize();}};
+window.__mark=function(id,start,end,cls){var a=texts(),t=0;for(var i=0;i<a.length;i++){var n=a[i],L=n.length,s=Math.max(start,t),e=Math.min(end,t+L);
+if(s<e){var r=document.createRange();r.setStart(n,s-t);r.setEnd(n,e-t);var m=document.createElement('mark');m.className=cls;m.setAttribute('data-id',id);try{r.surroundContents(m);}catch(x){}}t+=L;}};
+window.__unselect=function(){var s=window.getSelection();if(s)s.removeAllRanges();};
+document.addEventListener('click',function(e){var m=e.target.closest?e.target.closest('mark[data-id]'):null;
+if(m){e.preventDefault();Reader.mark(m.getAttribute('data-id'));return;}
+if(e.target.closest&&e.target.closest('a'))return;var s=window.getSelection();if(!s||s.isCollapsed)Reader.tap();},true);
+})();
+"""
 
 /**
  * The WebView an EPUB's chapters show in. It serves the book's files itself and nothing else:
- * no network, no file access, no scripts.
+ * no network, no file access, and none of the book's scripts, only the reader's own.
  */
 @SuppressLint("SetJavaScriptEnabled")
 private class EpubView(private val context: Context, private val epub: EpubBook) {
@@ -314,24 +492,107 @@ private class EpubView(private val context: Context, private val epub: EpubBook)
   var pendingOffset = 0f
   var onChapter: (Int) -> Unit = {}
   var onScrolled: (Float) -> Unit = {}
+  var onSelection: (EpubAction, EpubSelection) -> Unit = { _, _ -> }
+  var onMark: (Long) -> Unit = {}
+  var onTap: () -> Unit = {}
+  var nextLabel = ""
+  var marks: List<BookHighlight> = emptyList()
+  private var lastOffset = 0f
+  private var styled = ""
 
-  val web: WebView = WebView(context).apply {
-    settings.javaScriptEnabled = false
+  val web: WebView = BookWebView(context).apply {
+    settings.javaScriptEnabled = true
     settings.allowFileAccess = false
     settings.allowContentAccess = false
     settings.builtInZoomControls = false
     webViewClient = Client()
+    addJavascriptInterface(Bridge(), "Reader")
     setOnScrollChangeListener { _, _, y, _, _ ->
       val height = contentHeight * resources.displayMetrics.density - this.height
-      onScrolled(if (height <= 0f) 0f else (y / height).coerceIn(0f, 1f))
+      lastOffset = if (height <= 0f) 0f else (y / height).coerceIn(0f, 1f)
+      onScrolled(lastOffset)
     }
   }
 
   fun show(index: Int, force: Boolean = false) {
     if (index == chapter && !force) return
     chapter = index
+    styled = css
     web.loadUrl("https://$HOST/" + Uri.encode(epub.spine[index].path, "/"))
   }
+
+  /** the chapter again in the new style, at the same place */
+  fun restyle() {
+    if (chapter < 0 || styled == css) return
+    pendingOffset = lastOffset
+    show(chapter, force = true)
+  }
+
+  fun paintMarks() {
+    val calls = marks.joinToString("") { h ->
+      val cls = if (h.noteUid.isNotEmpty()) "research" else "hl-${h.color.name}"
+      "__mark('${h.id}',${h.start},${h.end},'$cls');"
+    }
+    web.evaluateJavascript("if(window.__clear){__clear();$calls}", null)
+  }
+
+  private inner class Bridge {
+    @JavascriptInterface
+    fun mark(id: String) {
+      id.toLongOrNull()?.let { web.post { onMark(it) } }
+    }
+
+    @JavascriptInterface
+    fun tap() {
+      web.post { onTap() }
+    }
+  }
+
+  /** the system's selection bar, with the reader's own actions first */
+  private inner class BookWebView(context: Context) : WebView(context) {
+    override fun startActionMode(callback: ActionMode.Callback, type: Int): ActionMode? =
+      super.startActionMode(Wrapped(callback), type)
+
+    private inner class Wrapped(private val inner: ActionMode.Callback) : ActionMode.Callback2() {
+      override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
+        val shown = inner.onCreateActionMode(mode, menu)
+        menu.add(Menu.NONE, ID_HIGHLIGHT, 0, R.string.library_highlight)
+        menu.add(Menu.NONE, ID_NOTE, 1, R.string.library_highlight_note)
+        menu.add(Menu.NONE, ID_RESEARCH, 2, R.string.library_to_research)
+        return shown
+      }
+
+      override fun onPrepareActionMode(mode: ActionMode, menu: Menu) = inner.onPrepareActionMode(mode, menu)
+
+      override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
+        val action = when (item.itemId) {
+          ID_HIGHLIGHT -> EpubAction.HIGHLIGHT
+          ID_NOTE -> EpubAction.NOTE
+          ID_RESEARCH -> EpubAction.RESEARCH
+          else -> return inner.onActionItemClicked(mode, item)
+        }
+        evaluateJavascript("__sel()") { result ->
+          parseSelection(result)?.let { onSelection(action, it) }
+          evaluateJavascript("__unselect()", null)
+        }
+        mode.finish()
+        return true
+      }
+
+      override fun onDestroyActionMode(mode: ActionMode) = inner.onDestroyActionMode(mode)
+
+      override fun onGetContentRect(mode: ActionMode, view: View, outRect: android.graphics.Rect) {
+        if (inner is ActionMode.Callback2) inner.onGetContentRect(mode, view, outRect) else super.onGetContentRect(mode, view, outRect)
+      }
+    }
+  }
+
+  private fun parseSelection(result: String?): EpubSelection? = runCatching {
+    val json = JSONTokener(result ?: return null).nextValue() as? String ?: return null
+    val o = JSONObject(json)
+    val text = o.getString("text").trim()
+    if (text.isEmpty()) null else EpubSelection(chapter, o.getInt("start"), o.getInt("end"), text)
+  }.getOrNull()
 
   private inner class Client : WebViewClient() {
     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
@@ -344,11 +605,19 @@ private class EpubView(private val context: Context, private val epub: EpubBook)
       val input = runCatching { epub.open(path) }.getOrNull() ?: return empty()
       val type = mime(path)
       if (type == "text/html" || type == "application/xhtml+xml") {
-        val html = input.use { it.readBytes().toString(Charsets.UTF_8) }
+        var html = input.use { it.readBytes().toString(Charsets.UTF_8) }
+        // the book's scripts don't run; only the reader's
+        html = SCRIPTS.replace(html, "")
+        html = HANDLERS.replace(html, "")
         val style = "<style type=\"text/css\">$css</style>"
         val head = HEAD.find(html)
-        val page = if (head != null) html.substring(0, head.range.last + 1) + style + html.substring(head.range.last + 1) else style + html
-        return WebResourceResponse(type, "UTF-8", ByteArrayInputStream(page.toByteArray(Charsets.UTF_8)))
+        html = if (head != null) html.substring(0, head.range.last + 1) + style + html.substring(head.range.last + 1) else style + html
+        val next = if (chapter < epub.spine.lastIndex) "<a class=\"__next\" href=\"https://$HOST/$NEXT\">${escape(nextLabel)} ›</a>" else ""
+        // commented CDATA: XHTML needs it, HTML ignores it
+        val script = "<script type=\"text/javascript\">//<![CDATA[\n$SCRIPT\n//]]></script>"
+        val end = BODY_END.findAll(html).lastOrNull()
+        html = if (end != null) html.substring(0, end.range.first) + next + script + html.substring(end.range.first) else html + next + script
+        return WebResourceResponse(type, "UTF-8", ByteArrayInputStream(html.toByteArray(Charsets.UTF_8)))
       }
       return WebResourceResponse(type, null, input)
     }
@@ -357,6 +626,11 @@ private class EpubView(private val context: Context, private val epub: EpubBook)
       val url = request.url
       if (url.host == HOST) {
         val path = url.path.orEmpty().removePrefix("/")
+        if (path == NEXT) {
+          pendingOffset = 0f
+          onChapter((chapter + 1).coerceAtMost(epub.spine.lastIndex))
+          return true
+        }
         val index = epub.spine.indexOfFirst { it.path == path }
         if (index < 0 || index == chapter) return false
         pendingOffset = 0f
@@ -370,6 +644,7 @@ private class EpubView(private val context: Context, private val epub: EpubBook)
     }
 
     override fun onPageFinished(view: WebView, url: String) {
+      paintMarks()
       val offset = pendingOffset
       pendingOffset = 0f
       if (offset > 0f) {
@@ -383,11 +658,20 @@ private class EpubView(private val context: Context, private val epub: EpubBook)
 
   private fun empty() = WebResourceResponse("text/plain", "UTF-8", 404, "Not found", emptyMap(), ByteArrayInputStream(ByteArray(0)))
 
+  private fun escape(s: String) = s.replace("&", "&amp;").replace("<", "&lt;")
+
   companion object {
     const val HOST = "epub.local"
     /** the app's own files the page may use: its Arabic font */
     const val APP = "__app"
+    private const val NEXT = "__next"
+    private const val ID_HIGHLIGHT = 0x5101
+    private const val ID_NOTE = 0x5102
+    private const val ID_RESEARCH = 0x5103
     private val HEAD = Regex("<head[^>]*>", RegexOption.IGNORE_CASE)
+    private val BODY_END = Regex("</body>", RegexOption.IGNORE_CASE)
+    private val SCRIPTS = Regex("<script[\\s\\S]*?</script>|<script[^>]*/>", RegexOption.IGNORE_CASE)
+    private val HANDLERS = Regex("\\son[a-z]+\\s*=\\s*(\"[^\"]*\"|'[^']*')", RegexOption.IGNORE_CASE)
 
     fun mime(path: String): String = when (path.substringAfterLast('.').lowercase()) {
       "xhtml", "xht" -> "application/xhtml+xml"

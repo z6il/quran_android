@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="kahf_title">Surah al-Kahf</string>
+  <string name="kahf_eve">The night of Friday</string>
+  <string name="kahf_day">Friday</string>
+  <string name="kahf_hadith">«Whoever reads Surah al-Kahf on Friday, a light will shine for him from one Friday to the next.» (al-Hakim; graded sahih by al-Albani)</string>
+  <string name="kahf_done">May Allah make it a light for you until next Friday.</string>
+  <string name="kahf_read">Read al-Kahf</string>
+  <string name="kahf_continue">Carry on</string>
+  <string name="kahf_all_read">All 12 pages read</string>
+  <string name="kahf_reminders">Friday reminders</string>
+  <string name="kahf_hide">Hide until next Friday</string>
+  <string name="kahf_channel">Surah al-Kahf on Fridays</string>
+  <string name="kahf_reminder_text">It\'s Friday: time for Surah al-Kahf.</string>
+  <plurals name="kahf_pages_read">
+    <item quantity="one">%1$d of %2$d pages read</item>
+    <item quantity="other">%1$d of %2$d pages read</item>
+  </plurals>
+  <plurals name="kahf_pages_left">
+    <item quantity="one">%1$d page of al-Kahf left before Maghrib</item>
+    <item quantity="other">%1$d pages of al-Kahf left before Maghrib</item>
+  </plurals>
+  <plurals name="kahf_streak">
+    <item quantity="one">%1$d Friday in a row</item>
+    <item quantity="other">%1$d Fridays in a row</item>
+  </plurals>
+</resources>

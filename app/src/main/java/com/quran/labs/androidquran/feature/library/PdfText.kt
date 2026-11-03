@@ -45,7 +45,14 @@ data class PdfWord(val text: String, val left: Float, val top: Float, val right:
 }
 
 /** Where a PDF's text comes from: the text stored in the file, or recognised from the page images. */
-enum class TextSource { LAYER, OCR }
+enum class TextSource {
+  /** the text stored in the file */
+  LAYER,
+  /** Tesseract's Arabic */
+  OCR,
+  /** OpenITI's model for printed Arabic: Tesseract only finds the lines */
+  OPENITI
+}
 
 /** How far reading a book's text has got. */
 data class TextJob(val source: TextSource, val done: Int, val total: Int, val downloadingModel: Float? = null, val failed: String? = null) {
@@ -163,22 +170,51 @@ class PdfTextStore private constructor(private val context: Context) {
   }
 }
 
-/** Arabic OCR's model, downloaded once (Tesseract's best Arabic, Apache 2.0). */
-object OcrModel {
-  private const val URL = "https://github.com/tesseract-ocr/tessdata_best/raw/main/ara.traineddata"
-  const val BYTES = 12_603_724L
+/** A file an OCR engine needs, downloaded once. */
+class OcrFile(val url: String, val path: String, val bytes: Long)
 
-  /** the folder Tesseract is given: the model sits in its "tessdata" */
+/** What each OCR engine downloads: nothing is in the app until the reader asks. */
+object OcrModels {
+  /** Tesseract's best Arabic (Apache 2.0) */
+  private val TESSERACT = OcrFile("https://github.com/tesseract-ocr/tessdata_best/raw/main/ara.traineddata", "tessdata/ara.traineddata", 12_603_724L)
+  /** Tesseract's small Arabic, only to find the lines for OpenITI's model */
+  private val LAYOUT = OcrFile("https://github.com/tesseract-ocr/tessdata_fast/raw/main/ara.traineddata", "layout/tessdata/ara.traineddata", 1_432_056L)
+  /** OpenITI's printed Arabic-script model (Kiessling, CC0), as ONNX, 8-bit */
+  private val OPENITI = OcrFile(
+    "https://github.com/z6il/quran_android/releases/download/ocr-openiti-v1/openiti_arabic_q8.onnx", "openiti/openiti_arabic_q8.onnx", 4_139_900L
+  )
+  fun files(engine: TextSource): List<OcrFile> = when (engine) {
+    TextSource.OCR -> listOf(TESSERACT)
+    TextSource.OPENITI -> listOf(LAYOUT, OPENITI)
+    TextSource.LAYER -> emptyList()
+  }
+
   fun dir(context: Context) = File(context.filesDir, "ocr")
 
-  fun installed(context: Context) = File(dir(context), "tessdata/ara.traineddata").let { it.exists() && it.length() == BYTES }
+  fun file(context: Context, f: OcrFile) = File(dir(context), f.path)
 
-  fun download(context: Context, onProgress: (Float) -> Unit) {
-    val target = File(dir(context), "tessdata/ara.traineddata")
-    if (installed(context)) return
+  /** Tesseract's data folder for [engine]: the one holding its "tessdata" */
+  fun tessData(context: Context, engine: TextSource) = if (engine == TextSource.OPENITI) File(dir(context), "layout") else dir(context)
+
+  fun bytes(engine: TextSource) = files(engine).sumOf { it.bytes }
+
+  fun installed(context: Context, engine: TextSource) = files(engine).all { f -> file(context, f).let { it.exists() && it.length() == f.bytes } }
+
+  fun download(context: Context, engine: TextSource, onProgress: (Float) -> Unit) {
+    val all = files(engine)
+    val total = all.sumOf { it.bytes }.toFloat()
+    var before = 0L
+    all.forEach { f ->
+      val target = file(context, f)
+      if (!(target.exists() && target.length() == f.bytes)) fetch(f, target) { read -> onProgress(((before + read) / total).coerceAtMost(1f)) }
+      before += f.bytes
+    }
+  }
+
+  private fun fetch(f: OcrFile, target: File, onRead: (Long) -> Unit) {
     target.parentFile!!.mkdirs()
     val tmp = File(target.path + ".tmp")
-    var connection = URL(URL).openConnection() as HttpURLConnection
+    var connection = URL(f.url).openConnection() as HttpURLConnection
     try {
       var redirects = 0
       while (connection.responseCode in 300..399 && redirects++ < 5) {
@@ -196,11 +232,11 @@ object OcrModel {
             if (n < 0) break
             out.write(buffer, 0, n)
             read += n
-            onProgress((read / BYTES.toFloat()).coerceAtMost(1f))
+            onRead(read)
           }
         }
       }
-      if (tmp.length() != BYTES) error("incomplete")
+      if (tmp.length() != f.bytes) error("incomplete")
       if (!tmp.renameTo(target)) error("couldn't save")
     } finally {
       tmp.delete()
@@ -230,31 +266,37 @@ class PdfTextWorker(context: Context, params: WorkerParameters) : CoroutineWorke
     try {
       if (todo.isEmpty()) return@withContext Result.success()
       store.report(book, TextJob(source, done.size, total))
-      if (source == TextSource.OCR) setForeground(foreground(done.size, total))
+      if (source != TextSource.LAYER) setForeground(foreground(done.size, total))
       when (source) {
         TextSource.LAYER -> readLayer(file, todo) { page, words ->
           store.save(book, page, source, words)
           done += page
           store.report(book, TextJob(source, done.size, total))
         }
-        TextSource.OCR -> {
-          if (!OcrModel.installed(applicationContext)) {
-            OcrModel.download(applicationContext) { f -> store.report(book, TextJob(source, done.size, total, downloadingModel = f)) }
+        TextSource.OCR, TextSource.OPENITI -> {
+          if (!OcrModels.installed(applicationContext, source)) {
+            OcrModels.download(applicationContext, source) { f -> store.report(book, TextJob(source, done.size, total, downloadingModel = f)) }
           }
+          // OCR is heavy: background priority from the start, so the engines' own threads have it too
+          android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
           val api = TessBaseAPI()
+          val openIti = if (source == TextSource.OPENITI) OpenItiOcr(applicationContext) else null
           try {
-            if (!api.init(OcrModel.dir(applicationContext).path, "ara", TessBaseAPI.OEM_LSTM_ONLY)) error("OCR")
+            if (!api.init(OcrModels.tessData(applicationContext, source).path, "ara", TessBaseAPI.OEM_LSTM_ONLY)) error("OCR")
             api.pageSegMode = TessBaseAPI.PageSegMode.PSM_AUTO
             for (page in todo) {
               coroutineContext.ensureActive()
               // OCR is heavy: the reader on screen comes first
               android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
-              store.save(book, page, source, recognise(api, pdf, page))
+              // printed honorifics come out jumbled: put back as their words
+              val words = Honorifics.fix(if (openIti != null) openIti.recognise(api, pdf, page) else recognise(api, pdf, page))
+              store.save(book, page, source, words)
               done += page
               store.report(book, TextJob(source, done.size, total))
               if (done.size % 5 == 0) setForeground(foreground(done.size, total))
             }
           } finally {
+            openIti?.close()
             api.recycle()
           }
         }
@@ -328,8 +370,10 @@ class PdfTextWorker(context: Context, params: WorkerParameters) : CoroutineWorke
     const val FROM = "from"
     private const val CHANNEL = "library_text"
     private const val NOTIFICATION = 7301
-    private const val OCR_WIDTH = 1800
-    private const val MIN_CONFIDENCE = 35f
+    // about 300 dpi for a book page: footnotes are small
+    private const val OCR_WIDTH = 2200
+    // below this it's an ornament or a smudge; vowelled words often score low, so it stays low
+    private const val MIN_CONFIDENCE = 12f
 
     /** the text stored in the PDF, word by word with where each sits */
     internal fun readLayer(file: File, pages: List<Int>, onPage: (Int, List<PdfWord>) -> Unit) {
@@ -384,30 +428,47 @@ private class WordStripper : PDFTextStripper() {
 
   override fun writeString(text: String, positions: MutableList<TextPosition>) {
     if (positions.isEmpty() || text.isBlank()) return
-    val pageWidth = positions[0].pageWidth.coerceAtLeast(1f)
-    val pageHeight = positions[0].pageHeight.coerceAtLeast(1f)
+    // the letters as they sit on the page, split at spaces into words
+    val words = mutableListOf<MutableList<TextPosition>>(mutableListOf())
+    positions.forEach { p -> if (p.unicode.isNullOrBlank()) words += mutableListOf<TextPosition>() else words.last() += p }
+    words.filter { it.isNotEmpty() }.forEach { add(it) }
+  }
+
+  /**
+   * A word's text is rebuilt from where its letters are, not the order the file lists them:
+   * many PDFs store Arabic back to front, or as presentation forms. Arabic reads from the
+   * right; a mark goes with the letter it sits over.
+   */
+  private fun add(letters: List<TextPosition>) {
+    val pageWidth = letters[0].pageWidth.coerceAtLeast(1f)
+    val pageHeight = letters[0].pageHeight.coerceAtLeast(1f)
     var left = Float.MAX_VALUE
     var right = 0f
     var top = Float.MAX_VALUE
     var bottom = 0f
-    positions.forEach { p ->
+    letters.forEach { p ->
       left = minOf(left, p.xDirAdj)
       right = maxOf(right, p.xDirAdj + p.widthDirAdj)
       // the height PDFBox gives is often short of the letters' tops
       top = minOf(top, p.yDirAdj - p.heightDir * 1.4f)
       bottom = maxOf(bottom, p.yDirAdj + p.heightDir * 0.35f)
     }
-    text.trim().split(' ').filter { it.isNotBlank() }.let { parts ->
-      // a chunk with spaces in it: share its box out by length
-      val span = right - left
-      val totalLength = parts.sumOf { it.length }.coerceAtLeast(1)
-      var x = left
-      parts.forEach { part ->
-        val width = span * part.length / totalLength
-        line += PdfWord(part, x / pageWidth, top / pageHeight, (x + width) / pageWidth, bottom / pageHeight)
-        x += width
+    val text = letters.joinToString("") { it.unicode }
+    val arabic = text.any { it in '؀'..'ۿ' || it in 'ﭐ'..'﻿' }
+    val ordered = if (!arabic) text else {
+      val bases = mutableListOf<Pair<TextPosition, StringBuilder>>()
+      letters.forEach { p ->
+        if (p.unicode.all { Character.getType(it) == Character.NON_SPACING_MARK.toInt() }) {
+          // the letter it overlaps the most
+          val mid = p.xDirAdj + p.widthDirAdj / 2
+          bases.minByOrNull { (b, _) -> kotlin.math.abs(b.xDirAdj + b.widthDirAdj / 2 - mid) }?.second?.append(p.unicode)
+        } else {
+          bases += p to StringBuilder(p.unicode)
+        }
       }
+      bases.sortedByDescending { (b, _) -> b.xDirAdj + b.widthDirAdj / 2 }.joinToString("") { it.second }
     }
+    line += PdfWord(ordered, left / pageWidth, top / pageHeight, right / pageWidth, bottom / pageHeight)
   }
 
   override fun writeLineSeparator() {

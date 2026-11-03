@@ -54,13 +54,14 @@ import kotlin.math.hypot
 class PdfTextState(val book: String, val store: PdfTextStore) {
   /** the text in use; null while there's none */
   var source by mutableStateOf<TextSource?>(null)
-  var layerPages by mutableIntStateOf(0)
-  var ocrPages by mutableIntStateOf(0)
-  /** the file's own text has been looked at on every page */
-  var layerRead by mutableStateOf(false)
-  var ocrRead by mutableStateOf(false)
+  /** how many pages have text, by source */
+  var pages by mutableStateOf<Map<TextSource, Int>>(emptyMap())
+  /** the sources that have looked at every page */
+  var read by mutableStateOf<Set<TextSource>>(emptySet())
   /** bumped as pages are read, so the pages on screen pick up their words */
   var version by mutableIntStateOf(0)
+
+  fun pagesOf(source: TextSource) = pages[source] ?: 0
 
   suspend fun words(page: Int): List<PdfWord>? = source?.let { store.words(book, page, it) }
 }
@@ -81,7 +82,12 @@ internal fun PdfReader(
   find: FindState,
   selection: PdfSelection?,
   onSelection: (PdfSelection?) -> Unit,
-  onTapHighlight: (BookHighlight) -> Unit
+  onTapHighlight: (BookHighlight) -> Unit,
+  theme: PageTheme,
+  night: Boolean,
+  actions: SelectionActions,
+  onTap: () -> Unit,
+  insets: PaddingValues
 ) {
   val context = LocalContext.current
   val doc by produceState<PdfDocument?>(null, file) {
@@ -147,7 +153,7 @@ internal fun PdfReader(
   BoxWithConstraints(
     Modifier
       .fillMaxSize()
-      .background(MaterialTheme.colorScheme.surfaceVariant)
+      .background(theme.backgroundColor.darkenedForGutter())
       // two fingers zoom and pan; one finger pans sideways when zoomed, and scrolls the pages
       .pointerInput(Unit) {
         awaitEachGesture {
@@ -178,7 +184,7 @@ internal fun PdfReader(
         translationX = panX
       },
       state = listState,
-      contentPadding = PaddingValues(vertical = 8.dp),
+      contentPadding = PaddingValues(top = insets.calculateTopPadding() + 8.dp, bottom = insets.calculateBottomPadding() + 8.dp),
       verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
       items(if (ratios.isEmpty()) 0 else pdf.pageCount) { i ->
@@ -186,7 +192,8 @@ internal fun PdfReader(
           pdf = pdf, page = i, ratio = ratios[i], width = if (sharp) (width * 2).coerceAtMost(2600) else width,
           text = text, highlights = byPage[i].orEmpty(), query = query,
           selection = selection?.takeIf { it.page == i },
-          onSelection = onSelection, onTapHighlight = onTapHighlight, onDoubleTap = toggleZoom
+          onSelection = onSelection, onTapHighlight = onTapHighlight, onDoubleTap = toggleZoom,
+          theme = theme, night = night, actions = actions, onTap = onTap
         )
       }
     }
@@ -205,7 +212,11 @@ private fun PdfPage(
   selection: PdfSelection?,
   onSelection: (PdfSelection?) -> Unit,
   onTapHighlight: (BookHighlight) -> Unit,
-  onDoubleTap: () -> Unit
+  onDoubleTap: () -> Unit,
+  theme: PageTheme,
+  night: Boolean,
+  actions: SelectionActions,
+  onTap: () -> Unit
 ) {
   val bitmap by produceState<ImageBitmap?>(null, page, width) {
     value = withContext(Dispatchers.IO) { runCatching { pdf.render(page, width).asImageBitmap() }.getOrNull() } ?: value
@@ -218,8 +229,10 @@ private fun PdfPage(
   val currentWords by rememberUpdatedState(words)
   val currentHighlights by rememberUpdatedState(highlights)
   val currentSelection by rememberUpdatedState(selection)
-  val selectionColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-  val matchColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.35f)
+  val currentTap by rememberUpdatedState(onTap)
+  val selectionColor = theme.accentColor.copy(alpha = 0.3f)
+  val matchColor = theme.accentColor.copy(alpha = 0.3f)
+  var dragging by remember { mutableStateOf(false) }
 
   Box(
     Modifier
@@ -233,8 +246,9 @@ private fun PdfPage(
             val y = at.y / size.height
             val hit = currentHighlights.lastOrNull { h -> h.boxes.any { it.contains(x, y) } }
             when {
-              hit != null -> onTapHighlight(hit)
               currentSelection != null -> onSelection(null)
+              hit != null -> onTapHighlight(hit)
+              else -> currentTap()
             }
           },
           onDoubleTap = { onDoubleTap() }
@@ -261,14 +275,69 @@ private fun PdfPage(
         )
       }
   ) {
-    bitmap?.let { Image(it, contentDescription = null, modifier = Modifier.fillMaxSize()) }
+    // night pages: the scan's paper dark and its ink light
+    bitmap?.let { Image(it, contentDescription = null, modifier = Modifier.fillMaxSize(), colorFilter = if (night) NIGHT else null) }
     Canvas(Modifier.matchParentSize()) {
-      highlights.forEach { h -> h.boxes.forEach { drawWord(it, Color(h.color.argb).copy(alpha = 0.4f)) } }
+      highlights.forEach { h ->
+        if (h.noteUid.isNotEmpty()) {
+          // quoted into the research: tinted and underlined
+          h.boxes.forEach { w ->
+            drawWord(w, theme.accentColor.copy(alpha = 0.16f))
+            drawRect(theme.accentColor, Offset(w.left * size.width, w.bottom * size.height - 2.dp.toPx()), Size((w.right - w.left) * size.width, 2.dp.toPx()))
+          }
+        } else {
+          h.boxes.forEach { drawWord(it, Color(h.color.argb).copy(alpha = 0.4f)) }
+        }
+      }
       matches.forEach { drawWord(it, matchColor) }
       selection?.boxes?.forEach { drawWord(it, selectionColor) }
     }
+    BoxWithConstraints(Modifier.matchParentSize()) {
+      val w = constraints.maxWidth.toFloat()
+      val h = constraints.maxHeight.toFloat()
+      val sel = selection
+      if (sel != null && sel.range.first in sel.words.indices && sel.range.last in sel.words.indices) {
+        val first = sel.words[sel.range.first]
+        val last = sel.words[sel.range.last]
+        val arabic = first.text.any { it in '؀'..'ۿ' }
+        // an Arabic selection starts at the right of its first word and ends at the left of its last
+        val startPoint = if (arabic) Offset(first.right * w, first.bottom * h) else Offset(first.left * w, first.bottom * h)
+        val endPoint = if (arabic) Offset(last.left * w, last.bottom * h) else Offset(last.right * w, last.bottom * h)
+        val move = { at: Offset, isStart: Boolean ->
+          dragging = true
+          wordAt(sel.words, at.x / w, at.y / h)?.let { i ->
+            val a = sel.range.first
+            val b = sel.range.last
+            onSelection(if (isStart) PdfSelection(page, minOf(i, b), b, sel.words) else PdfSelection(page, a, maxOf(i, a), sel.words))
+          }
+        }
+        SelectionHandle(startPoint, hangsLeft = !arabic, color = theme.accentColor, onDrag = { move(it, true) }, onDragEnd = { dragging = false })
+        SelectionHandle(endPoint, hangsLeft = arabic, color = theme.accentColor, onDrag = { move(it, false) }, onDragEnd = { dragging = false })
+        if (!dragging) {
+          val boxes = sel.boxes
+          val anchor = androidx.compose.ui.geometry.Rect(
+            boxes.minOf { it.left } * w, boxes.minOf { it.top } * h, boxes.maxOf { it.right } * w, boxes.maxOf { it.bottom } * h
+          )
+          SelectionToolbar(anchor, actions)
+        }
+      }
+    }
   }
 }
+
+private val NIGHT = androidx.compose.ui.graphics.ColorFilter.colorMatrix(
+  androidx.compose.ui.graphics.ColorMatrix(
+    floatArrayOf(
+      -0.85f, 0f, 0f, 0f, 235f,
+      0f, -0.85f, 0f, 0f, 232f,
+      0f, 0f, -0.85f, 0f, 225f,
+      0f, 0f, 0f, 1f, 0f
+    )
+  )
+)
+
+/** around the pages: a little darker than the page theme, so a page stands out */
+private fun Color.darkenedForGutter(): Color = Color(red * 0.9f, green * 0.9f, blue * 0.9f, 1f)
 
 private fun DrawScope.drawWord(w: PdfWord, color: Color) {
   drawRect(

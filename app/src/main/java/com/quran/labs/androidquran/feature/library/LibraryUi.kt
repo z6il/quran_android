@@ -1,6 +1,7 @@
 package com.quran.labs.androidquran.feature.library
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,19 +10,25 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -45,7 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -61,7 +68,9 @@ import com.quran.labs.androidquran.feature.prayer.SectionTitle
 import com.quran.labs.androidquran.feature.prayer.cardColor
 import com.quran.labs.androidquran.feature.research.HadithLibrary
 import com.quran.labs.androidquran.feature.research.arabicFont
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 /** which of the reader's books to list */
@@ -81,6 +90,13 @@ enum class MineFilter(val title: Int) {
   }
 }
 
+/** how the reader's books are ordered */
+enum class MineOrder(val title: Int) {
+  RECENT(R.string.library_order_recent),
+  TITLE(R.string.library_order_title),
+  PROGRESS(R.string.library_order_progress)
+}
+
 /** kept across screens, so going back returns to the same search */
 class LibrarySearchState {
   var query by mutableStateOf("")
@@ -89,11 +105,16 @@ class LibrarySearchState {
 
 private fun megabytes(bytes: Long): String = String.format(Locale.getDefault(), "%.1f", bytes / 1_000_000.0)
 
+/** a style for Arabic names in any layout: they read from the right */
+@Composable
+private fun names() = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Content)
+
 @Composable
 internal fun LibraryHome(
   catalog: List<CatalogBook>,
   mine: List<LibraryBook>,
   search: LibrarySearchState,
+  coverVersion: Int,
   onSearch: suspend (String) -> List<CatalogBook>,
   onShelf: (Shelf) -> Unit,
   onMine: (MineFilter) -> Unit,
@@ -104,7 +125,7 @@ internal fun LibraryHome(
 ) {
   val query = search.query
   val results by produceState<List<CatalogBook>?>(null, query, catalog) { value = if (query.isBlank()) null else onSearch(query) }
-  val counts = remember(catalog) { catalog.groupingBy { it.shelf }.eachCount() }
+  val byShelf = remember(catalog) { catalog.groupBy { it.shelf } }
   val reading = mine.filter { it.status == ReadingStatus.READING && it.file.isNotEmpty() }
   val byId = mine.associateBy { it.id }
   Scaffold(
@@ -121,8 +142,8 @@ internal fun LibraryHome(
     LazyColumn(
       Modifier.padding(padding),
       state = search.list,
-      contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 96.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp)
+      contentPadding = PaddingValues(bottom = 96.dp),
+      verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
       item {
         OutlinedTextField(
@@ -133,68 +154,97 @@ internal fun LibraryHome(
           },
           placeholder = { Text(stringResource(R.string.library_search)) },
           shape = RoundedCornerShape(50),
-          modifier = Modifier.fillMaxWidth()
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
         )
       }
       if (query.isNotBlank()) {
         val words = HadithLibrary.normalizeArabic(query).split(' ').filter { it.isNotBlank() }
         val files = mine.filter { b -> b.imported && words.all { it in HadithLibrary.normalizeArabic(b.title + " " + b.author) } }
-        items(files, key = { "f" + it.id }) { MineRow(it, onClick = { onBook(it.id) }) }
+        items(files, key = { "f" + it.id }) { BookRow(it.id, it.title, it.author, it.shelf, subtitle = it.kind.name, mine = it, coverVersion, onClick = { onBook(it.id) }) }
         val found = results
-        if (found != null && found.isEmpty() && files.isEmpty()) {
-          item { Empty(stringResource(R.string.library_no_results)) }
-        }
-        items(found.orEmpty(), key = { it.id }) { CatalogRow(it, byId[it.id], onClick = { onBook(it.id) }) }
+        if (found != null && found.isEmpty() && files.isEmpty()) item { Empty(stringResource(R.string.library_no_results)) }
+        items(found.orEmpty(), key = { it.id }) { CatalogRow(it, byId[it.id], coverVersion, onClick = { onBook(it.id) }) }
         return@LazyColumn
       }
-      if (reading.isNotEmpty()) {
-        item { SectionTitle(stringResource(R.string.library_continue)) }
+      // the book being read, large
+      reading.firstOrNull()?.let { book ->
+        item { HeroBook(book, coverVersion, onRead = { onRead(book) }, onOpen = { onBook(book.id) }) }
+      }
+      if (reading.size > 1) {
+        item { Box(Modifier.padding(horizontal = 16.dp)) { SectionTitle(stringResource(R.string.library_continue)) } }
         item {
-          LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(reading, key = { it.id }) { ContinueCard(it, onClick = { onRead(it) }) }
-          }
-        }
-      }
-      item { SectionTitle(stringResource(R.string.library_my_shelves)) }
-      item {
-        val tiles = listOf(
-          Triple(MineFilter.READING, AppIcons.Library, mine.count(MineFilter.READING::matches)),
-          Triple(MineFilter.WANT, AppIcons.Bookmark, mine.count(MineFilter.WANT::matches)),
-          Triple(MineFilter.FINISHED, QuranIcons.Check, mine.count(MineFilter.FINISHED::matches)),
-          Triple(MineFilter.FILES, AppIcons.Book, mine.count(MineFilter.FILES::matches))
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-          tiles.chunked(2).forEach { pair ->
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-              pair.forEach { (filter, icon, count) ->
-                StatusTile(filter, icon, count, Modifier.weight(1f), onClick = { onMine(filter) })
-              }
-            }
+          LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            items(reading.drop(1), key = { it.id }) { book -> CoverTile(book.id, book.title, book.author, book.shelf, book, coverVersion) { onRead(book) } }
           }
         }
       }
       item {
-        Spacer(Modifier.height(4.dp))
-        SectionTitle(stringResource(R.string.library_catalog))
-        // the catalogue takes a moment to read the first time
-        if (catalog.isEmpty()) {
-          LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp))
-        } else {
-          Text(
-            stringResource(R.string.library_catalog_note, catalog.size),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+          Box(Modifier.weight(1f)) { SectionTitle(stringResource(R.string.library_my_shelves)) }
+          TextButton(onClick = { onMine(MineFilter.ALL) }) { Text(stringResource(R.string.library_see_all)) }
         }
       }
-      items(Shelf.entries.filter { (counts[it] ?: 0) > 0 }, key = { "s" + it.key }) { shelf ->
-        Surface(onClick = { onShelf(shelf) }, shape = RoundedCornerShape(16.dp), color = cardColor(), modifier = Modifier.fillMaxWidth()) {
-          Row(Modifier.padding(16.dp, 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(shelf.title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text(
-              stringResource(R.string.library_books_count, counts[shelf] ?: 0),
-              style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+      item {
+        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          items(listOf(MineFilter.READING, MineFilter.WANT, MineFilter.FINISHED, MineFilter.FILES)) { filter ->
+            FilterChip(
+              selected = false, onClick = { onMine(filter) }, shape = RoundedCornerShape(50),
+              label = { Text(stringResource(filter.title) + "  " + mine.count(filter::matches)) }
             )
-            Icon(QuranIcons.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+          }
+        }
+      }
+      val shelf = mine.filter { it.status != ReadingStatus.NONE || it.imported }.take(12)
+      if (shelf.isNotEmpty()) {
+        item {
+          LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            items(shelf, key = { "m" + it.id }) { book -> CoverTile(book.id, book.title, book.author, book.shelf, book, coverVersion) { onBook(book.id) } }
+          }
+        }
+      } else {
+        item { Empty(stringResource(R.string.library_empty_mine), Modifier.padding(horizontal = 16.dp)) }
+      }
+      item {
+        Column(Modifier.padding(horizontal = 16.dp)) {
+          SectionTitle(stringResource(R.string.library_catalog))
+          // the catalogue takes a moment to read the first time
+          if (catalog.isEmpty()) {
+            LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp))
+          } else {
+            Text(stringResource(R.string.library_catalog_note, catalog.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          }
+        }
+      }
+      items(Shelf.entries.filter { !byShelf[it].isNullOrEmpty() }, key = { "s" + it.key }) { shelf ->
+        ShelfCard(shelf, byShelf[shelf].orEmpty(), coverVersion, onClick = { onShelf(shelf) })
+      }
+    }
+  }
+}
+
+/** the book the reader is in: its cover, how far they are, and the way back in */
+@Composable
+private fun HeroBook(book: LibraryBook, coverVersion: Int, onRead: () -> Unit, onOpen: () -> Unit) {
+  Surface(onClick = onOpen, shape = RoundedCornerShape(24.dp), color = cardColor(), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+      BookCover(book.id, book.title, book.author, book.shelf, 96.dp, Modifier.width(96.dp), coverVersion)
+      Spacer(Modifier.width(16.dp))
+      Column(Modifier.weight(1f)) {
+        Text(stringResource(R.string.library_continue), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Text(
+          book.title, style = TextStyle(fontFamily = arabicFont(), fontSize = 20.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp),
+          maxLines = 2, overflow = TextOverflow.Ellipsis
+        )
+        if (book.author.isNotBlank()) Text(book.author, style = names(), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(10.dp))
+        LinearProgressIndicator(progress = { book.progress }, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(50)))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Text(
+            stringResource(R.string.library_progress, (book.progress * 100).toInt()),
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f)
+          )
+          Button(onClick = onRead, shape = RoundedCornerShape(50), contentPadding = PaddingValues(horizontal = 18.dp, vertical = 6.dp)) {
+            Text(stringResource(R.string.library_read))
           }
         }
       }
@@ -202,77 +252,96 @@ internal fun LibraryHome(
   }
 }
 
+/** a cover with its title under it, and how far the reader got */
 @Composable
-private fun StatusTile(filter: MineFilter, icon: ImageVector, count: Int, modifier: Modifier, onClick: () -> Unit) {
-  Surface(onClick = onClick, shape = RoundedCornerShape(20.dp), color = cardColor(), modifier = modifier) {
+private fun CoverTile(id: String, title: String, author: String, shelf: Shelf?, mine: LibraryBook?, coverVersion: Int, width: Int = 104, onClick: () -> Unit) {
+  Column(Modifier.width(width.dp).clickable(onClick = onClick)) {
+    BookCover(id, title, author, shelf, width.dp, Modifier.fillMaxWidth(), coverVersion)
+    if (mine != null && mine.file.isNotEmpty() && mine.progress > 0f) {
+      Spacer(Modifier.height(6.dp))
+      LinearProgressIndicator(progress = { mine.progress }, modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(50)))
+    }
+    Spacer(Modifier.height(6.dp))
+    Text(
+      title, style = TextStyle(fontFamily = arabicFont(), fontSize = 14.sp, lineHeight = 20.sp, textDirection = TextDirection.Content),
+      maxLines = 2, overflow = TextOverflow.Ellipsis
+    )
+  }
+}
+
+/** a shelf of the catalogue: three of its books fanned out, its name and how many */
+@Composable
+private fun ShelfCard(shelf: Shelf, books: List<CatalogBook>, coverVersion: Int, onClick: () -> Unit) {
+  Surface(onClick = onClick, shape = RoundedCornerShape(20.dp), color = cardColor(), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-      Box(
-        Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.13f)),
-        contentAlignment = Alignment.Center
-      ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+      Box(Modifier.width(92.dp).height(70.dp)) {
+        books.take(3).reversed().forEachIndexed { k, b ->
+          BookCover(b.id, b.title, "", shelf, 44.dp, Modifier.width(46.dp).offset(x = (k * 22).dp, y = (if (k == 1) 0 else 4).dp), coverVersion)
+        }
       }
-      Spacer(Modifier.width(10.dp))
-      Column {
-        Text(stringResource(filter.title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1)
-        Text(count.toString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      Spacer(Modifier.width(12.dp))
+      Column(Modifier.weight(1f)) {
+        Text(stringResource(shelf.title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(
+          stringResource(R.string.library_books_count, books.size),
+          style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
       }
+      Icon(QuranIcons.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
     }
   }
 }
 
 @Composable
-private fun ContinueCard(book: LibraryBook, onClick: () -> Unit) {
-  Surface(onClick = onClick, shape = RoundedCornerShape(20.dp), color = cardColor(), modifier = Modifier.width(220.dp)) {
-    Column(Modifier.padding(16.dp)) {
-      Text(
-        book.title, style = TextStyle(fontFamily = arabicFont(), fontSize = 18.sp, fontWeight = FontWeight.Bold, lineHeight = 28.sp),
-        maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis
-      )
-      Text(book.author, style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Content), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-      Spacer(Modifier.height(12.dp))
-      LinearProgressIndicator(progress = { book.progress }, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(50)))
-      Spacer(Modifier.height(4.dp))
-      Text(
-        stringResource(R.string.library_progress, (book.progress * 100).toInt()),
-        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-      )
-    }
-  }
-}
-
-@Composable
-private fun Empty(text: String) {
+private fun Empty(text: String, modifier: Modifier = Modifier) {
   Text(
     text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-    modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp)
+    modifier = modifier.fillMaxWidth().padding(vertical = 24.dp)
   )
 }
 
-/** a catalogue book, with how far the reader got if it's theirs */
+/** a book in a list: a small cover, its title and author, and where the reader is with it */
 @Composable
-private fun CatalogRow(book: CatalogBook, mine: LibraryBook?, onClick: () -> Unit) {
-  Surface(onClick = onClick, shape = RoundedCornerShape(16.dp), color = cardColor(), modifier = Modifier.fillMaxWidth()) {
-    Column(Modifier.padding(16.dp, 12.dp)) {
-      Text(
-        book.title, style = TextStyle(fontFamily = arabicFont(), fontSize = 18.sp, fontWeight = FontWeight.Bold, lineHeight = 28.sp),
-        maxLines = 2, overflow = TextOverflow.Ellipsis
-      )
-      Text(
-        book.author + " · " + stringResource(R.string.library_died, book.died),
-        // the names are Arabic: they read from the right even in an English layout
-        style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Content), color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1, overflow = TextOverflow.Ellipsis
-      )
-      Row(verticalAlignment = Alignment.CenterVertically) {
+private fun BookRow(
+  id: String,
+  title: String,
+  author: String,
+  shelf: Shelf?,
+  subtitle: String,
+  mine: LibraryBook?,
+  coverVersion: Int,
+  onClick: () -> Unit
+) {
+  Surface(onClick = onClick, shape = RoundedCornerShape(16.dp), color = cardColor(), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+      BookCover(id, title, "", shelf, 52.dp, Modifier.width(52.dp), coverVersion)
+      Spacer(Modifier.width(14.dp))
+      Column(Modifier.weight(1f)) {
         Text(
-          stringResource(R.string.library_pages, book.pages) + (book.madhhab?.let { " · " + stringResource(it.title) } ?: ""),
-          style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f)
+          title, style = TextStyle(fontFamily = arabicFont(), fontSize = 18.sp, fontWeight = FontWeight.Bold, lineHeight = 28.sp),
+          maxLines = 2, overflow = TextOverflow.Ellipsis
         )
-        if (mine != null && mine.status != ReadingStatus.NONE) StatusLabel(mine)
+        if (author.isNotBlank()) Text(author, style = names(), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+          if (mine != null) StatusLabel(mine)
+        }
+        if (mine != null && mine.file.isNotEmpty() && mine.progress > 0f) {
+          Spacer(Modifier.height(6.dp))
+          LinearProgressIndicator(progress = { mine.progress }, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(50)))
+        }
       }
     }
   }
+}
+
+@Composable
+private fun CatalogRow(book: CatalogBook, mine: LibraryBook?, coverVersion: Int, onClick: () -> Unit) {
+  BookRow(
+    book.id, book.title, book.author + " · " + stringResource(R.string.library_died, book.died), book.shelf,
+    stringResource(R.string.library_pages, book.pages) + (book.madhhab?.let { " · " + stringResource(it.title) } ?: ""),
+    mine, coverVersion, onClick
+  )
 }
 
 @Composable
@@ -290,44 +359,18 @@ private fun StatusLabel(book: LibraryBook) {
 }
 
 @Composable
-private fun MineRow(book: LibraryBook, onClick: () -> Unit) {
-  Surface(onClick = onClick, shape = RoundedCornerShape(16.dp), color = cardColor(), modifier = Modifier.fillMaxWidth()) {
-    Column(Modifier.padding(16.dp, 12.dp)) {
-      Text(
-        book.title, style = TextStyle(fontFamily = arabicFont(), fontSize = 18.sp, fontWeight = FontWeight.Bold, lineHeight = 28.sp),
-        maxLines = 2, overflow = TextOverflow.Ellipsis
-      )
-      val detail = listOfNotNull(
-        book.author.takeIf { it.isNotBlank() },
-        stringResource(book.shelf.title),
-        if (book.imported) book.kind.name else null
-      ).joinToString(" · ")
-      Text(detail, style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Content), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-      if (book.file.isNotEmpty() && book.progress > 0f) {
-        Spacer(Modifier.height(8.dp))
-        LinearProgressIndicator(progress = { book.progress }, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(50)))
-      }
-      Row(Modifier.padding(top = 6.dp)) {
-        Spacer(Modifier.weight(1f))
-        StatusLabel(book)
-      }
-    }
-  }
-}
-
-@Composable
-internal fun ShelfScreen(shelf: Shelf, books: List<CatalogBook>, mine: Map<String, LibraryBook>, onBook: (String) -> Unit, onBack: () -> Unit) {
+internal fun ShelfScreen(shelf: Shelf, books: List<CatalogBook>, mine: Map<String, LibraryBook>, coverVersion: Int, onBook: (String) -> Unit, onBack: () -> Unit) {
   var madhhab by rememberSaveable { mutableStateOf<Madhhab?>(null) }
   val shown = if (madhhab == null) books else books.filter { it.madhhab == madhhab }
   Scaffold(topBar = { AppTopBar(stringResource(shelf.title), onBack = onBack) }, containerColor = MaterialTheme.colorScheme.surface) { padding ->
     LazyColumn(
       Modifier.padding(padding),
-      contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 24.dp),
+      contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
       verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
       if (books.any { it.madhhab != null }) {
         item {
-          LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
               FilterChip(selected = madhhab == null, onClick = { madhhab = null }, label = { Text(stringResource(R.string.library_all)) }, shape = RoundedCornerShape(50))
             }
@@ -337,17 +380,40 @@ internal fun ShelfScreen(shelf: Shelf, books: List<CatalogBook>, mine: Map<Strin
           }
         }
       }
-      items(shown, key = { it.id }) { CatalogRow(it, mine[it.id], onClick = { onBook(it.id) }) }
+      items(shown, key = { it.id }) { CatalogRow(it, mine[it.id], coverVersion, onClick = { onBook(it.id) }) }
     }
   }
 }
 
+/** the reader's books as a wall of covers */
 @Composable
-internal fun MineScreen(initial: MineFilter, books: List<LibraryBook>, onBook: (String) -> Unit, onAddFile: () -> Unit, onBack: () -> Unit) {
+internal fun MineScreen(initial: MineFilter, books: List<LibraryBook>, coverVersion: Int, onBook: (String) -> Unit, onAddFile: () -> Unit, onBack: () -> Unit) {
   var filter by rememberSaveable { mutableStateOf(initial) }
-  val shown = books.filter(filter::matches)
+  var order by rememberSaveable { mutableStateOf(MineOrder.RECENT) }
+  var ordering by remember { mutableStateOf(false) }
+  val shown = books.filter(filter::matches).let { list ->
+    when (order) {
+      MineOrder.RECENT -> list
+      MineOrder.TITLE -> list.sortedBy { HadithLibrary.normalizeArabic(it.title) }
+      MineOrder.PROGRESS -> list.sortedByDescending { it.progress }
+    }
+  }
   Scaffold(
-    topBar = { AppTopBar(stringResource(R.string.library_my_shelves), onBack = onBack) },
+    topBar = {
+      AppTopBar(stringResource(R.string.library_my_shelves), onBack = onBack) {
+        Box {
+          TextButton(onClick = { ordering = true }) { Text(stringResource(order.title)) }
+          DropdownMenu(ordering, onDismissRequest = { ordering = false }) {
+            MineOrder.entries.forEach { o ->
+              DropdownMenuItem(text = { Text(stringResource(o.title), fontWeight = if (o == order) FontWeight.Bold else null) }, onClick = {
+                order = o
+                ordering = false
+              })
+            }
+          }
+        }
+      }
+    },
     floatingActionButton = {
       if (filter == MineFilter.FILES) {
         ExtendedFloatingActionButton(onClick = onAddFile, icon = { Icon(AppIcons.Plus, contentDescription = null) }, text = { Text(stringResource(R.string.library_add_file)) })
@@ -355,23 +421,32 @@ internal fun MineScreen(initial: MineFilter, books: List<LibraryBook>, onBook: (
     },
     containerColor = MaterialTheme.colorScheme.surface
   ) { padding ->
-    LazyColumn(
+    LazyVerticalGrid(
+      GridCells.Adaptive(108.dp),
       Modifier.padding(padding),
       contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 96.dp),
-      verticalArrangement = Arrangement.spacedBy(10.dp)
+      horizontalArrangement = Arrangement.spacedBy(14.dp),
+      verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-      item {
+      item(span = { GridItemSpan(maxLineSpan) }) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           items(MineFilter.entries) { f ->
             FilterChip(selected = filter == f, onClick = { filter = f }, label = { Text(stringResource(f.title)) }, shape = RoundedCornerShape(50))
           }
         }
       }
-      if (shown.isEmpty()) item { Empty(stringResource(R.string.library_empty_mine)) }
-      items(shown, key = { it.id }) { MineRow(it, onClick = { onBook(it.id) }) }
+      if (shown.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { Empty(stringResource(R.string.library_empty_mine)) }
+      items(shown, key = { it.id }) { book -> CoverTile(book.id, book.title, book.author, book.shelf, book, coverVersion, width = 108) { onBook(book.id) } }
     }
   }
 }
+
+/** what can be done to a book's cover */
+internal class CoverActions(
+  val pickPicture: () -> Unit,
+  val fromPage: (Int) -> Unit,
+  val reset: () -> Unit
+)
 
 @Composable
 internal fun BookScreen(
@@ -379,17 +454,46 @@ internal fun BookScreen(
   book: LibraryBook?,
   download: BookDownload?,
   store: LibraryStore,
+  catalogue: LibraryCatalog,
+  coverVersion: Int,
+  cover: CoverActions,
   onDownload: (CatalogBook) -> Unit,
   onRead: (LibraryBook, BookMark?) -> Unit,
+  onOpenCatalog: (String) -> Unit,
   onDeleted: () -> Unit,
   onBack: () -> Unit
 ) {
+  val context = LocalContext.current
   val scope = rememberCoroutineScope()
   val title = book?.title ?: catalog?.title.orEmpty()
   var confirmDelete by remember { mutableStateOf(false) }
   var renaming by remember { mutableStateOf(false) }
   var choosingShelf by remember { mutableStateOf(false) }
+  var coverMenu by remember { mutableStateOf(false) }
+  var matchDismissed by remember { mutableStateOf(false) }
   val marks by produceState(emptyList<BookMark>(), book?.id, book?.opened) { value = book?.let { store.marks(it.id) }.orEmpty() }
+  // a file the reader added may be a book of the catalogue: by its first pages, or its title
+  val match by produceState<CatalogBook?>(null, book?.id, book?.title) {
+    val b = book ?: return@produceState
+    if (!b.imported) return@produceState
+    val text = withContext(Dispatchers.IO) {
+      if (b.kind == BookKind.PDF) {
+        val texts = PdfTextStore.get(context)
+        val pages = mutableListOf<String>()
+        for (page in 0 until 10) {
+          for (s in TextSource.entries) {
+            val words = texts.words(b.id, page, s)
+            if (!words.isNullOrEmpty()) {
+              pages += words.joinToString(" ") { it.text }
+              break
+            }
+          }
+        }
+        pages.joinToString(" ")
+      } else ""
+    }
+    value = catalogue.recognise(b.title + " " + text)
+  }
   Scaffold(
     topBar = {
       AppTopBar("", onBack = onBack) {
@@ -407,22 +511,80 @@ internal fun BookScreen(
       Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(20.dp, 4.dp, 20.dp, 32.dp),
       verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-      Text(title, style = TextStyle(fontFamily = arabicFont(), fontSize = 26.sp, fontWeight = FontWeight.Bold, lineHeight = 40.sp))
-      val author = book?.author?.takeIf { it.isNotBlank() } ?: catalog?.author
-      if (!author.isNullOrBlank()) {
-        Text(
-          author + (catalog?.let { " · " + stringResource(R.string.library_died, it.died) } ?: ""),
-          style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+      Row(verticalAlignment = Alignment.Top) {
+        Box {
+          BookCover(
+            book?.id ?: catalog?.id.orEmpty(), title, book?.author ?: catalog?.author.orEmpty(), book?.shelf ?: catalog?.shelf, 120.dp,
+            Modifier.width(120.dp).clickable(enabled = book?.imported == true) { coverMenu = true }, coverVersion
+          )
+          DropdownMenu(coverMenu, onDismissRequest = { coverMenu = false }) {
+            DropdownMenuItem(text = { Text(stringResource(R.string.library_cover_picture)) }, onClick = {
+              coverMenu = false
+              cover.pickPicture()
+            })
+            if (book?.kind == BookKind.PDF) {
+              DropdownMenuItem(text = { Text(stringResource(R.string.library_cover_first_page)) }, onClick = {
+                coverMenu = false
+                cover.fromPage(0)
+              })
+              DropdownMenuItem(text = { Text(stringResource(R.string.library_cover_this_page)) }, onClick = {
+                coverMenu = false
+                cover.fromPage(book.position)
+              })
+            }
+            DropdownMenuItem(text = { Text(stringResource(R.string.library_cover_drawn)) }, onClick = {
+              coverMenu = false
+              cover.reset()
+            })
+          }
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+          Text(title, style = TextStyle(fontFamily = arabicFont(), fontSize = 24.sp, fontWeight = FontWeight.Bold, lineHeight = 36.sp))
+          val author = book?.author?.takeIf { it.isNotBlank() } ?: catalog?.author
+          if (!author.isNullOrBlank()) {
+            Text(
+              author + (catalog?.let { " · " + stringResource(R.string.library_died, it.died) } ?: ""),
+              style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Content), color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
+          val shelf = book?.shelf ?: catalog?.shelf
+          val facts = listOfNotNull(
+            shelf?.let { stringResource(it.title) },
+            catalog?.madhhab?.let { stringResource(it.title) },
+            catalog?.let { stringResource(R.string.library_pages, it.pages) },
+            if (book?.imported == true) book.kind.name else null
+          )
+          Text(facts.joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+          if (book?.imported == true) {
+            Text(stringResource(R.string.library_cover_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          }
+        }
       }
-      val shelf = book?.shelf ?: catalog?.shelf
-      val facts = listOfNotNull(
-        shelf?.let { stringResource(it.title) },
-        catalog?.madhhab?.let { stringResource(it.title) },
-        catalog?.let { stringResource(R.string.library_pages, it.pages) },
-        if (book?.imported == true) book.kind.name else null
-      )
-      Text(facts.joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+
+      // recognised: the catalogue's title and author, and its clean text
+      val m = match
+      if (m != null && book != null && !matchDismissed && HadithLibrary.normalizeArabic(book.title) != HadithLibrary.normalizeArabic(m.title)) {
+        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f), modifier = Modifier.fillMaxWidth()) {
+          Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(stringResource(R.string.library_looks_like), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Text(m.title, style = TextStyle(fontFamily = arabicFont(), fontSize = 18.sp, fontWeight = FontWeight.Bold))
+            Text(m.author + " · " + stringResource(R.string.library_died, m.died), style = names(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+              TextButton(onClick = {
+                scope.launch {
+                  store.rename(book.id, m.title)
+                  store.setAuthor(book.id, m.author)
+                  store.setShelf(book.id, m.shelf)
+                }
+              }) { Text(stringResource(R.string.library_use_title)) }
+              TextButton(onClick = { onOpenCatalog(m.id) }) { Text(stringResource(R.string.library_open_classical)) }
+              Spacer(Modifier.weight(1f))
+              IconButton(onClick = { matchDismissed = true }) { Icon(QuranIcons.Close, contentDescription = stringResource(R.string.library_cancel)) }
+            }
+          }
+        }
+      }
 
       // read, or get it first
       val readable = book != null && book.file.isNotEmpty() && java.io.File(book.file).exists()
@@ -516,14 +678,23 @@ internal fun BookScreen(
   }
   if (renaming && book != null) {
     var text by remember { mutableStateOf(book.title) }
+    var author by remember { mutableStateOf(book.author) }
     AlertDialog(
       onDismissRequest = { renaming = false },
       title = { Text(stringResource(R.string.library_rename)) },
-      text = { OutlinedTextField(text, { text = it }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
+      text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          OutlinedTextField(text, { text = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
+          OutlinedTextField(author, { author = it }, singleLine = true, label = { Text(stringResource(R.string.library_author)) }, modifier = Modifier.fillMaxWidth())
+        }
+      },
       confirmButton = {
         TextButton(enabled = text.isNotBlank(), onClick = {
           renaming = false
-          scope.launch { store.rename(book.id, text.trim()) }
+          scope.launch {
+            store.rename(book.id, text.trim())
+            store.setAuthor(book.id, author.trim())
+          }
         }) { Text(stringResource(R.string.library_save)) }
       },
       dismissButton = { TextButton(onClick = { renaming = false }) { Text(stringResource(R.string.library_cancel)) } }

@@ -23,6 +23,9 @@ class EpubBook private constructor(private val zip: ZipFile) : Closeable {
     private set
   var author: String? = null
     private set
+  /** the cover image's path in the zip, where the book names one */
+  var cover: String? = null
+    private set
   val spine = mutableListOf<Chapter>()
   val toc = mutableListOf<TocEntry>()
 
@@ -42,6 +45,7 @@ class EpubBook private constructor(private val zip: ZipFile) : Closeable {
     val base = opf.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
     val manifest = HashMap<String, Pair<String, String>>()
     var navPath: String? = null
+    var coverId: String? = null
     var ncxId: String? = null
     val itemRefs = mutableListOf<String>()
     parser(open(opf) ?: error("no package")) { p ->
@@ -54,13 +58,20 @@ class EpubBook private constructor(private val zip: ZipFile) : Closeable {
             val id = p.attr("id") ?: continue
             val href = resolve(base, p.attr("href") ?: continue)
             manifest[id] = href to p.attr("media-type").orEmpty()
-            if (p.attr("properties")?.split(' ')?.contains("nav") == true) navPath = href
+            val properties = p.attr("properties")?.split(' ').orEmpty()
+            if ("nav" in properties) navPath = href
+            if ("cover-image" in properties) cover = href
           }
+          // EPUB 2 names its cover in the metadata
+          "meta" -> if (p.attr("name") == "cover") coverId = p.attr("content")
           "spine" -> ncxId = p.attr("toc")
           "itemref" -> p.attr("idref")?.let(itemRefs::add)
         }
       }
     }
+    if (cover == null) cover = coverId?.let { manifest[it] }?.takeIf { it.second.startsWith("image/") }?.first
+    // failing both, an image whose name says it's the cover
+    if (cover == null) cover = manifest.values.firstOrNull { (href, type) -> type.startsWith("image/") && "cover" in href.lowercase() }?.first
     itemRefs.mapNotNullTo(spine) { manifest[it]?.first?.let(::Chapter) }
     if (spine.isEmpty()) error("no chapters")
     val index = spine.withIndex().associate { (i, c) -> c.path to i }

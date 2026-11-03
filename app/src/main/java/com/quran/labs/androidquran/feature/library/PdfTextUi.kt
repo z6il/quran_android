@@ -41,7 +41,14 @@ import com.quran.labs.androidquran.common.ui.core.QuranIcons
 import com.quran.labs.androidquran.feature.prayer.cardColor
 import java.util.Locale
 
-/** Which text a PDF uses, and OCR to start or stop. */
+/** what each source is called in the menu */
+private fun sourceTitle(source: TextSource): Int = when (source) {
+  TextSource.LAYER -> R.string.library_text_layer
+  TextSource.OCR -> R.string.library_text_ocr
+  TextSource.OPENITI -> R.string.library_text_openiti
+}
+
+/** Which text a PDF uses: its own, or either OCR; and OCR to start or stop. */
 @Composable
 internal fun PdfTextMenu(
   expanded: Boolean,
@@ -50,36 +57,40 @@ internal fun PdfTextMenu(
   pages: Int,
   onDismiss: () -> Unit,
   onChoose: (TextSource) -> Unit,
-  onOcr: () -> Unit,
-  onStop: () -> Unit
+  onOcr: (TextSource) -> Unit,
+  onStop: (TextSource) -> Unit
 ) {
   DropdownMenu(expanded, onDismissRequest = onDismiss) {
     Text(
       stringResource(R.string.library_text_of_pdf), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
       modifier = Modifier.padding(16.dp, 8.dp)
     )
-    DropdownMenuItem(
-      enabled = text.layerPages > 0,
-      leadingIcon = { RadioButton(selected = text.source == TextSource.LAYER, onClick = null) },
-      text = { Text(stringResource(R.string.library_text_layer, text.layerPages)) },
-      onClick = { onChoose(TextSource.LAYER) }
-    )
-    DropdownMenuItem(
-      enabled = text.ocrPages > 0,
-      leadingIcon = { RadioButton(selected = text.source == TextSource.OCR, onClick = null) },
-      text = { Text(stringResource(R.string.library_text_ocr, text.ocrPages)) },
-      onClick = { onChoose(TextSource.OCR) }
-    )
-    HorizontalDivider()
-    if (job?.source == TextSource.OCR && job.running) {
-      DropdownMenuItem(text = { Text(stringResource(R.string.library_text_stop_ocr, job.done, job.total)) }, onClick = onStop)
-    } else if (!text.ocrRead) {
+    TextSource.entries.forEach { source ->
       DropdownMenuItem(
-        text = { Text(stringResource(if (text.ocrPages > 0) R.string.library_text_resume_ocr else R.string.library_text_run_ocr)) },
-        onClick = onOcr
+        enabled = text.pagesOf(source) > 0,
+        leadingIcon = { RadioButton(selected = text.source == source, onClick = null) },
+        text = { Text(stringResource(sourceTitle(source), text.pagesOf(source))) },
+        onClick = { onChoose(source) }
       )
     }
-    if (pages > 0 && text.layerRead && text.layerPages == 0) {
+    HorizontalDivider()
+    listOf(TextSource.OPENITI, TextSource.OCR).forEach { engine ->
+      if (job?.source == engine && job.running) {
+        DropdownMenuItem(text = { Text(stringResource(R.string.library_text_stop_ocr, job.done, job.total)) }, onClick = { onStop(engine) })
+      } else if (engine !in text.read) {
+        DropdownMenuItem(
+          text = {
+            Text(
+              stringResource(
+                if (engine == TextSource.OPENITI) R.string.library_run_openiti else R.string.library_run_tesseract
+              )
+            )
+          },
+          onClick = { onOcr(engine) }
+        )
+      }
+    }
+    if (pages > 0 && TextSource.LAYER in text.read && text.pagesOf(TextSource.LAYER) == 0) {
       Text(
         stringResource(R.string.library_no_layer), style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp, 8.dp)
@@ -91,8 +102,9 @@ internal fun PdfTextMenu(
 /** Above the pages: a scanned PDF's offer of OCR, and how reading its text is going. */
 @Composable
 internal fun PdfTextBanner(text: PdfTextState, job: TextJob?, pages: Int, onOcr: () -> Unit, onRetry: () -> Unit) {
-  val running = job != null && job.running && job.source == TextSource.OCR
-  val scanned = pages > 0 && text.layerRead && text.layerPages < pages / 10 && text.ocrPages == 0
+  val running = job != null && job.running && job.source != TextSource.LAYER
+  val ocrPages = text.pagesOf(TextSource.OCR) + text.pagesOf(TextSource.OPENITI)
+  val scanned = pages > 0 && TextSource.LAYER in text.read && text.pagesOf(TextSource.LAYER) < pages / 10 && ocrPages == 0
   if (!running && !scanned && job?.failed == null) return
   Surface(color = cardColor(), modifier = Modifier.fillMaxWidth()) {
     Column(Modifier.padding(16.dp, 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -125,43 +137,24 @@ internal fun PdfTextBanner(text: PdfTextState, job: TextJob?, pages: Int, onOcr:
 }
 
 @Composable
-internal fun OcrDialog(pages: Int, onStart: () -> Unit, onDismiss: () -> Unit) {
+internal fun OcrDialog(engine: TextSource, pages: Int, onStart: () -> Unit, onDismiss: () -> Unit) {
   val context = LocalContext.current
-  // about six seconds a page on a phone
-  val minutes = (pages * 6 / 60).coerceAtLeast(1)
-  val model = if (OcrModel.installed(context)) "" else {
-    stringResource(R.string.library_ocr_model, String.format(Locale.getDefault(), "%.1f", OcrModel.BYTES / 1_000_000.0)) + " "
+  // seconds a page on a phone: OpenITI's model is the quicker of the two
+  val minutes = (pages * (if (engine == TextSource.OPENITI) 4 else 6) / 60).coerceAtLeast(1)
+  val model = if (OcrModels.installed(context, engine)) "" else {
+    stringResource(R.string.library_ocr_model, String.format(Locale.getDefault(), "%.1f", OcrModels.bytes(engine) / 1_000_000.0)) + " "
   }
   AlertDialog(
     onDismissRequest = onDismiss,
-    title = { Text(stringResource(R.string.library_ocr_title)) },
-    text = { Text(stringResource(R.string.library_ocr_body, model, minutes)) },
+    title = { Text(stringResource(if (engine == TextSource.OPENITI) R.string.library_run_openiti else R.string.library_run_tesseract)) },
+    text = {
+      Text(
+        stringResource(if (engine == TextSource.OPENITI) R.string.library_openiti_about else R.string.library_tesseract_about) + "\n\n" +
+          stringResource(R.string.library_ocr_body, model, minutes)
+      )
+    },
     confirmButton = { TextButton(onClick = onStart) { Text(stringResource(R.string.library_ocr_start)) } },
     dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.library_cancel)) } }
   )
 }
 
-/** Words chosen on a PDF page: highlight them in a colour, or copy them. */
-@Composable
-internal fun SelectionBar(selection: PdfSelection, onColor: (HighlightColor) -> Unit, onCopy: () -> Unit, onClose: () -> Unit) {
-  Surface(color = cardColor()) {
-    Column(
-      Modifier.fillMaxWidth().padding(16.dp, 10.dp)
-        .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
-    ) {
-      Text(
-        selection.text, style = MaterialTheme.typography.bodyMedium, maxLines = 2,
-        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-      )
-      Spacer(Modifier.size(8.dp))
-      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        HighlightColor.entries.forEach { color ->
-          Box(Modifier.size(34.dp).clip(CircleShape).background(Color(color.argb)).clickable { onColor(color) })
-        }
-        Spacer(Modifier.weight(1f))
-        TextButton(onClick = onCopy) { Text(stringResource(R.string.library_copy)) }
-        IconButton(onClick = onClose) { Icon(QuranIcons.Close, contentDescription = stringResource(R.string.library_cancel)) }
-      }
-    }
-  }
-}

@@ -58,8 +58,10 @@ object AppUpdater {
       val build = BUILD.find(tag)?.groupValues?.get(1)?.toIntOrNull() ?: return@withContext null
       if (build <= currentBuild) return@withContext null
       val assets = json.optJSONArray("assets") ?: return@withContext null
-      val apk = (0 until assets.length()).map { assets.getJSONObject(it) }
-        .firstOrNull { it.optString("name").endsWith(".apk") } ?: return@withContext null
+      val apks = (0 until assets.length()).map { assets.getJSONObject(it) }.filter { it.optString("name").endsWith(".apk") }
+      // one APK for each kind of processor: this phone's, else whichever there is (older releases had one)
+      val apk = android.os.Build.SUPPORTED_ABIS.firstNotNullOfOrNull { abi -> apks.firstOrNull { abi in it.optString("name") } }
+        ?: apks.firstOrNull() ?: return@withContext null
       AppRelease(
         build = build,
         name = json.optString("name").ifBlank { tag },

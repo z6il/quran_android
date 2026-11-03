@@ -38,12 +38,10 @@ android {
   defaultConfig {
     versionCode = 3642
     // this fork's release number: the in-app updater compares it with "v3.6.4-z6il.N" on GitHub
-    val forkBuild = 26
+    val forkBuild = 27
     versionName = "3.6.4-z6il.$forkBuild"
     buildConfigField("int", "FORK_BUILD", forkBuild.toString())
     testInstrumentationRunner = "com.quran.labs.androidquran.core.QuranTestRunner"
-    // the OCR engine is native: phones (64 and 32-bit ARM) and the x86_64 emulator; no 32-bit x86
-    ndk { abiFilters += setOf("arm64-v8a", "armeabi-v7a", "x86_64") }
   }
 
   buildFeatures.resValues = true
@@ -119,7 +117,19 @@ android {
     }
   }
 
+  // the OCR engines are native code: an APK for each kind of processor keeps each one small
+  splits {
+    abi {
+      isEnable = true
+      reset()
+      include("arm64-v8a", "armeabi-v7a", "x86_64")
+      isUniversalApk = false
+    }
+  }
+
   packaging {
+    // compressed in the APK: a smaller download, unpacked once when installed
+    jniLibs { useLegacyPackaging = true }
     resources {
       excludes += setOf("META-INF/*.kotlin_module", "META-INF/DEPENDENCIES", "META-INF/INDEX.LIST")
       // PDFBox's encryption library: its data files are only for password-protected PDFs
@@ -298,6 +308,8 @@ dependencies {
   // the library's PDFs: their own text, and Arabic OCR for scanned ones
   implementation(libs.pdfbox.android)
   implementation(libs.tesseract4android)
+  // OpenITI's Arabic OCR model runs on it
+  implementation(libs.onnxruntime.android)
 
   implementation(libs.okhttp)
 

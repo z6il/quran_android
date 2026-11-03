@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
@@ -29,7 +30,9 @@ import com.quran.labs.androidquran.common.ui.core.QuranTheme
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
 import dev.zacsweers.metro.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** The classical books to download, the reader's own PDF and EPUB files, and their shelves. */
 class LibraryActivity : AppCompatActivity() {
@@ -53,6 +56,16 @@ class LibraryActivity : AppCompatActivity() {
   internal val search = LibrarySearchState()
 
   private val pick = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) picked = uri }
+  /** covers changed: pictures are read again */
+  private var coverVersion by mutableIntStateOf(0)
+  private var coverFor: String? = null
+  private val pickCover = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val book = coverFor ?: return@registerForActivityResult
+    if (uri != null) lifecycleScope.launch {
+      withContext(Dispatchers.IO) { BookCovers.fromPicture(this@LibraryActivity, book, uri) }
+      coverVersion++
+    }
+  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
@@ -119,6 +132,7 @@ class LibraryActivity : AppCompatActivity() {
         catalog = catalogBooks,
         mine = mine,
         search = search,
+        coverVersion = coverVersion,
         onSearch = { q -> catalog.search(q) },
         onShelf = { stack += Screen.OnShelf(it) },
         onMine = { stack += Screen.Mine(it) },
@@ -131,12 +145,14 @@ class LibraryActivity : AppCompatActivity() {
         shelf = screen.shelf,
         books = catalogBooks.filter { it.shelf == screen.shelf },
         mine = byId,
+        coverVersion = coverVersion,
         onBook = { stack += Screen.Book(it) },
         onBack = ::back
       )
       is Screen.Mine -> MineScreen(
         initial = screen.filter,
         books = mine,
+        coverVersion = coverVersion,
         onBook = { stack += Screen.Book(it) },
         onAddFile = ::pickFile,
         onBack = ::back
@@ -146,8 +162,29 @@ class LibraryActivity : AppCompatActivity() {
         book = byId[screen.id],
         download = downloads[screen.id],
         store = store,
+        catalogue = catalog,
+        coverVersion = coverVersion,
+        cover = CoverActions(
+          pickPicture = {
+            coverFor = screen.id
+            pickCover.launch(arrayOf("image/*"))
+          },
+          fromPage = { page ->
+            byId[screen.id]?.let { b ->
+              lifecycleScope.launch {
+                withContext(Dispatchers.IO) { BookCovers.fromPdfPage(this@LibraryActivity, b, page) }
+                coverVersion++
+              }
+            }
+          },
+          reset = {
+            BookCovers.remove(this@LibraryActivity, screen.id)
+            coverVersion++
+          }
+        ),
         onDownload = { c -> store.download(c) },
         onRead = { b, mark -> read(b, mark) },
+        onOpenCatalog = { stack += Screen.Book(it) },
         onDeleted = ::back,
         onBack = ::back
       )
@@ -174,6 +211,7 @@ class LibraryActivity : AppCompatActivity() {
         Toast.makeText(this@LibraryActivity, R.string.library_add_failed, Toast.LENGTH_LONG).show()
       } else {
         Toast.makeText(this@LibraryActivity, getString(R.string.library_added, getString(shelf.title)), Toast.LENGTH_SHORT).show()
+        coverVersion++
         stack += Screen.Book(book.id)
       }
     }

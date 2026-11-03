@@ -21,6 +21,9 @@ import androidx.appcompat.view.ActionMode
 import androidx.appcompat.widget.SearchView
 import androidx.appcompat.widget.Toolbar
 import androidx.compose.ui.platform.ComposeView
+import com.quran.labs.androidquran.feature.kahf.KahfCard
+import com.quran.labs.androidquran.feature.kahf.KahfReminders
+import com.quran.labs.androidquran.feature.kahf.KahfStore
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
@@ -206,6 +209,10 @@ class QuranActivity : AppCompatActivity(),
       }
     }
     updates.checkOnStart()
+    findViewById<ComposeView>(R.id.kahf_card).setContent {
+      QuranTheme { KahfCard(onOpen = { page -> startActivity(KahfStore.open(this@QuranActivity, page)) }) }
+    }
+    KahfReminders.schedule(this)
     jumpToPageOnResume = if (isRtl) {
       TITLES.size - 1
     } else {
@@ -247,6 +254,7 @@ class QuranActivity : AppCompatActivity(),
     super.onResume()
     // pages read while away, or a new day, change the khatmah and adhkar cards
     khatmahStore.refresh()
+    KahfStore.get(this).refresh()
     adhkarStore.refresh()
     val isRtl = isRtl()
     if (isRtl != this.isRtl) {

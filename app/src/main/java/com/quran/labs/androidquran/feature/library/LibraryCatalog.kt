@@ -89,6 +89,55 @@ class LibraryCatalog @Inject constructor(@ApplicationContext private val context
     all().asSequence().filter { book -> words.all { it in book.folded } }.take(limit).toList()
   }
 
+  /**
+   * the catalogue book [text] is (a book's first pages, or its own title): one of its titles
+   * there, the full one or another it's known by («الداء والدواء»). A title of three words or
+   * more is enough; a shorter one must have its author's name there too. The most mentioned wins.
+   */
+  suspend fun recognise(text: String): CatalogBook? = withContext(Dispatchers.Default) {
+    val folded = " " + HadithLibrary.normalizeArabic(text).replace(Regex("\\s+"), " ") + " "
+    all().asSequence().mapNotNull { book ->
+      val author = authorKey(book.author)
+      val authored = author.length >= 5 && author in folded
+      val name = HadithLibrary.normalizeArabic(book.author)
+      // «(ابن القيم)» after a title names its author, not the book
+      val score = titles(book.title).filter { it != author && it !in name && !it.startsWith("ابن ") }.sumOf { title ->
+        val words = title.count { it == ' ' } + 1
+        if (words < 2 || title.length < 8 || words < 3 && !authored) 0
+        else occurrences(folded, " $title ") * title.length
+      }
+      if (score > 0) book to score else null
+    }.maxByOrNull { it.second }?.first
+  }
+
+  /** the titles a book goes by: before "=" and brackets, inside brackets, after "=" */
+  internal fun titles(title: String): List<String> {
+    val all = mutableListOf(title.substringBefore(" = ").substringBefore("(").substringBefore(":"))
+    Regex("\\(([^)]+)\\)").findAll(title).forEach { all += it.groupValues[1] }
+    if (" = " in title) all += title.substringAfter(" = ").substringBefore("(")
+    return all.map { HadithLibrary.normalizeArabic(it).replace(Regex("\\s+"), " ").trim() }.filter { it.isNotEmpty() }.distinct()
+  }
+
+  /** how a book's author is named in passing: «ابن القيم» from «ابن القيم الجوزية», else the last name */
+  private fun authorKey(author: String): String {
+    val words = HadithLibrary.normalizeArabic(author).split(' ').filter { it.isNotBlank() }
+    return when {
+      words.size >= 2 && (words[0] == "ابن" || words[0] == "ابو") -> words[0] + " " + words[1]
+      else -> words.lastOrNull().orEmpty()
+    }
+  }
+
+  private fun occurrences(text: String, part: String): Int {
+    var n = 0
+    var from = 0
+    while (true) {
+      val i = text.indexOf(part, from)
+      if (i < 0) return n
+      n++
+      from = i + 1
+    }
+  }
+
   private fun load(): List<CatalogBook> =
     context.assets.open("library_catalog.tsv").bufferedReader().useLines { lines ->
       lines.mapNotNull { line ->

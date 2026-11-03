@@ -30,6 +30,12 @@
         android:layout_height="wrap_content" />
   </LinearLayout>
 
+  <!-- in al-Kahf's time on Fridays: its card -->
+  <androidx.compose.ui.platform.ComposeView
+      android:id="@+id/kahf_card"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content" />
+
   <com.quran.labs.androidquran.view.QuranViewPager
       android:id="@+id/index_pager"
       android:layout_width="match_parent"

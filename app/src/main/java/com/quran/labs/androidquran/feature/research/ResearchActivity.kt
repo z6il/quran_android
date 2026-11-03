@@ -59,6 +59,7 @@ class ResearchActivity : AppCompatActivity() {
   @Inject lateinit var arabicDatabaseUtils: ArabicDatabaseUtils
   @Inject lateinit var translationsDb: TranslationsDBAdapter
   @Inject lateinit var quranFileUtils: QuranFileUtils
+  @Inject lateinit var libraryStore: com.quran.labs.androidquran.feature.library.LibraryStore
 
   private sealed interface Screen {
     data object Ideas : Screen
@@ -70,7 +71,15 @@ class ResearchActivity : AppCompatActivity() {
     /** quoting a tafsir into [forIdea], under the link [under] if set */
     data class QuoteTafsir(val forIdea: Long, val under: Long?) : Screen
     /** a passage quoted from a tafsir, to become a note in an idea */
-    data class PickQuote(val text: String, val source: String, val tafsir: String, val sura: Int, val ayah: Int) : Screen
+    data class PickQuote(
+      val text: String,
+      val source: String,
+      val tafsir: String,
+      val sura: Int,
+      val ayah: Int,
+      /** quoted from a library book instead: where in it, so the book can mark the passage */
+      val book: BookQuotePlace? = null
+    ) : Screen
     data object Map : Screen
   }
 
@@ -117,7 +126,13 @@ class ResearchActivity : AppCompatActivity() {
       stack.add(
         Screen.PickQuote(
           quote, intent.getStringExtra(EXTRA_QUOTE_SOURCE).orEmpty(), intent.getStringExtra(EXTRA_QUOTE_TAFSIR).orEmpty(),
-          intent.getIntExtra(EXTRA_QUOTE_SURA, 0), intent.getIntExtra(EXTRA_QUOTE_AYAH, 0)
+          intent.getIntExtra(EXTRA_QUOTE_SURA, 0), intent.getIntExtra(EXTRA_QUOTE_AYAH, 0),
+          intent.getStringExtra(EXTRA_QUOTE_BOOK)?.let { book ->
+            BookQuotePlace(
+              book, intent.getIntExtra(EXTRA_QUOTE_POSITION, 0), intent.getIntExtra(EXTRA_QUOTE_START, 0),
+              intent.getIntExtra(EXTRA_QUOTE_END, 0), intent.getStringExtra(EXTRA_QUOTE_BOXES).orEmpty()
+            )
+          }
         )
       )
     }
@@ -307,8 +322,18 @@ class ResearchActivity : AppCompatActivity() {
           scope.launch {
             val id = ideaId ?: store.createIdea(newTitle.orEmpty())
             val uid = store.addNote(id, screen.text, screen.source, relation)
-            withContext(Dispatchers.IO) {
-              TafsirQuotes.get(this@ResearchActivity).add(TafsirQuote(uid, screen.tafsir, screen.sura, screen.ayah, screen.text))
+            val place = screen.book
+            if (place != null) {
+              // the book marks what was quoted, and opens the note from it
+              libraryStore.addHighlight(
+                place.book, place.position, place.start, place.end,
+                com.quran.labs.androidquran.feature.library.HighlightColor.BLUE, screen.text,
+                com.quran.labs.androidquran.feature.library.PdfTextStore.decode(place.boxes), noteUid = uid
+              )
+            } else {
+              withContext(Dispatchers.IO) {
+                TafsirQuotes.get(this@ResearchActivity).add(TafsirQuote(uid, screen.tafsir, screen.sura, screen.ayah, screen.text))
+              }
             }
             stack.clear()
             stack.add(Screen.Ideas)
@@ -422,6 +447,11 @@ class ResearchActivity : AppCompatActivity() {
     private const val EXTRA_QUOTE_SURA = "quote_sura"
     private const val EXTRA_QUOTE_AYAH = "quote_ayah"
     private const val EXTRA_OPEN_NOTE = "open_note"
+    private const val EXTRA_QUOTE_BOOK = "quote_book"
+    private const val EXTRA_QUOTE_POSITION = "quote_position"
+    private const val EXTRA_QUOTE_START = "quote_start"
+    private const val EXTRA_QUOTE_END = "quote_end"
+    private const val EXTRA_QUOTE_BOXES = "quote_boxes"
 
     /** a passage selected in a tafsir, to add to an idea as a note with its reference */
     fun quoteTafsirIntent(context: Context, text: String, source: String, tafsir: String, sura: Int, ayah: Int): Intent =
@@ -431,6 +461,20 @@ class ResearchActivity : AppCompatActivity() {
         .putExtra(EXTRA_QUOTE_TAFSIR, tafsir)
         .putExtra(EXTRA_QUOTE_SURA, sura)
         .putExtra(EXTRA_QUOTE_AYAH, ayah)
+
+    /**
+     * a passage selected in a library book, to add to an idea as a note with its reference;
+     * [boxes] are where it sits on a PDF page, encoded as the library keeps them
+     */
+    fun quoteBookIntent(context: Context, text: String, source: String, place: BookQuotePlace): Intent =
+      intent(context)
+        .putExtra(EXTRA_QUOTE_TEXT, text)
+        .putExtra(EXTRA_QUOTE_SOURCE, source)
+        .putExtra(EXTRA_QUOTE_BOOK, place.book)
+        .putExtra(EXTRA_QUOTE_POSITION, place.position)
+        .putExtra(EXTRA_QUOTE_START, place.start)
+        .putExtra(EXTRA_QUOTE_END, place.end)
+        .putExtra(EXTRA_QUOTE_BOXES, place.boxes)
 
     /** opens the idea a note (e.g. a tafsir quote) belongs to */
     fun openNoteIntent(context: Context, noteUid: String): Intent = intent(context).putExtra(EXTRA_OPEN_NOTE, noteUid)
@@ -442,3 +486,6 @@ class ResearchActivity : AppCompatActivity() {
       intent(context).putExtra(EXTRA_KIND, target.kind).putExtra(EXTRA_REF, target.ref)
   }
 }
+
+/** where in a library book a quote came from */
+data class BookQuotePlace(val book: String, val position: Int, val start: Int, val end: Int, val boxes: String = "")

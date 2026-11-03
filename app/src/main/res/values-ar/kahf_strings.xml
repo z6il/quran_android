@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="kahf_title">سورة الكهف</string>
+  <string name="kahf_eve">ليلة الجمعة</string>
+  <string name="kahf_day">يوم الجمعة</string>
+  <string name="kahf_hadith">«من قرأ سورة الكهف في يوم الجمعة أضاء له من النور ما بين الجمعتين» (رواه الحاكم، وصححه الألباني)</string>
+  <string name="kahf_done">جعلها الله لك نورًا ما بين الجمعتين.</string>
+  <string name="kahf_read">اقرأ الكهف</string>
+  <string name="kahf_continue">أكمل</string>
+  <string name="kahf_all_read">قرأت الصفحات الاثنتي عشرة كلها</string>
+  <string name="kahf_reminders">تذكير الجمعة</string>
+  <string name="kahf_hide">إخفاء حتى الجمعة القادمة</string>
+  <string name="kahf_channel">سورة الكهف يوم الجمعة</string>
+  <string name="kahf_reminder_text">اليوم الجمعة: وقت سورة الكهف.</string>
+  <plurals name="kahf_pages_read">
+    <item quantity="zero">لم تُقرأ صفحة من %2$d بعد</item>
+    <item quantity="one">قرأت صفحة واحدة من %2$d</item>
+    <item quantity="two">قرأت صفحتين من %2$d</item>
+    <item quantity="few">قرأت %1$d صفحات من %2$d</item>
+    <item quantity="many">قرأت %1$d صفحة من %2$d</item>
+    <item quantity="other">قرأت %1$d صفحة من %2$d</item>
+  </plurals>
+  <plurals name="kahf_pages_left">
+    <item quantity="zero">لم يبق شيء من الكهف</item>
+    <item quantity="one">بقيت صفحة واحدة من الكهف قبل المغرب</item>
+    <item quantity="two">بقيت صفحتان من الكهف قبل المغرب</item>
+    <item quantity="few">بقيت %1$d صفحات من الكهف قبل المغرب</item>
+    <item quantity="many">بقيت %1$d صفحة من الكهف قبل المغرب</item>
+    <item quantity="other">بقيت %1$d صفحة من الكهف قبل المغرب</item>
+  </plurals>
+  <plurals name="kahf_streak">
+    <item quantity="zero">لا جمعات متتالية</item>
+    <item quantity="one">جمعة واحدة</item>
+    <item quantity="two">جمعتان متتاليتان</item>
+    <item quantity="few">%1$d جمعات متتالية</item>
+    <item quantity="many">%1$d جمعة متتالية</item>
+    <item quantity="other">%1$d جمعة متتالية</item>
+  </plurals>
+</resources>
