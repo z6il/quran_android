@@ -74,7 +74,9 @@ internal fun SelectionHandle(
   color: Color,
   onDrag: (Offset) -> Unit,
   onDragEnd: () -> Unit = {},
-  onMove: (Offset?) -> Unit = {}
+  onMove: (Offset?) -> Unit = {},
+  /** from the parent box: AbsoluteAlignment.TopLeft, so an Arabic layout doesn't start it at the right */
+  modifier: Modifier = Modifier
 ) {
   val density = LocalDensity.current
   val drop = with(density) { HANDLE.toPx() }
@@ -89,7 +91,7 @@ internal fun SelectionHandle(
   }
   // the reach, with the drop in its corner at the point
   Box(
-    Modifier
+    modifier
       .absoluteOffset { IntOffset((point.x - if (hangsLeft) reach else 0f).roundToInt(), point.y.roundToInt()) }
       .size(TOUCH)
       .pointerInput(hangsLeft) {

@@ -314,8 +314,8 @@ private fun PdfPage(
             onSelection(if (isStart) PdfSelection(page, minOf(i, b), b, sel.words) else PdfSelection(page, a, maxOf(i, a), sel.words))
           }
         }
-        SelectionHandle(startPoint, hangsLeft = !arabic, color = theme.accentColor, onDrag = { move(it, true) }, onDragEnd = { dragging = false }, onMove = { lens = it })
-        SelectionHandle(endPoint, hangsLeft = arabic, color = theme.accentColor, onDrag = { move(it, false) }, onDragEnd = { dragging = false }, onMove = { lens = it })
+        SelectionHandle(startPoint, hangsLeft = !arabic, color = theme.accentColor, onDrag = { move(it, true) }, onDragEnd = { dragging = false }, onMove = { lens = it }, modifier = Modifier.align(androidx.compose.ui.AbsoluteAlignment.TopLeft))
+        SelectionHandle(endPoint, hangsLeft = arabic, color = theme.accentColor, onDrag = { move(it, false) }, onDragEnd = { dragging = false }, onMove = { lens = it }, modifier = Modifier.align(androidx.compose.ui.AbsoluteAlignment.TopLeft))
         if (!dragging) {
           val boxes = sel.boxes
           val anchor = androidx.compose.ui.geometry.Rect(

@@ -274,8 +274,8 @@ private fun Paragraph(
         }
       }
       // an Arabic selection starts at its right: its start drop hangs to the right
-      SelectionHandle(startPoint, hangsLeft = !rtl, color = theme.accentColor, onDrag = { move(it, true) }, onDragEnd = { dragging = false }, onMove = { lens = it })
-      SelectionHandle(endPoint, hangsLeft = rtl, color = theme.accentColor, onDrag = { move(it, false) }, onDragEnd = { dragging = false }, onMove = { lens = it })
+      SelectionHandle(startPoint, hangsLeft = !rtl, color = theme.accentColor, onDrag = { move(it, true) }, onDragEnd = { dragging = false }, onMove = { lens = it }, modifier = Modifier.align(androidx.compose.ui.AbsoluteAlignment.TopLeft))
+      SelectionHandle(endPoint, hangsLeft = rtl, color = theme.accentColor, onDrag = { move(it, false) }, onDragEnd = { dragging = false }, onMove = { lens = it }, modifier = Modifier.align(androidx.compose.ui.AbsoluteAlignment.TopLeft))
       if (!dragging) SelectionToolbar(l.getPathForRange(selection.start, selection.end).getBounds(), actions)
     }
   }
