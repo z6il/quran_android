@@ -155,4 +155,5 @@
   <string name="library_use_title">Use its title</string>
   <string name="library_open_classical">Its clean text</string>
   <string name="library_author">Author</string>
+  <string name="library_book_pages">Turn pages like a book</string>
 </resources>

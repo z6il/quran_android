@@ -155,4 +155,5 @@
   <string name="library_use_title">استعمل عنوانه</string>
   <string name="library_open_classical">نصه المحقق</string>
   <string name="library_author">المؤلف</string>
+  <string name="library_book_pages">تقليب الصفحات كالكتاب</string>
 </resources>

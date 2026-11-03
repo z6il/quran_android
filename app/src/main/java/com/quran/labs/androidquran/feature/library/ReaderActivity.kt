@@ -378,7 +378,7 @@ class ReaderActivity : AppCompatActivity() {
               )
             }
             if (book.kind == BookKind.PDF) {
-              PdfTextBanner(pdfText, job, state.total, onOcr = { confirmOcr = TextSource.OPENITI }, onRetry = {
+              PdfTextBanner(pdfText, job, state.total, theme, onOcr = { confirmOcr = TextSource.OPENITI }, onRetry = {
                 pdfText.store.start(book.id, book.file, job?.source ?: TextSource.OPENITI, state.place.position)
               })
             }

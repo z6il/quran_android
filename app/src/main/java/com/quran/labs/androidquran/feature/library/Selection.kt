@@ -3,12 +3,13 @@ package com.quran.labs.androidquran.feature.library
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.magnifier
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,46 +56,75 @@ interface SelectionActions {
 }
 
 private val HANDLE = 22.dp
+/** the handle's reach for a finger: twice the drop, around it */
+private val TOUCH = 48.dp
 
 /**
  * A selection handle: a drop hanging from the end of the selection, its square corner at
  * [point] (the bottom of the selection's edge, in the parent's pixels). [hangsLeft]: the drop
  * sits to the left of the point, as for where an English selection starts or an Arabic one ends.
- * Dragging reports where the finger is pointing, a little above the drop, in the parent's pixels.
+ * Placed by absolute position, so an Arabic layout doesn't mirror it. Dragging reports where
+ * the finger is pointing, a little above the drop, in the parent's pixels; [onMove] too, for a
+ * magnifier.
  */
 @Composable
-internal fun SelectionHandle(point: Offset, hangsLeft: Boolean, color: Color, onDrag: (Offset) -> Unit, onDragEnd: () -> Unit = {}) {
+internal fun SelectionHandle(
+  point: Offset,
+  hangsLeft: Boolean,
+  color: Color,
+  onDrag: (Offset) -> Unit,
+  onDragEnd: () -> Unit = {},
+  onMove: (Offset?) -> Unit = {}
+) {
   val density = LocalDensity.current
-  val size = with(density) { HANDLE.toPx() }
+  val drop = with(density) { HANDLE.toPx() }
+  val reach = with(density) { TOUCH.toPx() }
   val currentPoint by rememberUpdatedState(point)
   val currentDrag by rememberUpdatedState(onDrag)
+  val currentMove by rememberUpdatedState(onMove)
   val shape = if (hangsLeft) {
     AbsoluteRoundedCornerShape(topLeftPercent = 50, topRightPercent = 0, bottomRightPercent = 50, bottomLeftPercent = 50)
   } else {
     AbsoluteRoundedCornerShape(topLeftPercent = 0, topRightPercent = 50, bottomRightPercent = 50, bottomLeftPercent = 50)
   }
+  // the reach, with the drop in its corner at the point
   Box(
     Modifier
-      .offset { IntOffset((point.x - if (hangsLeft) size else 0f).roundToInt(), point.y.roundToInt()) }
-      .size(HANDLE)
-      .clip(shape)
-      .background(color)
+      .absoluteOffset { IntOffset((point.x - if (hangsLeft) reach else 0f).roundToInt(), point.y.roundToInt()) }
+      .size(TOUCH)
       .pointerInput(hangsLeft) {
         var at = Offset.Zero
         detectDragGestures(
           onDragStart = {
             // aim at the text just above the drop's corner
-            at = currentPoint - Offset(0f, size * 0.6f)
+            at = currentPoint - Offset(0f, drop * 0.8f)
+            currentMove(at)
           },
           onDrag = { change, delta ->
             change.consume()
             at += delta
             currentDrag(at)
+            currentMove(at)
           },
-          onDragEnd = onDragEnd
+          onDragEnd = {
+            currentMove(null)
+            onDragEnd()
+          },
+          onDragCancel = {
+            currentMove(null)
+            onDragEnd()
+          }
         )
       }
-  )
+  ) {
+    Box(
+      Modifier
+        .align(if (hangsLeft) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft)
+        .size(HANDLE)
+        .clip(shape)
+        .background(color)
+    )
+  }
 }
 
 /**
@@ -150,3 +181,11 @@ private fun ToolbarItem(text: Int, onClick: () -> Unit) {
 internal class DragState {
   var dragging by mutableStateOf(false)
 }
+
+/** a lens over [at] (in the element's pixels) while a handle is dragged, held above the finger */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+internal fun Modifier.lens(at: Offset?, density: androidx.compose.ui.unit.Density): Modifier = magnifier(
+  sourceCenter = { at ?: Offset.Unspecified },
+  magnifierCenter = { at?.let { it - Offset(0f, with(density) { 72.dp.toPx() }) } ?: Offset.Unspecified },
+  zoom = 1.8f
+)

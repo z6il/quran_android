@@ -76,7 +76,9 @@ data class ReaderStyle(
   val justify: Boolean = true,
   /** a PDF's pages drawn light on dark when the page theme is dark */
   val pdfNight: Boolean = true,
-  val keepScreenOn: Boolean = true
+  val keepScreenOn: Boolean = true,
+  /** an EPUB laid out in pages turned like a book's, rather than one long scroll */
+  val bookPages: Boolean = true
 ) {
   fun pageTheme(appDark: Boolean): PageTheme = theme ?: if (appDark) PageTheme.NIGHT else PageTheme.PAPER
 
@@ -89,6 +91,7 @@ data class ReaderStyle(
     putBoolean("justify", justify)
     putBoolean("pdf_night", pdfNight)
     putBoolean("keep_on", keepScreenOn)
+    putBoolean("book_pages", bookPages)
   }
 
   companion object {
@@ -107,7 +110,8 @@ data class ReaderStyle(
         font = p.getString("font", null)?.let { name -> ReaderFont.entries.firstOrNull { it.name == name } } ?: ReaderFont.KITAB,
         justify = p.getBoolean("justify", true),
         pdfNight = p.getBoolean("pdf_night", true),
-        keepScreenOn = p.getBoolean("keep_on", true)
+        keepScreenOn = p.getBoolean("keep_on", true),
+        bookPages = p.getBoolean("book_pages", true)
       )
     }
   }
@@ -168,6 +172,7 @@ internal fun AppearanceSheet(style: ReaderStyle, kind: BookKind, appDark: Boolea
       Label(R.string.library_font)
       Choices(ReaderFont.entries.map { it.title }, style.font.ordinal) { onChange(style.copy(font = ReaderFont.entries[it])) }
       Toggle(R.string.library_justify, style.justify) { onChange(style.copy(justify = it)) }
+      if (kind == BookKind.EPUB) Toggle(R.string.library_book_pages, style.bookPages) { onChange(style.copy(bookPages = it)) }
     } else {
       Toggle(R.string.library_pdf_night, style.pdfNight) { onChange(style.copy(pdfNight = it)) }
     }

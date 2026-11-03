@@ -233,12 +233,15 @@ private fun PdfPage(
   val selectionColor = theme.accentColor.copy(alpha = 0.3f)
   val matchColor = theme.accentColor.copy(alpha = 0.3f)
   var dragging by remember { mutableStateOf(false) }
+  var lens by remember { mutableStateOf<Offset?>(null) }
+  val density = androidx.compose.ui.platform.LocalDensity.current
 
   Box(
     Modifier
       .fillMaxWidth()
       .aspectRatio(1f / ratio.coerceIn(0.2f, 5f))
       .background(Color.White)
+      .lens(lens, density)
       .pointerInput(page) {
         detectTapGestures(
           onTap = { at ->
@@ -311,8 +314,8 @@ private fun PdfPage(
             onSelection(if (isStart) PdfSelection(page, minOf(i, b), b, sel.words) else PdfSelection(page, a, maxOf(i, a), sel.words))
           }
         }
-        SelectionHandle(startPoint, hangsLeft = !arabic, color = theme.accentColor, onDrag = { move(it, true) }, onDragEnd = { dragging = false })
-        SelectionHandle(endPoint, hangsLeft = arabic, color = theme.accentColor, onDrag = { move(it, false) }, onDragEnd = { dragging = false })
+        SelectionHandle(startPoint, hangsLeft = !arabic, color = theme.accentColor, onDrag = { move(it, true) }, onDragEnd = { dragging = false }, onMove = { lens = it })
+        SelectionHandle(endPoint, hangsLeft = arabic, color = theme.accentColor, onDrag = { move(it, false) }, onDragEnd = { dragging = false }, onMove = { lens = it })
         if (!dragging) {
           val boxes = sel.boxes
           val anchor = androidx.compose.ui.geometry.Rect(

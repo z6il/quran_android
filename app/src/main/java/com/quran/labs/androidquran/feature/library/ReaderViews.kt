@@ -41,6 +41,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -212,12 +213,14 @@ private fun Paragraph(
 ) {
   var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
   var dragging by remember { mutableStateOf(false) }
+  var lens by remember { mutableStateOf<Offset?>(null) }
+  val density = androidx.compose.ui.platform.LocalDensity.current
   val currentSelection by rememberUpdatedState(selection)
   val currentHighlights by rememberUpdatedState(highlights)
   val currentTap by rememberUpdatedState(onTap)
   val selected = theme.accentColor.copy(alpha = 0.3f)
   val styled = remember(text, query, highlights, selection, theme) { styled(text, query, theme, mark, highlights, selection, selected) }
-  Box {
+  Box(Modifier.lens(lens, density)) {
     Text(
       styled, style = style, onTextLayout = { layout = it },
       modifier = Modifier
@@ -271,8 +274,8 @@ private fun Paragraph(
         }
       }
       // an Arabic selection starts at its right: its start drop hangs to the right
-      SelectionHandle(startPoint, hangsLeft = !rtl, color = theme.accentColor, onDrag = { move(it, true) }, onDragEnd = { dragging = false })
-      SelectionHandle(endPoint, hangsLeft = rtl, color = theme.accentColor, onDrag = { move(it, false) }, onDragEnd = { dragging = false })
+      SelectionHandle(startPoint, hangsLeft = !rtl, color = theme.accentColor, onDrag = { move(it, true) }, onDragEnd = { dragging = false }, onMove = { lens = it })
+      SelectionHandle(endPoint, hangsLeft = rtl, color = theme.accentColor, onDrag = { move(it, false) }, onDragEnd = { dragging = false }, onMove = { lens = it })
       if (!dragging) SelectionToolbar(l.getPathForRange(selection.start, selection.end).getBounds(), actions)
     }
   }
@@ -382,13 +385,21 @@ internal fun EpubReader(
   // CSS pixels are the same as dp
   val top = insets.calculateTopPadding().value
   val bottom = insets.calculateBottomPadding().value
-  val css = remember(theme, style, top, bottom) { epubCss(theme, style, top, bottom) }
+  var page by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+  val density = androidx.compose.ui.platform.LocalDensity.current
+  val pageW = with(density) { page.width.toDp().value }
+  val pageH = with(density) { page.height.toDp().value }
+  val css = remember(theme, style, top, bottom, pageW, pageH) { epubCss(theme, style, top, bottom, pageW, pageH) }
   val view = remember(epub) { EpubView(context, epub).also { it.pendingOffset = state.place.offset } }
   view.css = css
   view.onChapter = { chapter = it }
   view.onScrolled = { f ->
     state.place = BookPlace(view.chapter, f)
     state.label = chapterLabel(context, epub, view.chapter, f)
+  }
+  view.paged = style.bookPages
+  view.onPaged = { page, pages ->
+    state.label = chapterTitle(context, epub, view.chapter) + " \u00B7 " + context.getString(R.string.library_page_of, page + 1, pages)
   }
   view.onSelection = onSelection
   view.onMark = onTapHighlight
@@ -426,8 +437,12 @@ internal fun EpubReader(
       view.show(chapter)
     },
     modifier = Modifier.fillMaxSize().background(theme.backgroundColor)
+      .onSizeChanged { page = it }
   )
 }
+
+private fun chapterTitle(context: Context, epub: EpubBook, chapter: Int): String =
+  "\u2068" + (epub.toc.lastOrNull { it.chapter <= chapter }?.title ?: context.getString(R.string.library_chapter_of, chapter + 1, epub.spine.size)).take(60) + "\u2069"
 
 private fun chapterLabel(context: Context, epub: EpubBook, chapter: Int, offset: Float): String {
   val title = epub.toc.lastOrNull { it.chapter <= chapter }?.title
@@ -441,7 +456,7 @@ private fun hex(color: Color) = String.format("#%06X", color.toArgb() and 0xFFFF
 private fun rgba(color: Color, alpha: Float) =
   "rgba(${(color.red * 255).toInt()},${(color.green * 255).toInt()},${(color.blue * 255).toInt()},$alpha)"
 
-private fun epubCss(theme: PageTheme, style: ReaderStyle, top: Float, bottom: Float): String = buildString {
+private fun epubCss(theme: PageTheme, style: ReaderStyle, top: Float, bottom: Float, width: Float, height: Float): String = buildString {
   append("@font-face{font-family:'AppArabic';src:url('https://${EpubView.HOST}/${EpubView.APP}/kitab.ttf');}")
   append("html,body{background:${hex(theme.backgroundColor)} !important;color:${hex(theme.textColor)} !important;}")
   val face = if (style.font == ReaderFont.KITAB) "'AppArabic',serif" else "serif"
@@ -461,6 +476,34 @@ private fun epubCss(theme: PageTheme, style: ReaderStyle, top: Float, bottom: Fl
   append("mark.research{background:${rgba(theme.accentColor, 0.14f)} !important;color:inherit !important;border-bottom:2px solid ${hex(theme.accentColor)};}")
   append("a.__next{display:block;margin:48px auto 0;padding:14px 18px;text-align:center;border-radius:24px;")
   append("border:1px solid ${hex(theme.accentColor)}66;text-decoration:none;font-weight:bold;}")
+  if (style.bookPages && width > 0 && height > 0) append(bookCss(theme, style, top, bottom, width, height))
+}
+
+/**
+ * A chapter set as a book's pages: columns a screen wide, turned sideways; paragraphs indented
+ * with no space between, headings centred over an ornament, and the page's edges shaded as
+ * paper is where it meets the spine.
+ */
+private fun bookCss(theme: PageTheme, style: ReaderStyle, top: Float, bottom: Float, width: Float, height: Float): String = buildString {
+  val above = (top + 28).toInt()
+  val below = (bottom + 44).toInt()
+  val m = style.margin + 6
+  val edge = if (theme.dark) "rgba(255,255,255,0.035)" else "rgba(60,40,10,0.07)"
+  val w = width.toInt()
+  val h = height.toInt()
+  append("html{height:${h}px !important;overflow:hidden !important;")
+  append("background-image:linear-gradient(to right,$edge,rgba(0,0,0,0) 4%,rgba(0,0,0,0) 96%,$edge) !important;background-attachment:fixed !important;}")
+  // a column is exactly a page, and the margins are inside it: a page turn is one column across
+  append("body{margin:${above}px 0 ${below}px 0 !important;padding:0 !important;height:${h - above - below}px !important;")
+  append("column-width:${w}px;column-gap:0;column-fill:auto;overflow:visible !important;background:transparent !important;}")
+  // above the paragraphs' own margins
+  append("html body>*{margin-left:${m}px !important;margin-right:${m}px !important;box-sizing:border-box;}")
+  append("p{text-indent:1.4em;margin:0 0 0.15em 0 !important;}")
+  append("h1+p,h2+p,h3+p,h4+p,p:first-child{text-indent:0;}")
+  append("h1,h2,h3{text-align:center !important;margin:0.9em 0 0.8em !important;break-after:avoid;}")
+  append("h1::after,h2::after{content:'\u2741';display:block;font-size:0.6em;opacity:0.55;margin-top:0.35em;}")
+  append("img,svg,figure{max-height:${h - above - below - 16}px !important;break-inside:avoid;object-fit:contain;}")
+  append("a.__next{display:none !important;}")
 }
 
 /** what runs in a chapter: choosing words, and painting highlights. The book's own scripts are taken out. */
@@ -474,9 +517,23 @@ window.__clear=function(){var m=document.querySelectorAll('mark[data-id]');for(v
 window.__mark=function(id,start,end,cls){var a=texts(),t=0;for(var i=0;i<a.length;i++){var n=a[i],L=n.length,s=Math.max(start,t),e=Math.min(end,t+L);
 if(s<e){var r=document.createRange();r.setStart(n,s-t);r.setEnd(n,e-t);var m=document.createElement('mark');m.className=cls;m.setAttribute('data-id',id);try{r.surroundContents(m);}catch(x){}}t+=L;}};
 window.__unselect=function(){var s=window.getSelection();if(s)s.removeAllRanges();};
+function W(){var c=parseFloat(getComputedStyle(document.body).columnWidth);return c>0?c:window.innerWidth;}
+function root(){return document.scrollingElement||document.documentElement;}
+function rtl(){return getComputedStyle(document.body).direction==='rtl';}
+window.__pages=function(){return Math.max(1,Math.round(root().scrollWidth/W()));};
+window.__cur=function(){return Math.round(Math.abs(root().scrollLeft)/W());};
+window.__go=function(p,smooth){var n=__pages();p=Math.max(0,Math.min(n-1,p));window.scrollTo({left:p*W()*(rtl()?-1:1),top:0,behavior:smooth?'smooth':'auto'});Reader.paged(p,n);};
+window.__turn=function(d){var p=__cur()+d;if(p<0){Reader.edge(-1);return;}if(p>=__pages()){Reader.edge(1);return;}__go(p,true);};
+window.__goFraction=function(f){__go(f>=0.999?__pages()-1:Math.round(f*(__pages()-1)),false);};
+if(window.__isPaged){var sx=0,sy=0;
+document.addEventListener('touchstart',function(e){var t=e.touches[0];sx=t.clientX;sy=t.clientY;},{passive:true});
+document.addEventListener('touchend',function(e){var t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy,s=window.getSelection();
+if(s&&!s.isCollapsed)return;if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)*1.5){var forward=rtl()?dx>0:dx<0;__turn(forward?1:-1);}},{passive:true});}
 document.addEventListener('click',function(e){var m=e.target.closest?e.target.closest('mark[data-id]'):null;
 if(m){e.preventDefault();Reader.mark(m.getAttribute('data-id'));return;}
-if(e.target.closest&&e.target.closest('a'))return;var s=window.getSelection();if(!s||s.isCollapsed)Reader.tap();},true);
+if(e.target.closest&&e.target.closest('a'))return;var s=window.getSelection();if(s&&!s.isCollapsed)return;
+if(window.__isPaged){var x=e.clientX,w=W();if(x<w*0.28){__turn(rtl()?1:-1);return;}if(x>w*0.72){__turn(rtl()?-1:1);return;}}
+Reader.tap();},true);
 })();
 """
 
@@ -497,6 +554,10 @@ private class EpubView(private val context: Context, private val epub: EpubBook)
   var onTap: () -> Unit = {}
   var nextLabel = ""
   var marks: List<BookHighlight> = emptyList()
+  /** laid out in pages turned sideways */
+  var paged = false
+  /** the page and how many, in book pages */
+  var onPaged: (Int, Int) -> Unit = { _, _ -> }
   private var lastOffset = 0f
   private var styled = ""
 
@@ -505,9 +566,12 @@ private class EpubView(private val context: Context, private val epub: EpubBook)
     settings.allowFileAccess = false
     settings.allowContentAccess = false
     settings.builtInZoomControls = false
+    settings.useWideViewPort = false
+    settings.loadWithOverviewMode = false
     webViewClient = Client()
     addJavascriptInterface(Bridge(), "Reader")
     setOnScrollChangeListener { _, _, y, _, _ ->
+      if (paged) return@setOnScrollChangeListener
       val height = contentHeight * resources.displayMetrics.density - this.height
       lastOffset = if (height <= 0f) 0f else (y / height).coerceIn(0f, 1f)
       onScrolled(lastOffset)
@@ -545,6 +609,30 @@ private class EpubView(private val context: Context, private val epub: EpubBook)
     @JavascriptInterface
     fun tap() {
       web.post { onTap() }
+    }
+
+    @JavascriptInterface
+    fun paged(page: Int, pages: Int) {
+      web.post {
+        lastOffset = if (pages <= 1) 0f else page / (pages - 1).toFloat()
+        // the place first, then the label with the page number
+        onScrolled(lastOffset)
+        onPaged(page, pages)
+      }
+    }
+
+    /** turned past a chapter's first or last page: on to the next chapter, or back to the end of the one before */
+    @JavascriptInterface
+    fun edge(direction: Int) {
+      web.post {
+        if (direction > 0 && chapter < epub.spine.lastIndex) {
+          pendingOffset = 0f
+          onChapter(chapter + 1)
+        } else if (direction < 0 && chapter > 0) {
+          pendingOffset = 1f
+          onChapter(chapter - 1)
+        }
+      }
     }
   }
 
@@ -609,12 +697,14 @@ private class EpubView(private val context: Context, private val epub: EpubBook)
         // the book's scripts don't run; only the reader's
         html = SCRIPTS.replace(html, "")
         html = HANDLERS.replace(html, "")
-        val style = "<style type=\"text/css\">$css</style>"
+        // the screen's width, or the WebView lays a page out wide and shrinks it
+        val style = "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no\"/>" +
+          "<style type=\"text/css\">$css</style>"
         val head = HEAD.find(html)
         html = if (head != null) html.substring(0, head.range.last + 1) + style + html.substring(head.range.last + 1) else style + html
         val next = if (chapter < epub.spine.lastIndex) "<a class=\"__next\" href=\"https://$HOST/$NEXT\">${escape(nextLabel)} ›</a>" else ""
         // commented CDATA: XHTML needs it, HTML ignores it
-        val script = "<script type=\"text/javascript\">//<![CDATA[\n$SCRIPT\n//]]></script>"
+        val script = "<script type=\"text/javascript\">//<![CDATA[\nwindow.__isPaged=$paged;\n$SCRIPT\n//]]></script>"
         val end = BODY_END.findAll(html).lastOrNull()
         html = if (end != null) html.substring(0, end.range.first) + next + script + html.substring(end.range.first) else html + next + script
         return WebResourceResponse(type, "UTF-8", ByteArrayInputStream(html.toByteArray(Charsets.UTF_8)))
@@ -647,6 +737,11 @@ private class EpubView(private val context: Context, private val epub: EpubBook)
       paintMarks()
       val offset = pendingOffset
       pendingOffset = 0f
+      if (paged) {
+        // the columns are laid out a moment after the page loads
+        view.postDelayed({ view.evaluateJavascript("__goFraction($offset)", null) }, 200)
+        return
+      }
       if (offset > 0f) {
         view.postDelayed({
           val height = view.contentHeight * view.resources.displayMetrics.density - view.height

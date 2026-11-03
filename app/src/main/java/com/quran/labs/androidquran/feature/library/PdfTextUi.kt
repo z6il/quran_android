@@ -101,12 +101,13 @@ internal fun PdfTextMenu(
 
 /** Above the pages: a scanned PDF's offer of OCR, and how reading its text is going. */
 @Composable
-internal fun PdfTextBanner(text: PdfTextState, job: TextJob?, pages: Int, onOcr: () -> Unit, onRetry: () -> Unit) {
+internal fun PdfTextBanner(text: PdfTextState, job: TextJob?, pages: Int, theme: PageTheme, onOcr: () -> Unit, onRetry: () -> Unit) {
   val running = job != null && job.running && job.source != TextSource.LAYER
   val ocrPages = text.pagesOf(TextSource.OCR) + text.pagesOf(TextSource.OPENITI)
   val scanned = pages > 0 && TextSource.LAYER in text.read && text.pagesOf(TextSource.LAYER) < pages / 10 && ocrPages == 0
   if (!running && !scanned && job?.failed == null) return
-  Surface(color = cardColor(), modifier = Modifier.fillMaxWidth()) {
+  // part of the bars over the page: in the page's colours
+  Surface(color = theme.chromeColor, contentColor = theme.textColor, modifier = Modifier.fillMaxWidth()) {
     Column(Modifier.padding(16.dp, 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
       when {
         job?.failed != null -> Row(verticalAlignment = Alignment.CenterVertically) {
@@ -114,22 +115,26 @@ internal fun PdfTextBanner(text: PdfTextState, job: TextJob?, pages: Int, onOcr:
             stringResource(R.string.library_ocr_failed, job.failed), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f)
           )
-          TextButton(onClick = onRetry) { Text(stringResource(R.string.library_retry)) }
+          TextButton(onClick = onRetry) { Text(stringResource(R.string.library_retry), color = theme.accentColor) }
         }
         running && job!!.downloadingModel != null -> {
           Text(stringResource(R.string.library_ocr_model_progress, (job.downloadingModel * 100).toInt()), style = MaterialTheme.typography.bodySmall)
-          LinearProgressIndicator(progress = { job.downloadingModel }, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(50)))
+          LinearProgressIndicator(
+            progress = { job.downloadingModel }, color = theme.accentColor, trackColor = theme.textColor.copy(alpha = 0.15f),
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(50))
+          )
         }
         running -> {
           Text(stringResource(R.string.library_ocr_progress, job!!.done, job.total), style = MaterialTheme.typography.bodySmall)
           LinearProgressIndicator(
             progress = { if (job.total == 0) 0f else job.done / job.total.toFloat() },
+            color = theme.accentColor, trackColor = theme.textColor.copy(alpha = 0.15f),
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(50))
           )
         }
         else -> Row(verticalAlignment = Alignment.CenterVertically) {
           Text(stringResource(R.string.library_scanned), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-          TextButton(onClick = onOcr) { Text(stringResource(R.string.library_ocr_start)) }
+          TextButton(onClick = onOcr) { Text(stringResource(R.string.library_ocr_start), color = theme.accentColor) }
         }
       }
     }
