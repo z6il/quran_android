@@ -586,6 +586,17 @@ internal fun BookScreen(
         }
       }
 
+      // a cleaner edition of a book already here
+      if (catalog != null && download !is BookDownload.Running && store.newerEdition(catalog, book)) {
+        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f), modifier = Modifier.fillMaxWidth()) {
+          Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(stringResource(R.string.library_better_edition), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(stringResource(R.string.library_better_edition_detail), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { onDownload(catalog) }) { Text(stringResource(R.string.library_download, megabytes(catalog.bytes))) }
+          }
+        }
+      }
+
       // read, or get it first
       val readable = book != null && book.file.isNotEmpty() && java.io.File(book.file).exists()
       when {

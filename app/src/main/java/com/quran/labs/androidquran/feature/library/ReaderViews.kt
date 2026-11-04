@@ -309,9 +309,11 @@ private fun styled(
   selected: Color
 ): AnnotatedString {
   val base = HadithHighlight.annotate(text, query, mark)
-  if ('﴿' !in text && highlights.isEmpty() && selection == null) return base
+  val hadith = hadithQuotes(text)
+  if ('﴿' !in text && hadith.isEmpty() && highlights.isEmpty() && selection == null) return base
   return buildAnnotatedString {
     append(base)
+    hadith.forEach { addStyle(SpanStyle(color = theme.hadithColor), it.first, it.last + 1) }
     var from = 0
     while (true) {
       val start = text.indexOf('﴿', from)
@@ -332,6 +334,27 @@ private fun styled(
     }
     if (selection != null) addStyle(SpanStyle(background = selected), selection.start, selection.end.coerceAtMost(text.length))
   }
+}
+
+/** what attributes words to the Prophet ﷺ just before a quote */
+private val PROPHET = Regex("(صلى الله عليه وسلم|ﷺ|عليه الصلاة والسلام|عليه السلام|رسول الله|النبي|قال رسول|قال النبي)[^«»]{0,40}$")
+
+/**
+ * the «…» quotes that are the Prophet's words ﷺ: attributed to him in the forty letters before
+ * them. Other quotes, a book's title or a scholar's words, stay as they are.
+ */
+internal fun hadithQuotes(text: String): List<IntRange> {
+  if ('«' !in text) return emptyList()
+  val out = mutableListOf<IntRange>()
+  var from = 0
+  while (true) {
+    val start = text.indexOf('«', from)
+    if (start < 0) break
+    val end = text.indexOf('»', start).let { if (it < 0) return out else it }
+    if (PROPHET.containsMatchIn(text.substring(maxOf(0, start - 80), start))) out += start..end
+    from = end + 1
+  }
+  return out
 }
 
 private fun pageLabel(context: Context, page: String, volumes: Boolean): String {

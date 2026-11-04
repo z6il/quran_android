@@ -156,4 +156,6 @@
   <string name="library_open_classical">نصه المحقق</string>
   <string name="library_author">المؤلف</string>
   <string name="library_book_pages">تقليب الصفحات كالكتاب</string>
+  <string name="library_better_edition">نسخة أدق من هذا الكتاب</string>
+  <string name="library_better_edition_detail">نسخة المكتبة الشاملة: مضبوطة بعلامات الترقيم والتنصيص، وكل آية فيها معلَّمة. ينتقل إليها موضعك وعلاماتك وتظليلاتك.</string>
 </resources>

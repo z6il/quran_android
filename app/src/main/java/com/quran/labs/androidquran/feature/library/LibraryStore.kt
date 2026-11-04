@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.core.content.edit
 import com.quran.data.di.AppScope
 import com.quran.labs.androidquran.R
 import com.quran.mobile.di.qualifier.ApplicationContext
@@ -148,10 +149,18 @@ class LibraryStore @Inject constructor(@ApplicationContext private val context: 
     mutableDownloads.update { it + (book.id to BookDownload.Running(0f)) }
     scope.launch {
       val file = File(dir, "text/" + book.id.replace(Regex("[^A-Za-z0-9._-]"), "_") + ".txt")
+      // a book already here, being replaced by a better edition: its old text, to move its marks across
+      val before = book(book.id)?.takeIf { it.file.isNotEmpty() && File(it.file).exists() }
+      val oldBlocks = before?.let { runCatching { OpenItiText.load(File(it.file)) }.getOrNull() }
+      val fresh = File(file.path + ".new")
       try {
-        val total = OpenItiText.download(book.url, file, book.bytes) { f ->
+        val total = OpenItiText.download(book.url, fresh, book.bytes) { f ->
           mutableDownloads.update { it + (book.id to BookDownload.Running(f)) }
         }
+        file.delete()
+        if (!fresh.renameTo(file)) error("couldn't save")
+        editions.edit { putString(book.id, book.path) }
+        if (before != null && oldBlocks != null) moveMarks(book.id, before, oldBlocks, OpenItiText.load(file))
         helper.writableDatabase.insertWithOnConflict("books", null, ContentValues().apply {
           put("id", book.id)
           put("kind", BookKind.TEXT.name)
@@ -167,8 +176,66 @@ class LibraryStore @Inject constructor(@ApplicationContext private val context: 
         mutableDownloads.update { it - book.id }
         refresh()
       } catch (e: Exception) {
-        file.delete()
+        fresh.delete()
+        if (before == null) file.delete()
         mutableDownloads.update { it + (book.id to BookDownload.Failed(e.message ?: e.javaClass.simpleName)) }
+      }
+    }
+  }
+
+  /** which edition each classical book was downloaded from */
+  private val editions = context.getSharedPreferences("library_editions", Context.MODE_PRIVATE)
+
+  /**
+   * [book] was downloaded from an edition the catalogue no longer uses: a cleaner one is
+   * there (al-Shamela's, with its punctuation and verses marked). Books downloaded before the
+   * app kept track came from the edition their id names.
+   */
+  fun newerEdition(book: CatalogBook, mine: LibraryBook?): Boolean {
+    if (mine == null || mine.file.isEmpty() || !File(mine.file).exists()) return false
+    val had = editions.getString(book.id, null) ?: return book.path.substringAfterLast('/') != book.id
+    return had != book.path
+  }
+
+  /**
+   * The new edition's paragraphs aren't the old one's: the reader's place goes to the same
+   * fraction of the book, and each highlight to where its words are in the new text, near
+   * where it was, else anywhere; one whose words aren't found stays at its fraction.
+   */
+  private fun moveMarks(id: String, before: LibraryBook, old: List<TextBlock>, new: List<TextBlock>) {
+    if (old.isEmpty() || new.isEmpty()) return
+    val scale = new.size / old.size.toFloat()
+    val at = { p: Int -> (p * scale).toInt().coerceIn(0, new.lastIndex) }
+    val db = helper.writableDatabase
+    db.execSQL("UPDATE books SET position = ?, offset = 0 WHERE id = ?", arrayOf<Any>(at(before.position), id))
+    db.execSQL("UPDATE marks SET position = CAST(position * ? AS INTEGER) WHERE book = ?", arrayOf<Any>(scale, id))
+    val texts = new.map {
+      when (it) {
+        is TextBlock.Heading -> it.title
+        is TextBlock.Paragraph -> it.text
+      }
+    }
+    val folded = texts.map { com.quran.labs.androidquran.feature.research.HadithLibrary.normalizeArabic(it) }
+    db.rawQuery("SELECT id, position, text FROM highlights WHERE book = ?", arrayOf(id)).use { c ->
+      while (c.moveToNext()) {
+        val hid = c.getLong(0)
+        val guess = at(c.getInt(1))
+        val words = com.quran.labs.androidquran.feature.research.HadithLibrary.normalizeArabic(c.getString(2))
+        if (words.isBlank()) continue
+        val near = (0..300).asSequence().flatMap { d -> sequenceOf(guess - d, guess + d) }.filter { it in folded.indices }
+        val found = (near + folded.indices.asSequence()).firstOrNull { words in folded[it] }
+        if (found == null) {
+          db.execSQL("UPDATE highlights SET position = ? WHERE id = ?", arrayOf<Any>(guess, hid))
+          continue
+        }
+        // where the words start in the new paragraph: the same letters, marks and punctuation aside
+        val range = com.quran.labs.androidquran.feature.hadith.HadithHighlight.ranges(texts[found], words.substringBefore(' '))
+        val start = range.firstOrNull()?.first ?: 0
+        val length = c.getString(2).length
+        db.execSQL(
+          "UPDATE highlights SET position = ?, start = ?, \"end\" = ? WHERE id = ?",
+          arrayOf<Any>(found, start, (start + length).coerceAtMost(texts[found].length), hid)
+        )
       }
     }
   }

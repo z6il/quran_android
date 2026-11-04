@@ -83,4 +83,13 @@ class LibraryTest {
     )
     assertThat(wordAt(words, 0.505f, 0.144f)).isEqualTo(2)
   }
+
+  @Test
+  fun theProphetsWordsAreHadithOtherQuotesAreNot() {
+    val text = "قال رسول الله صلى الله عليه وسلم: «إنما الأعمال بالنيات» وفي كتاب «الأذكار» للنووي"
+    val quotes = hadithQuotes(text).map { text.substring(it.first, it.last + 1) }
+    assertThat(quotes).containsExactly("«إنما الأعمال بالنيات»")
+    assertThat(hadithQuotes("عن النبي ﷺ قال: «الدين النصيحة»")).hasSize(1)
+    assertThat(hadithQuotes("قال ابن القيم في «مدارج السالكين»")).isEmpty()
+  }
 }
