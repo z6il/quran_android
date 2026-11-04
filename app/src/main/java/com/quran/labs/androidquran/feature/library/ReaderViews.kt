@@ -156,7 +156,7 @@ internal fun TextReader(
     listState.scrollToItem(to.position.coerceIn(0, list.lastIndex))
     state.jump = null
   }
-  LaunchedEffect(find.query, list) {
+  LaunchedEffect(find.query, find.phrase, list) {
     val query = find.query
     if (query.isBlank()) {
       find.results = null
@@ -164,7 +164,7 @@ internal fun TextReader(
     }
     delay(350)
     val found = withContext(Dispatchers.Default) {
-      list.indices.filter { i -> HadithHighlight.ranges(list[i].text(), query).isNotEmpty() }
+      list.indices.filter { i -> find.matches(list[i].text(), query).isNotEmpty() }
     }
     find.results = found
     // the first match from where the reader is
@@ -274,6 +274,7 @@ internal fun TextReader(
             Paragraph(
               index = i, text = block.text, style = body, theme = theme, query = query, mark = mark,
               highlights = byPosition[i].orEmpty(), selected = selection?.rangeIn(i, block.text.length), hadith = hadith[i],
+              found = if (query == null) emptyList() else find.matches(block.text, query),
               selecting = selection != null, laid = laid,
               onHold = { range ->
                 anchor = i to range
@@ -361,6 +362,7 @@ private fun Paragraph(
   highlights: List<BookHighlight>,
   selected: IntRange?,
   hadith: List<IntRange>,
+  found: List<IntRange>,
   selecting: Boolean,
   laid: HashMap<Int, Laid>,
   onHold: (TextRange) -> Unit,
@@ -376,7 +378,7 @@ private fun Paragraph(
   val currentTap by rememberUpdatedState(onTap)
   val currentHoldDrag by rememberUpdatedState(onHoldDrag)
   val tint = theme.accentColor.copy(alpha = 0.3f)
-  val styled = remember(text, query, highlights, selected, theme, hadith) { styled(text, query, theme, mark, highlights, selected, tint, hadith) }
+  val styled = remember(text, found, highlights, selected, theme, hadith) { styled(text, found, theme, mark, highlights, selected, tint, hadith) }
   // known to the selection layer while it's laid out
   val l = layout
   val c = coords
@@ -436,7 +438,7 @@ private fun TextBlock.text(): String = when (this) {
 /** the reader's highlights (research quotes underlined), Quran quotes in colour, search matches, the selection */
 private fun styled(
   text: String,
-  query: String?,
+  found: List<IntRange>,
   theme: PageTheme,
   mark: Color,
   highlights: List<BookHighlight>,
@@ -444,7 +446,7 @@ private fun styled(
   selected: Color,
   hadith: List<IntRange>
 ): AnnotatedString {
-  val base = HadithHighlight.annotate(text, query, mark)
+  val base = HadithHighlight.annotate(text, found, mark)
   if ('﴿' !in text && hadith.isEmpty() && highlights.isEmpty() && selection == null) return base
   return buildAnnotatedString {
     append(base)

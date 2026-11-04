@@ -111,7 +111,7 @@ class PdfTextStore private constructor(private val context: Context) {
   }
 
   /** the pages where every word of [query] appears, in order */
-  suspend fun search(book: String, source: TextSource, query: String): List<Int> = withContext(Dispatchers.IO) {
+  suspend fun search(book: String, source: TextSource, query: String, phrase: Boolean = true): List<Int> = withContext(Dispatchers.IO) {
     val found = mutableListOf<Int>()
     helper.readableDatabase.rawQuery(
       "SELECT page, words FROM pages WHERE book = ? AND source = ? AND words != '' ORDER BY page", arrayOf(book, source.name)
@@ -119,7 +119,8 @@ class PdfTextStore private constructor(private val context: Context) {
       while (c.moveToNext()) {
         coroutineContext.ensureActive()
         val text = decode(c.getString(1)).joinToString(" ") { it.text }
-        if (HadithHighlight.ranges(text, query).isNotEmpty()) found += c.getInt(0)
+        val hit = if (phrase) HadithHighlight.phraseRanges(text, query) else HadithHighlight.ranges(text, query)
+        if (hit.isNotEmpty()) found += c.getInt(0)
       }
     }
     found

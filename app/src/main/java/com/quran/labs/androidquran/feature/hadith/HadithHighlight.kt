@@ -62,8 +62,46 @@ object HadithHighlight {
     return found.sortedBy { it.first }
   }
 
-  fun annotate(text: String, query: String?, color: Color): AnnotatedString {
-    val ranges = if (query.isNullOrBlank()) emptyList() else ranges(text, query)
+  /**
+   * where the searched words come together, one after another and in order, each at a word's
+   * start; marks, punctuation and the forms of a letter as [ranges] treats them. One word is
+   * found as [ranges] finds it.
+   */
+  fun phraseRanges(text: String, query: String): List<IntRange> {
+    val words = query.trim().split(Regex("\\s+"))
+      .map { w -> w.filterNot(::isMark).map(::fold).joinToString("").filter { it.isLetterOrDigit() } }
+      .filter { it.isNotEmpty() }
+    if (words.size < 2) return ranges(text, query)
+    // the text's words: where each starts and ends, and its letters folded
+    val tokens = mutableListOf<Triple<String, Int, Int>>()
+    var i = 0
+    while (i < text.length) {
+      if (!text[i].isLetterOrDigit()) {
+        i++
+        continue
+      }
+      val start = i
+      val folded = StringBuilder()
+      while (i < text.length && (text[i].isLetterOrDigit() || isMark(text[i]))) {
+        if (!isMark(text[i])) folded.append(fold(text[i]))
+        i++
+      }
+      tokens += Triple(folded.toString(), start, i)
+    }
+    val found = mutableListOf<IntRange>()
+    for (t in 0..tokens.size - words.size) {
+      if (words.indices.all { k -> tokens[t + k].first.startsWith(words[k]) }) {
+        found += tokens[t].second until tokens[t + words.size - 1].third
+      }
+    }
+    return found
+  }
+
+  fun annotate(text: String, query: String?, color: Color): AnnotatedString =
+    annotate(text, if (query.isNullOrBlank()) emptyList() else ranges(text, query), color)
+
+  /** [text] with [ranges] marked in [color] and bold */
+  fun annotate(text: String, ranges: List<IntRange>, color: Color): AnnotatedString {
     if (ranges.isEmpty()) return AnnotatedString(text)
     return buildAnnotatedString {
       append(text)

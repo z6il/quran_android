@@ -159,4 +159,6 @@
   <string name="library_better_edition">A cleaner edition of this book</string>
   <string name="library_better_edition_detail">The al-Shamela edition: punctuated, with quotation marks and every verse marked. Your place, bookmarks and highlights move to it.</string>
   <string name="library_color_purple">Purple</string>
+  <string name="library_find_phrase">The exact phrase</string>
+  <string name="library_find_any">Any of the words</string>
 </resources>

@@ -159,4 +159,6 @@
   <string name="library_better_edition">نسخة أدق من هذا الكتاب</string>
   <string name="library_better_edition_detail">نسخة المكتبة الشاملة: مضبوطة بعلامات الترقيم والتنصيص، وكل آية فيها معلَّمة. ينتقل إليها موضعك وعلاماتك وتظليلاتك.</string>
   <string name="library_color_purple">بنفسجي</string>
+  <string name="library_find_phrase">العبارة كاملة</string>
+  <string name="library_find_any">أي كلمة منها</string>
 </resources>

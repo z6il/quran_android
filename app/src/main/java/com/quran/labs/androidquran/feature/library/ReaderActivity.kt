@@ -719,8 +719,9 @@ class ReaderActivity : AppCompatActivity() {
 @Composable
 private fun FindBar(find: FindState, theme: PageTheme, onClose: () -> Unit, onJump: (Int) -> Unit) {
   Surface(color = theme.chromeColor, contentColor = theme.textColor, shadowElevation = 2.dp) {
+    Column(Modifier.padding(WindowInsets.statusBars.asPaddingValues())) {
     Row(
-      Modifier.fillMaxWidth().padding(WindowInsets.statusBars.asPaddingValues()).padding(8.dp, 6.dp),
+      Modifier.fillMaxWidth().padding(8.dp, 6.dp),
       verticalAlignment = Alignment.CenterVertically
     ) {
       IconButton(onClick = onClose) { Icon(QuranIcons.Close, contentDescription = null) }
@@ -741,12 +742,34 @@ private fun FindBar(find: FindState, theme: PageTheme, onClose: () -> Unit, onJu
         IconButton(enabled = results.isNotEmpty(), onClick = { find.step(1)?.let(onJump) }) { Icon(AppIcons.ChevronLeft, contentDescription = null) }
       }
     }
+    // with more than one word: all of them together, or any one
+    if (find.query.trim().contains(' ')) {
+      Row(Modifier.padding(start = 56.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        androidx.compose.material3.FilterChip(
+          selected = find.phrase, onClick = { find.phrase = true }, shape = RoundedCornerShape(50),
+          label = { Text(stringResource(R.string.library_find_phrase)) }
+        )
+        androidx.compose.material3.FilterChip(
+          selected = !find.phrase, onClick = { find.phrase = false }, shape = RoundedCornerShape(50),
+          label = { Text(stringResource(R.string.library_find_any)) }
+        )
+      }
+    }
+    }
   }
 }
 
 /** a search inside a book: the paragraphs or pages that match, and which one is shown */
 class FindState {
   var query by mutableStateOf("")
+  /** the words together and in order, or any one of them */
+  var phrase by mutableStateOf(true)
+
+  /** where in [text] the search finds what's asked for */
+  fun matches(text: String, query: String = this.query): List<IntRange> =
+    if (query.isBlank()) emptyList()
+    else if (phrase) com.quran.labs.androidquran.feature.hadith.HadithHighlight.phraseRanges(text, query)
+    else com.quran.labs.androidquran.feature.hadith.HadithHighlight.ranges(text, query)
   var results by mutableStateOf<List<Int>?>(null)
   var current by mutableIntStateOf(0)
 

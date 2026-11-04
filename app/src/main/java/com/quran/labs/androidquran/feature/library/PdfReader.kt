@@ -129,7 +129,7 @@ internal fun PdfReader(
     state.jump = null
   }
   // search: the pages with every word, then from where the reader is
-  LaunchedEffect(find.query, text.source, text.version) {
+  LaunchedEffect(find.query, find.phrase, text.source, text.version) {
     val query = find.query
     val source = text.source
     if (query.isBlank() || source == null) {
@@ -137,7 +137,7 @@ internal fun PdfReader(
       return@LaunchedEffect
     }
     kotlinx.coroutines.delay(350)
-    val found = text.store.search(text.book, source, query)
+    val found = text.store.search(text.book, source, query, find.phrase)
     val first = find.results == null
     find.results = found
     if (first) {
@@ -190,7 +190,7 @@ internal fun PdfReader(
       items(if (ratios.isEmpty()) 0 else pdf.pageCount) { i ->
         PdfPage(
           pdf = pdf, page = i, ratio = ratios[i], width = if (sharp) (width * 2).coerceAtMost(2600) else width,
-          text = text, highlights = byPage[i].orEmpty(), query = query,
+          text = text, highlights = byPage[i].orEmpty(), query = query, phrase = find.phrase,
           selection = selection?.takeIf { it.page == i },
           onSelection = onSelection, onTapHighlight = onTapHighlight, onDoubleTap = toggleZoom,
           theme = theme, night = night, actions = actions, onTap = onTap
@@ -209,6 +209,7 @@ private fun PdfPage(
   text: PdfTextState,
   highlights: List<BookHighlight>,
   query: String?,
+  phrase: Boolean,
   selection: PdfSelection?,
   onSelection: (PdfSelection?) -> Unit,
   onTapHighlight: (BookHighlight) -> Unit,
@@ -222,9 +223,20 @@ private fun PdfPage(
     value = withContext(Dispatchers.IO) { runCatching { pdf.render(page, width).asImageBitmap() }.getOrNull() } ?: value
   }
   val words by produceState<List<PdfWord>?>(null, page, text.source, text.version) { value = text.words(page) }
-  val matches = remember(words, query) {
+  val matches = remember(words, query, phrase) {
     val w = words
-    if (query.isNullOrBlank() || w == null) emptyList() else w.filter { HadithHighlight.ranges(it.text, query).isNotEmpty() }
+    if (query.isNullOrBlank() || w == null) emptyList() else {
+      // the page's words as one text, and each word's place in it: a phrase found marks every word in it
+      val starts = IntArray(w.size)
+      val joined = StringBuilder()
+      w.forEachIndexed { k, word ->
+        if (k > 0) joined.append(' ')
+        starts[k] = joined.length
+        joined.append(word.text)
+      }
+      val hits = if (phrase) HadithHighlight.phraseRanges(joined.toString(), query) else HadithHighlight.ranges(joined.toString(), query)
+      w.filterIndexed { k, word -> hits.any { r -> starts[k] <= r.last && starts[k] + word.text.length > r.first } }
+    }
   }
   val currentWords by rememberUpdatedState(words)
   val currentHighlights by rememberUpdatedState(highlights)

@@ -29,4 +29,17 @@ class HadithHighlightTest {
   fun numbersAndSingleLettersAreNotMarked() {
     assertThat(HadithHighlight.words("15 و")).isEmpty()
   }
+
+  @Test
+  fun aPhraseIsItsWordsTogetherInOrder() {
+    val text = "قَالَ رَسُولُ اللَّهِ: إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ، وَالأعمال كثيرة"
+    val found = HadithHighlight.phraseRanges(text, "انما الاعمال")
+    assertThat(found).hasSize(1)
+    assertThat(text.substring(found[0].first, found[0].last + 1)).isEqualTo("إِنَّمَا الأَعْمَالُ")
+    // the words apart, or the other way round, aren't the phrase
+    assertThat(HadithHighlight.phraseRanges(text, "الاعمال انما")).isEmpty()
+    assertThat(HadithHighlight.phraseRanges(text, "انما كثيرة")).isEmpty()
+    // punctuation between them doesn't matter
+    assertThat(HadithHighlight.phraseRanges(text, "رسول الله انما")).hasSize(1)
+  }
 }
