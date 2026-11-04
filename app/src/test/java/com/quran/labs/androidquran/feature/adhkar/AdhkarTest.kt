@@ -69,4 +69,38 @@ class AdhkarTest {
     assertThat(AdhkarReminders.millisUntil(6 * 60, now)).isEqualTo(24 * 3_600_000L)
     assertThat(AdhkarReminders.millisUntil(5 * 60, now)).isEqualTo(23 * 3_600_000L)
   }
+
+  private val marks = Regex("[\u064B-\u0652\u0640]")
+
+  @Test
+  fun morningHasNoEveningWordsAndTheOtherWayRound() {
+    val book = chapters.first { it.id == AdhkarBook.MORNING_EVENING }
+    val morning = AdhkarSessions.chapter(book, AdhkarSession.MORNING)
+    val evening = AdhkarSessions.chapter(book, AdhkarSession.EVENING)
+    // the evening's own wording, and notes about it, aren't in the morning
+    morning.adhkar.forEach { d ->
+      val t = marks.replace(d.text, "")
+      assertThat(t).doesNotContain("أمسينا وأمسى")
+      assertThat(t).doesNotContain("هذه الليلة")
+      assertThat(t).doesNotContain("أمسيت")
+      assertThat(t).doesNotContain("إذا أمسى")
+      assertThat(t).doesNotContain("[")
+    }
+    evening.adhkar.forEach { d ->
+      val t = marks.replace(d.text, "")
+      assertThat(t).doesNotContain("أصبحنا وأصبح")
+      assertThat(t).doesNotContain("هذا اليوم")
+      assertThat(t).doesNotContain("أصبحت")
+      assertThat(t).doesNotContain("إذا أصبح")
+      assertThat(t).doesNotContain("[")
+    }
+    // each session's own adhkar
+    assertThat(morning.adhkar.map { it.number }).containsAtLeast("93", "94", "95")
+    assertThat(morning.adhkar.map { it.number }).doesNotContain("97")
+    assertThat(evening.adhkar.map { it.number }).contains("97")
+    assertThat(evening.adhkar.map { it.number }).containsNoneOf("93", "94", "95")
+    // the rest are the same in both
+    assertThat(morning.adhkar.size).isEqualTo(24)
+    assertThat(evening.adhkar.size).isEqualTo(22)
+  }
 }

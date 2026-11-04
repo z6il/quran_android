@@ -31,4 +31,35 @@
   <string name="adhkar_favorite">Favorite</string>
   <string name="adhkar_source_note">Hisn al-Muslim by Sa\'id ibn Ali ibn Wahf al-Qahtani. Text and source references from sunnah.com.</string>
   <string name="adhkar_no_results">No adhkar match your search.</string>
+  <string name="adhkar_view_cards">One at a time</string>
+  <string name="adhkar_view_list">All in a list</string>
+  <string name="adhkar_vibrate">Vibrate on each count</string>
+  <string name="adhkar_volume_keys">Count with the volume buttons</string>
+  <string name="adhkar_keep_on">Keep the screen on</string>
+  <string name="adhkar_reset">Start again</string>
+  <string name="adhkar_copy">Copy</string>
+  <string name="adhkar_share">Share</string>
+  <string name="adhkar_copied">Copied</string>
+  <string name="adhkar_share_source">Hisn al-Muslim</string>
+  <string name="adhkar_tap_card">Tap anywhere on the card</string>
+  <string name="adhkar_all_done">All done</string>
+  <string name="adhkar_done_dua">تقبّل الله منا ومنك</string>
+  <plurals name="adhkar_left">
+    <item quantity="one">%1$s dhikr left</item>
+    <item quantity="other">%1$s adhkar left</item>
+  </plurals>
+  <plurals name="adhkar_times">
+    <item quantity="one">once</item>
+    <item quantity="other">%1$s times</item>
+  </plurals>
+  <string name="tasbih_title">Electronic tasbih</string>
+  <string name="tasbih_detail">Count any dhikr in rounds of 33, 100 or more</string>
+  <string name="tasbih_add">Your own dhikr</string>
+  <string name="tasbih_remove">Remove this one</string>
+  <string name="tasbih_free">No limit</string>
+  <string name="tasbih_rounds">Rounds</string>
+  <string name="tasbih_total">All time</string>
+  <string name="tasbih_hint">Tap anywhere on the screen to count</string>
+  <string name="tasbih_hint_volume">Tap anywhere, or press a volume button, to count</string>
+  <string name="tasbih_reset_confirm">Start this count again from zero?</string>
 </resources>

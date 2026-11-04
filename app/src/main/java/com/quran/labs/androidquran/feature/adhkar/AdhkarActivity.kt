@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
+import android.view.WindowManager
 import androidx.activity.addCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -28,12 +30,29 @@ import com.quran.labs.androidquran.common.ui.core.QuranTheme
 import dev.zacsweers.metro.Inject
 
 /** Hisn al-Muslim: the chapter list, a chapter's adhkar with a counter, and reminders. */
-class AdhkarActivity : AppCompatActivity() {
+class AdhkarActivity : AppCompatActivity(), AdhkarHost {
+  override var onVolume: (() -> Unit)? = null
+
+  override fun keepScreenOn(on: Boolean) {
+    if (on) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+  }
+
+  /** while counting, the volume buttons count instead of changing the volume */
+  override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+    val counter = onVolume
+    if (counter != null && (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)) {
+      if (event.repeatCount == 0) counter()
+      return true
+    }
+    return super.onKeyDown(keyCode, event)
+  }
+
   @Inject lateinit var adhkarStore: AdhkarStore
 
   /** the set being read, or null on the list */
   private var openSet by mutableStateOf<AdhkarSet?>(null)
   private var showReminders by mutableStateOf(false)
+  private var showTasbih by mutableStateOf(false)
   private var notificationsAllowed by mutableStateOf(true)
   private var pendingReminder: Pair<AdhkarSession, AdhkarReminder>? = null
 
@@ -60,7 +79,11 @@ class AdhkarActivity : AppCompatActivity() {
     }
 
     onBackPressedDispatcher.addCallback(this) {
-      if (openSet != null) openSet = null else finish()
+      when {
+        showTasbih -> showTasbih = false
+        openSet != null -> openSet = null
+        else -> finish()
+      }
     }
 
     val chapters = AdhkarBook.chapters(this)
@@ -68,7 +91,10 @@ class AdhkarActivity : AppCompatActivity() {
       setContent {
         QuranTheme {
           val state by adhkarStore.state.collectAsState()
-          WithBottomBar(this@AdhkarActivity, AppTab.ADHKAR, showBar = openSet == null) {
+          WithBottomBar(this@AdhkarActivity, AppTab.ADHKAR, showBar = openSet == null && !showTasbih) {
+          if (showTasbih) {
+            TasbihScreen(this@AdhkarActivity, onBack = { showTasbih = false })
+          } else
           AnimatedContent(
             targetState = openSet,
             transitionSpec = {
@@ -81,12 +107,14 @@ class AdhkarActivity : AppCompatActivity() {
             val chapter = set?.let { s -> chapters.firstOrNull { it.id == s.chapterId } }
             if (set != null && chapter != null) {
               AdhkarReader(
-                chapter = chapter,
+                book = chapter,
                 initialSession = if (chapter.id == AdhkarBook.MORNING_EVENING) {
-                  set.session.takeIf { it != AdhkarSession.NONE } ?: AdhkarSession.now()
+                  set.session.takeIf { it != AdhkarSession.NONE } ?: AdhkarSessions.now(this@AdhkarActivity)
                 } else {
                   AdhkarSession.NONE
                 },
+                host = this@AdhkarActivity,
+                streak = state.streak,
                 onFinish = { done ->
                   adhkarStore.markDone(done)
                   openSet = null
@@ -103,6 +131,7 @@ class AdhkarActivity : AppCompatActivity() {
                   notificationsAllowed = NotificationManagerCompat.from(this@AdhkarActivity).areNotificationsEnabled()
                   showReminders = true
                 },
+                onTasbih = { showTasbih = true },
                 onBack = { finish() }
               )
             }

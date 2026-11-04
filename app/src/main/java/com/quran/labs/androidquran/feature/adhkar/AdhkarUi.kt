@@ -121,6 +121,12 @@ private val Moon by lazy {
       "-2.98,0 -5.4,-2.42 -5.4,-5.4 0,-1.81 0.89,-3.42 2.26,-4.4 -0.44,-0.06 -0.9,-0.1 -1.36,-0.1z"
   )
 }
+/** the icons the reader shares */
+internal object AdhkarIcons {
+  val Sun: ImageVector get() = com.quran.labs.androidquran.feature.adhkar.Sun
+  val Moon: ImageVector get() = com.quran.labs.androidquran.feature.adhkar.Moon
+}
+
 private val Bedtime by lazy {
   // a bed, so sleep doesn't look like the evening moon
   icon(
@@ -302,6 +308,7 @@ fun AdhkarHome(
   onOpen: (AdhkarSet) -> Unit,
   onToggleFavorite: (Int) -> Unit,
   onReminders: () -> Unit,
+  onTasbih: () -> Unit,
   onBack: () -> Unit
 ) {
   var query by rememberSaveable { mutableStateOf("") }
@@ -344,6 +351,30 @@ fun AdhkarHome(
               )
             }
             TodaySets(state, onOpen)
+          }
+        }
+      }
+      // the electronic sebha
+      item {
+        Surface(
+          onClick = onTasbih,
+          shape = CardShape,
+          color = cardColor(),
+          modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth()
+        ) {
+          Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+              Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.13f)),
+              contentAlignment = Alignment.Center
+            ) {
+              Text("٣٣", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+              Text(stringResource(R.string.tasbih_title), style = MaterialTheme.typography.titleMedium)
+              Text(stringResource(R.string.tasbih_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(QuranIcons.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
           }
         }
       }
@@ -395,177 +426,9 @@ fun AdhkarHome(
   }
 }
 
-/** One chapter, a dhikr per page, with a counter. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AdhkarReader(
-  chapter: AdhkarChapter,
-  initialSession: AdhkarSession,
-  onFinish: (AdhkarSet) -> Unit,
-  onBack: () -> Unit
-) {
-  val total = chapter.adhkar.size
-  val pager = rememberPagerState(pageCount = { total + 1 })
-  val scope = rememberCoroutineScope()
-  val haptics = LocalHapticFeedback.current
-  val counts = rememberSaveable(
-    chapter.id,
-    saver = listSaver(save = { it.toList() }, restore = { it.toMutableStateList() })
-  ) { List(total) { 0 }.toMutableStateList() }
-  var session by rememberSaveable { mutableStateOf(initialSession) }
-  val arabic = arabicFont()
-
-  Scaffold(
-    topBar = {
-      TopAppBar(
-        title = { Text(chapter.title(isArabicUi()), maxLines = 1) },
-        navigationIcon = {
-          IconButton(onClick = onBack) { Icon(QuranIcons.ArrowBack, contentDescription = stringResource(R.string.adhkar_back)) }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-      )
-    },
-    containerColor = MaterialTheme.colorScheme.surface
-  ) { padding ->
-    Column(Modifier.padding(padding).fillMaxSize()) {
-      if (chapter.id == AdhkarBook.MORNING_EVENING) {
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-          listOf(AdhkarSession.MORNING to R.string.adhkar_morning_short, AdhkarSession.EVENING to R.string.adhkar_evening_short)
-            .forEachIndexed { i, (s, label) ->
-              SegmentedButton(
-                selected = session == s,
-                onClick = { session = s },
-                shape = SegmentedButtonDefaults.itemShape(i, 2),
-                icon = { Icon(if (s == AdhkarSession.MORNING) Sun else Moon, contentDescription = null, modifier = Modifier.size(18.dp)) }
-              ) { Text(stringResource(label)) }
-            }
-        }
-      }
-      // how far through the chapter
-      val finished = counts.indices.count { counts[it] >= chapter.adhkar[it].count }
-      val fraction = finished / total.toFloat()
-      Box(
-        Modifier
-          .padding(horizontal = 16.dp, vertical = 8.dp)
-          .fillMaxWidth()
-          .height(4.dp)
-          .clip(RoundedCornerShape(2.dp))
-          .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
-      ) {
-        Box(Modifier.fillMaxWidth(fraction).height(4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.primary))
-      }
-
-      HorizontalPager(state = pager, modifier = Modifier.weight(1f)) { page ->
-        if (page == total) {
-          DonePage { onFinish(AdhkarSet(chapter.id, if (chapter.id == AdhkarBook.MORNING_EVENING) session else AdhkarSession.NONE)) }
-        } else {
-          val dhikr = chapter.adhkar[page]
-          DhikrPage(
-            dhikr = dhikr,
-            position = page + 1,
-            total = total,
-            done = counts[page],
-            arabicFont = arabic,
-            onTap = {
-              if (counts[page] < dhikr.count) {
-                counts[page] = counts[page] + 1
-                if (counts[page] == dhikr.count) {
-                  haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                  scope.launch {
-                    delay(350)
-                    if (pager.currentPage == page) pager.animateScrollToPage(page + 1)
-                  }
-                } else {
-                  haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                }
-              }
-            }
-          )
-        }
-      }
-    }
-  }
-}
-
-@Composable
-private fun DhikrPage(
-  dhikr: Dhikr,
-  position: Int,
-  total: Int,
-  done: Int,
-  arabicFont: FontFamily,
-  onTap: () -> Unit
-) {
-  var showReference by rememberSaveable(dhikr.number) { mutableStateOf(false) }
-  Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-    Column(
-      Modifier
-        .weight(1f)
-        .verticalScroll(rememberScrollState()),
-      verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-      Text(
-        stringResource(R.string.adhkar_position, position, total),
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-      )
-      Text(
-        dhikr.text,
-        style = TextStyle(
-          fontFamily = arabicFont,
-          fontSize = 24.sp,
-          lineHeight = 46.sp,
-          textDirection = TextDirection.Rtl,
-          textAlign = TextAlign.Center
-        ),
-        modifier = Modifier.fillMaxWidth()
-      )
-      AdhkarVirtues.of(dhikr)?.let { VirtueCard(it, arabicFont) }
-      val suraNames = LocalContext.current.resources.getStringArray(UiCoreR.array.sura_names)
-      val arabicSource = remember(dhikr.reference) {
-        if (isArabicUi()) AdhkarSources.arabic(dhikr.reference) { suraNames[it - 1] } else null
-      }
-      if (arabicSource != null) {
-        // short enough to show as it is
-        Surface(shape = RoundedCornerShape(8.dp), color = cardColor(), modifier = Modifier.fillMaxWidth()) {
-          Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(R.string.adhkar_reference), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            Text(
-              arabicSource,
-              style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Rtl),
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-          }
-        }
-      } else if (dhikr.reference.isNotBlank() && !isArabicUi()) {
-        Surface(
-          onClick = { showReference = !showReference },
-          shape = RoundedCornerShape(8.dp),
-          color = cardColor(),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          Column(Modifier.padding(12.dp)) {
-            Text(stringResource(R.string.adhkar_reference), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            AnimatedVisibility(showReference, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-              // the references are English (book, volume/page), so keep them left to right
-              Text(
-                dhikr.reference,
-                style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-              )
-            }
-          }
-        }
-      }
-    }
-    Counter(dhikr, done, onTap, Modifier.align(Alignment.CenterHorizontally).padding(vertical = 16.dp))
-  }
-}
-
 /** The reward promised for this dhikr, in the hadith's words, always in Arabic. */
 @Composable
-private fun VirtueCard(virtue: DhikrVirtue, arabicFont: FontFamily) {
+internal fun VirtueCard(virtue: DhikrVirtue, arabicFont: FontFamily) {
   val colors = MaterialTheme.colorScheme
   Surface(
     shape = RoundedCornerShape(16.dp),
@@ -601,67 +464,6 @@ private fun VirtueCard(virtue: DhikrVirtue, arabicFont: FontFamily) {
         )
       }
     }
-  }
-}
-
-@Composable
-private fun Counter(dhikr: Dhikr, done: Int, onTap: () -> Unit, modifier: Modifier = Modifier) {
-  val complete = done >= dhikr.count
-  Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    val phase = dhikr.phaseAt(done)
-    AnimatedContent(phase?.first?.text, label = "phase") { text ->
-      if (text != null && phase != null) {
-        Text(
-          "$text  ${(phase.second).localized()}/${phase.first.count.localized()}",
-          style = MaterialTheme.typography.titleSmall,
-          color = MaterialTheme.colorScheme.primary
-        )
-      } else {
-        Spacer(Modifier.height(20.dp))
-      }
-    }
-    ProgressRing(progress = done / dhikr.count.toFloat(), modifier = Modifier.size(132.dp), strokeWidth = 8f) {
-      Surface(
-        onClick = onTap,
-        enabled = !complete,
-        shape = CircleShape,
-        color = if (complete) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-        modifier = Modifier.size(108.dp)
-      ) {
-        Box(contentAlignment = Alignment.Center) {
-          AnimatedContent(
-            targetState = complete to (dhikr.count - done),
-            transitionSpec = { fadeIn() togetherWith fadeOut() },
-            label = "count"
-          ) { (isComplete, left) ->
-            if (isComplete) {
-              Icon(QuranIcons.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(44.dp))
-            } else {
-              Text(left.localized(), style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
-            }
-          }
-        }
-      }
-    }
-    Text(stringResource(R.string.adhkar_tap), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-  }
-}
-
-@Composable
-private fun DonePage(onFinish: () -> Unit) {
-  Column(
-    Modifier.fillMaxSize().padding(24.dp),
-    horizontalAlignment = Alignment.CenterHorizontally,
-    verticalArrangement = Arrangement.Center
-  ) {
-    ProgressRing(1f, Modifier.size(120.dp), strokeWidth = 8f) {
-      Icon(QuranIcons.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp))
-    }
-    Spacer(Modifier.height(16.dp))
-    Text(stringResource(R.string.adhkar_done_title), style = MaterialTheme.typography.headlineSmall)
-    Text(stringResource(R.string.adhkar_done_detail), color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Spacer(Modifier.height(24.dp))
-    Button(onClick = onFinish, shape = RoundedCornerShape(8.dp)) { Text(stringResource(R.string.adhkar_finish)) }
   }
 }
 
