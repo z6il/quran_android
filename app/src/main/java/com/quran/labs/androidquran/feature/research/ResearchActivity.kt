@@ -130,7 +130,8 @@ class ResearchActivity : AppCompatActivity() {
           intent.getStringExtra(EXTRA_QUOTE_BOOK)?.let { book ->
             BookQuotePlace(
               book, intent.getIntExtra(EXTRA_QUOTE_POSITION, 0), intent.getIntExtra(EXTRA_QUOTE_START, 0),
-              intent.getIntExtra(EXTRA_QUOTE_END, 0), intent.getStringExtra(EXTRA_QUOTE_BOXES).orEmpty()
+              intent.getIntExtra(EXTRA_QUOTE_END, 0), intent.getStringExtra(EXTRA_QUOTE_BOXES).orEmpty(),
+              intent.getStringExtra(EXTRA_QUOTE_PARTS).orEmpty()
             )
           }
         )
@@ -325,11 +326,23 @@ class ResearchActivity : AppCompatActivity() {
             val place = screen.book
             if (place != null) {
               // the book marks what was quoted, and opens the note from it
-              libraryStore.addHighlight(
-                place.book, place.position, place.start, place.end,
-                com.quran.labs.androidquran.feature.library.HighlightColor.BLUE, screen.text,
-                com.quran.labs.androidquran.feature.library.PdfTextStore.decode(place.boxes), noteUid = uid
-              )
+              val parts = place.parts.split(';').mapNotNull { p -> p.split(',').mapNotNull { it.toIntOrNull() }.takeIf { it.size == 3 } }
+              if (parts.size > 1) {
+                // a quote over several paragraphs: marked in each
+                val lines = screen.text.split('\n')
+                parts.forEachIndexed { k, (position, start, end) ->
+                  libraryStore.addHighlight(
+                    place.book, position, start, end, com.quran.labs.androidquran.feature.library.HighlightColor.BLUE,
+                    lines.getOrElse(k) { "" }, noteUid = uid
+                  )
+                }
+              } else {
+                libraryStore.addHighlight(
+                  place.book, place.position, place.start, place.end,
+                  com.quran.labs.androidquran.feature.library.HighlightColor.BLUE, screen.text,
+                  com.quran.labs.androidquran.feature.library.PdfTextStore.decode(place.boxes), noteUid = uid
+                )
+              }
             } else {
               withContext(Dispatchers.IO) {
                 TafsirQuotes.get(this@ResearchActivity).add(TafsirQuote(uid, screen.tafsir, screen.sura, screen.ayah, screen.text))
@@ -452,6 +465,7 @@ class ResearchActivity : AppCompatActivity() {
     private const val EXTRA_QUOTE_START = "quote_start"
     private const val EXTRA_QUOTE_END = "quote_end"
     private const val EXTRA_QUOTE_BOXES = "quote_boxes"
+    private const val EXTRA_QUOTE_PARTS = "quote_parts"
 
     /** a passage selected in a tafsir, to add to an idea as a note with its reference */
     fun quoteTafsirIntent(context: Context, text: String, source: String, tafsir: String, sura: Int, ayah: Int): Intent =
@@ -475,6 +489,7 @@ class ResearchActivity : AppCompatActivity() {
         .putExtra(EXTRA_QUOTE_START, place.start)
         .putExtra(EXTRA_QUOTE_END, place.end)
         .putExtra(EXTRA_QUOTE_BOXES, place.boxes)
+        .putExtra(EXTRA_QUOTE_PARTS, place.parts)
 
     /** opens the idea a note (e.g. a tafsir quote) belongs to */
     fun openNoteIntent(context: Context, noteUid: String): Intent = intent(context).putExtra(EXTRA_OPEN_NOTE, noteUid)
@@ -488,4 +503,12 @@ class ResearchActivity : AppCompatActivity() {
 }
 
 /** where in a library book a quote came from */
-data class BookQuotePlace(val book: String, val position: Int, val start: Int, val end: Int, val boxes: String = "")
+data class BookQuotePlace(
+  val book: String,
+  val position: Int,
+  val start: Int,
+  val end: Int,
+  val boxes: String = "",
+  /** a quote over several paragraphs: "paragraph,start,end" for each, joined by ";" */
+  val parts: String = ""
+)

@@ -108,7 +108,15 @@ class ReaderState(start: BookPlace) {
 }
 
 /** a passage to save: where it is, and its words */
-private data class Passage(val position: Int, val start: Int, val end: Int, val text: String, val boxes: List<PdfWord> = emptyList())
+private data class Passage(
+  val position: Int,
+  val start: Int,
+  val end: Int,
+  val text: String,
+  val boxes: List<PdfWord> = emptyList(),
+  /** a passage over several paragraphs: each one's part, the paragraph and from where to where */
+  val parts: List<Triple<Int, Int, Int>> = emptyList()
+)
 
 class ReaderActivity : AppCompatActivity() {
   @Inject lateinit var store: LibraryStore
@@ -241,7 +249,15 @@ class ReaderActivity : AppCompatActivity() {
     val bookmarked = marks.firstOrNull { it.position == state.place.position }
     val save = { p: Passage, color: HighlightColor, note: String ->
       scope.launch {
-        store.addHighlight(book.id, p.position, p.start, p.end, color, p.text, p.boxes, note = note)
+        if (p.parts.size > 1) {
+          // one highlight in each paragraph; the note goes with the first
+          val lines = p.text.split('\n')
+          p.parts.forEachIndexed { k, (position, start, end) ->
+            store.addHighlight(book.id, position, start, end, color, lines.getOrElse(k) { "" }, note = if (k == 0) note else "")
+          }
+        } else {
+          store.addHighlight(book.id, p.position, p.start, p.end, color, p.text, p.boxes, note = note)
+        }
         highlightsVersion++
       }
       Unit
@@ -251,13 +267,14 @@ class ReaderActivity : AppCompatActivity() {
         .filterNotNull().joinToString(" · ")
       startActivity(
         ResearchActivity.quoteBookIntent(
-          this@ReaderActivity, p.text, source, BookQuotePlace(book.id, p.position, p.start, p.end, PdfTextStore.encode(p.boxes))
+          this@ReaderActivity, p.text, source,
+          BookQuotePlace(book.id, p.position, p.start, p.end, PdfTextStore.encode(p.boxes), p.parts.joinToString(";") { (a, b, c) -> "$a,$b,$c" })
         )
       )
     }
     /** what's chosen now, in whichever kind of book */
     val chosen: () -> Passage? = {
-      textSelection?.let { Passage(it.paragraph, it.start, it.end, it.text) }
+      textSelection?.let { Passage(it.first, it.start, it.parts.firstOrNull()?.third ?: it.end, it.text, parts = it.parts) }
         ?: pdfSelection?.let { Passage(it.page, it.range.first, it.range.last + 1, it.text, it.boxes) }
     }
     val clear = {

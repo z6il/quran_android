@@ -41,6 +41,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -66,8 +69,30 @@ import org.json.JSONTokener
 import java.io.ByteArrayInputStream
 import java.io.File
 
-/** Words chosen in a paragraph of a text book, [start] to [end] in its text. */
-data class TextSelection(val paragraph: Int, val start: Int, val end: Int, val text: String)
+/**
+ * Words chosen in a text book, from [start] in paragraph [first] to [end] in paragraph [last]:
+ * one paragraph, or running on over several.
+ */
+data class TextSelection(
+  val first: Int,
+  val start: Int,
+  val last: Int,
+  val end: Int,
+  val text: String,
+  /** each paragraph's part: the paragraph, and from where to where in it */
+  val parts: List<Triple<Int, Int, Int>> = emptyList()
+) {
+  /** the part of paragraph [i] it covers, or null */
+  fun rangeIn(i: Int, length: Int): IntRange? =
+    if (i < first || i > last) null else (if (i == first) start else 0) until (if (i == last) end else length)
+
+  /** each paragraph's part, to save: the paragraph, and from where to where in it */
+  fun segments(lengthOf: (Int) -> Int): List<Triple<Int, Int, Int>> =
+    (first..last).map { i -> Triple(i, if (i == first) start else 0, if (i == last) end else lengthOf(i)) }
+}
+
+/** where a paragraph is laid out on screen, so a selection can run on from one to the next */
+private class Laid(val layout: TextLayoutResult, val coords: LayoutCoordinates)
 
 // ---------------------------------------------------------------- classical text
 
@@ -151,51 +176,172 @@ internal fun TextReader(
   )
   val currentTap by rememberUpdatedState(onTap)
   val currentSelection by rememberUpdatedState(selection)
-  LazyColumn(
-    Modifier
-      .fillMaxSize()
-      .background(theme.backgroundColor)
-      // taps between paragraphs show and hide the bars
-      .pointerInput(Unit) { detectTapGestures(onTap = { if (currentSelection != null) onSelection(null) else currentTap() }) },
-    state = listState,
-    contentPadding = PaddingValues(
-      start = style.margin.dp, end = style.margin.dp,
-      top = insets.calculateTopPadding() + 16.dp, bottom = insets.calculateBottomPadding() + 48.dp
-    )
-  ) {
-    itemsIndexed(list) { i, block ->
-      when (block) {
-        is TextBlock.Heading -> Text(
-          block.title,
-          style = TextStyle(
-            fontFamily = font, fontWeight = FontWeight.Bold, textDirection = TextDirection.Rtl,
-            fontSize = (when (block.level) { 1 -> 25; 2 -> 22; else -> 20 } * style.scale).sp,
-            lineHeight = (when (block.level) { 1 -> 40; 2 -> 36; else -> 32 } * style.scale).sp,
-            textAlign = if (block.level == 1) TextAlign.Center else TextAlign.Start,
-            color = theme.accentColor
-          ),
-          modifier = Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 10.dp)
-        )
-        is TextBlock.Paragraph -> Column(Modifier.fillMaxWidth().padding(bottom = (10 * style.lineSpacing).dp)) {
-          if (i in pageStarts) {
-            Text(
-              pageLabel(context, block.page, volumes),
-              style = TextStyle(color = theme.textColor.copy(alpha = 0.45f), fontSize = 11.sp, textAlign = TextAlign.Center),
-              modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+  val density = androidx.compose.ui.platform.LocalDensity.current
+  // the paragraphs on screen, by index; the selection layer looks words up in them
+  val laid = remember { HashMap<Int, Laid>() }
+  var overlay by remember { mutableStateOf<LayoutCoordinates?>(null) }
+  var anchor by remember { mutableStateOf<Pair<Int, TextRange>?>(null) }
+  var dragging by remember { mutableStateOf(false) }
+  var lens by remember { mutableStateOf<Offset?>(null) }
+  val textOf = { i: Int -> (list.getOrNull(i) as? TextBlock.Paragraph)?.text.orEmpty() }
+
+  /** the paragraph and letter under a point on the window, the nearest paragraph if between them */
+  fun at(window: Offset): Pair<Int, Int>? {
+    val shown = laid.entries.filter { it.value.coords.isAttached }
+    if (shown.isEmpty()) return null
+    val hit = shown.minByOrNull { (_, l) ->
+      val r = l.coords.boundsInWindow()
+      when {
+        window.y < r.top -> r.top - window.y
+        window.y > r.bottom -> window.y - r.bottom
+        else -> 0f
+      }
+    } ?: return null
+    val local = hit.value.coords.windowToLocal(window)
+    return hit.key to hit.value.layout.getOffsetForPosition(local)
+  }
+
+  /** the selection from the [anchor] word to [to], whole words, across the paragraphs between */
+  fun select(from: Pair<Int, TextRange>, to: Pair<Int, Int>) {
+    val (ap, ar) = from
+    val (fp, fo) = to
+    val forward = fp > ap || fp == ap && fo >= ar.start
+    val sel = if (forward) {
+      val e = wordEnd(textOf(fp), fo)
+      TextSelection(ap, ar.start, fp, maxOf(e, if (fp == ap) ar.end else 0), "")
+    } else {
+      TextSelection(fp, wordStart(textOf(fp), fo), ap, ar.end, "")
+    }
+    if (sel.first == sel.last && sel.end <= sel.start) return
+    val parts = sel.segments { textOf(it).length }
+    val text = parts.joinToString("\n") { (i, s0, e0) -> textOf(i).substring(s0.coerceAtMost(e0), e0) }
+    onSelection(sel.copy(text = text, parts = parts))
+  }
+
+  /** near the top or bottom while choosing: the page scrolls on */
+  fun edgeScroll(window: Offset) {
+    val o = overlay ?: return
+    val y = o.windowToLocal(window).y
+    val edge = with(density) { 72.dp.toPx() }
+    when {
+      y < edge -> listState.dispatchRawDelta(-(edge - y) / 3)
+      y > o.size.height - edge -> listState.dispatchRawDelta((y - (o.size.height - edge)) / 3)
+    }
+  }
+
+  Box(Modifier.fillMaxSize().onGloballyPositioned { overlay = it }.lens(lens, density)) {
+    LazyColumn(
+      Modifier
+        .fillMaxSize()
+        .background(theme.backgroundColor)
+        // taps between paragraphs show and hide the bars
+        .pointerInput(Unit) { detectTapGestures(onTap = { if (currentSelection != null) onSelection(null) else currentTap() }) },
+      state = listState,
+      contentPadding = PaddingValues(
+        start = style.margin.dp, end = style.margin.dp,
+        top = insets.calculateTopPadding() + 16.dp, bottom = insets.calculateBottomPadding() + 48.dp
+      )
+    ) {
+      itemsIndexed(list) { i, block ->
+        when (block) {
+          is TextBlock.Heading -> Text(
+            block.title,
+            style = TextStyle(
+              fontFamily = font, fontWeight = FontWeight.Bold, textDirection = TextDirection.Rtl,
+              fontSize = (when (block.level) { 1 -> 25; 2 -> 22; else -> 20 } * style.scale).sp,
+              lineHeight = (when (block.level) { 1 -> 40; 2 -> 36; else -> 32 } * style.scale).sp,
+              textAlign = if (block.level == 1) TextAlign.Center else TextAlign.Start,
+              color = theme.accentColor
+            ),
+            modifier = Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 10.dp)
+          )
+          is TextBlock.Paragraph -> Column(Modifier.fillMaxWidth().padding(bottom = (10 * style.lineSpacing).dp)) {
+            if (i in pageStarts) {
+              Text(
+                pageLabel(context, block.page, volumes),
+                style = TextStyle(color = theme.textColor.copy(alpha = 0.45f), fontSize = 11.sp, textAlign = TextAlign.Center),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+              )
+            }
+            Paragraph(
+              index = i, text = block.text, style = body, theme = theme, query = query, mark = mark,
+              highlights = byPosition[i].orEmpty(), selected = selection?.rangeIn(i, block.text.length),
+              selecting = selection != null, laid = laid,
+              onHold = { range ->
+                anchor = i to range
+                select(i to range, i to range.start)
+              },
+              onHoldDrag = { window ->
+                anchor?.let { a -> at(window)?.let { select(a, it) } }
+                edgeScroll(window)
+              },
+              onClear = { onSelection(null) },
+              onTapHighlight = onTapHighlight, onTap = onTap
             )
           }
-          Paragraph(
-            index = i, text = block.text, style = body, theme = theme, query = query, mark = mark,
-            highlights = byPosition[i].orEmpty(), selection = selection?.takeIf { it.paragraph == i },
-            onSelection = onSelection, actions = actions, onTapHighlight = onTapHighlight, onTap = onTap
-          )
         }
+      }
+    }
+
+    // the handles and the bar, over the list, so they can follow a selection across paragraphs
+    val o = overlay
+    if (selection != null && o != null) {
+      // read so the handles move as the page scrolls
+      listState.firstVisibleItemIndex
+      listState.firstVisibleItemScrollOffset
+      val first = laid[selection.first]?.takeIf { it.coords.isAttached }
+      val last = laid[selection.last]?.takeIf { it.coords.isAttached }
+      val point = { l: Laid, offset: Int, end: Boolean ->
+        val ly = l.layout
+        val safe = offset.coerceIn(0, ly.layoutInput.text.length)
+        val line = ly.getLineForOffset(if (end) (safe - 1).coerceAtLeast(0) else safe)
+        o.windowToLocal(l.coords.localToWindow(Offset(ly.getHorizontalPosition(safe, true), ly.getLineBottom(line))))
+      }
+      val rtl = (first ?: last)?.layout?.let { it.getParagraphDirection(0) == ResolvedTextDirection.Rtl } ?: true
+      /** a handle dragged: that end of the selection follows it, the other stays */
+      val move = { window: Offset, isStart: Boolean ->
+        dragging = true
+        val sel = currentSelection
+        val to = at(window)
+        if (sel != null && to != null) {
+          // the end that stays is the anchor: the word at it
+          val fixedWord = if (isStart) {
+            sel.last to TextRange(wordStart(textOf(sel.last), (sel.end - 1).coerceAtLeast(0)), sel.end)
+          } else {
+            sel.first to TextRange(sel.start, wordEnd(textOf(sel.first), sel.start + 1))
+          }
+          anchor = fixedWord
+          select(fixedWord, to)
+        }
+        edgeScroll(window)
+      }
+      if (first != null) {
+        SelectionHandle(
+          point(first, selection.start, false), hangsLeft = !rtl, color = theme.accentColor,
+          onDrag = { move(o.localToWindow(it), true) }, onDragEnd = { dragging = false }, onMove = { lens = it },
+          modifier = Modifier.align(androidx.compose.ui.AbsoluteAlignment.TopLeft)
+        )
+      }
+      if (last != null) {
+        SelectionHandle(
+          point(last, selection.end, true), hangsLeft = rtl, color = theme.accentColor,
+          onDrag = { move(o.localToWindow(it), false) }, onDragEnd = { dragging = false }, onMove = { lens = it },
+          modifier = Modifier.align(androidx.compose.ui.AbsoluteAlignment.TopLeft)
+        )
+      }
+      if (!dragging) {
+        val top = first?.let { l ->
+          val ly = l.layout
+          o.windowToLocal(l.coords.localToWindow(Offset(0f, ly.getLineTop(ly.getLineForOffset(selection.start.coerceIn(0, ly.layoutInput.text.length)))))).y
+        } ?: 0f
+        val bottom = last?.let { point(it, selection.end, true).y } ?: o.size.height.toFloat()
+        SelectionToolbar(androidx.compose.ui.geometry.Rect(0f, top, o.size.width.toFloat(), bottom), actions)
       }
     }
   }
 }
 
-/** a paragraph that can be held to choose words, with handles and the bar when it has the selection */
+/** a paragraph: held to choose words, which can run on into the next ones */
 @Composable
 private fun Paragraph(
   index: Int,
@@ -205,80 +351,60 @@ private fun Paragraph(
   query: String?,
   mark: Color,
   highlights: List<BookHighlight>,
-  selection: TextSelection?,
-  onSelection: (TextSelection?) -> Unit,
-  actions: SelectionActions,
+  selected: IntRange?,
+  selecting: Boolean,
+  laid: HashMap<Int, Laid>,
+  onHold: (TextRange) -> Unit,
+  onHoldDrag: (Offset) -> Unit,
+  onClear: () -> Unit,
   onTapHighlight: (BookHighlight) -> Unit,
   onTap: () -> Unit
 ) {
   var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
-  var dragging by remember { mutableStateOf(false) }
-  var lens by remember { mutableStateOf<Offset?>(null) }
-  val density = androidx.compose.ui.platform.LocalDensity.current
-  val currentSelection by rememberUpdatedState(selection)
+  var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+  val currentSelecting by rememberUpdatedState(selecting)
   val currentHighlights by rememberUpdatedState(highlights)
   val currentTap by rememberUpdatedState(onTap)
-  val selected = theme.accentColor.copy(alpha = 0.3f)
-  val styled = remember(text, query, highlights, selection, theme) { styled(text, query, theme, mark, highlights, selection, selected) }
-  Box(Modifier.lens(lens, density)) {
-    Text(
-      styled, style = style, onTextLayout = { layout = it },
-      modifier = Modifier
-        .pointerInput(index) {
-          detectTapGestures(onTap = { at ->
-            val l = layout ?: return@detectTapGestures
-            val offset = l.getOffsetForPosition(at)
-            val hit = currentHighlights.lastOrNull { offset in it.start until it.end }
-            when {
-              currentSelection != null -> onSelection(null)
-              hit != null -> onTapHighlight(hit)
-              else -> currentTap()
-            }
-          })
-        }
-        // hold on a word, then drag over the rest
-        .pointerInput(index) {
-          var anchor = TextRange.Zero
-          detectDragGesturesAfterLongPress(
-            onDragStart = { at ->
-              val l = layout ?: return@detectDragGesturesAfterLongPress
-              anchor = l.getWordBoundary(l.getOffsetForPosition(at))
-              if (anchor.length > 0) onSelection(TextSelection(index, anchor.start, anchor.end, text.substring(anchor.start, anchor.end)))
-            },
-            onDrag = { change, _ ->
-              val l = layout ?: return@detectDragGesturesAfterLongPress
-              if (anchor.length == 0) return@detectDragGesturesAfterLongPress
-              change.consume()
-              val word = l.getWordBoundary(l.getOffsetForPosition(change.position))
-              val start = minOf(anchor.start, word.start)
-              val end = maxOf(anchor.end, word.end)
-              onSelection(TextSelection(index, start, end, text.substring(start, end)))
-            }
-          )
-        }
-    )
-    val l = layout
-    if (selection != null && l != null && selection.end <= text.length && selection.end > selection.start) {
-      val rtl = l.getParagraphDirection(selection.start) == ResolvedTextDirection.Rtl
-      val startPoint = Offset(l.getHorizontalPosition(selection.start, true), l.getLineBottom(l.getLineForOffset(selection.start)))
-      val endPoint = Offset(l.getHorizontalPosition(selection.end, true), l.getLineBottom(l.getLineForOffset(selection.end - 1)))
-      val move = { at: Offset, isStart: Boolean ->
-        dragging = true
-        val offset = l.getOffsetForPosition(at)
-        val sel = currentSelection
-        if (sel != null) {
-          val (s, e) = if (isStart) minOf(offset, sel.end - 1) to sel.end else sel.start to maxOf(offset, sel.start + 1)
-          val start = wordStart(text, s)
-          val end = wordEnd(text, e)
-          if (end > start) onSelection(TextSelection(index, start, end, text.substring(start, end)))
-        }
+  val currentHoldDrag by rememberUpdatedState(onHoldDrag)
+  val tint = theme.accentColor.copy(alpha = 0.3f)
+  val styled = remember(text, query, highlights, selected, theme) { styled(text, query, theme, mark, highlights, selected, tint) }
+  // known to the selection layer while it's laid out
+  val l = layout
+  val c = coords
+  if (l != null && c != null) laid[index] = Laid(l, c)
+  androidx.compose.runtime.DisposableEffect(index) { onDispose { laid.remove(index) } }
+  Text(
+    styled, style = style, onTextLayout = { layout = it },
+    modifier = Modifier
+      .onGloballyPositioned { coords = it }
+      .pointerInput(index) {
+        detectTapGestures(onTap = { at ->
+          val ly = layout ?: return@detectTapGestures
+          val offset = ly.getOffsetForPosition(at)
+          val hit = currentHighlights.lastOrNull { offset in it.start until it.end }
+          when {
+            currentSelecting -> onClear()
+            hit != null -> onTapHighlight(hit)
+            else -> currentTap()
+          }
+        })
       }
-      // an Arabic selection starts at its right: its start drop hangs to the right
-      SelectionHandle(startPoint, hangsLeft = !rtl, color = theme.accentColor, onDrag = { move(it, true) }, onDragEnd = { dragging = false }, onMove = { lens = it }, modifier = Modifier.align(androidx.compose.ui.AbsoluteAlignment.TopLeft))
-      SelectionHandle(endPoint, hangsLeft = rtl, color = theme.accentColor, onDrag = { move(it, false) }, onDragEnd = { dragging = false }, onMove = { lens = it }, modifier = Modifier.align(androidx.compose.ui.AbsoluteAlignment.TopLeft))
-      if (!dragging) SelectionToolbar(l.getPathForRange(selection.start, selection.end).getBounds(), actions)
-    }
-  }
+      // hold on a word, then drag over the rest, here or in the paragraphs after it
+      .pointerInput(index) {
+        detectDragGesturesAfterLongPress(
+          onDragStart = { at ->
+            val ly = layout ?: return@detectDragGesturesAfterLongPress
+            val word = ly.getWordBoundary(ly.getOffsetForPosition(at))
+            if (word.length > 0) onHold(word)
+          },
+          onDrag = { change, _ ->
+            val co = coords ?: return@detectDragGesturesAfterLongPress
+            change.consume()
+            currentHoldDrag(co.localToWindow(change.position))
+          }
+        )
+      }
+  )
 }
 
 private fun wordStart(text: String, at: Int): Int {
@@ -305,7 +431,7 @@ private fun styled(
   theme: PageTheme,
   mark: Color,
   highlights: List<BookHighlight>,
-  selection: TextSelection?,
+  selection: IntRange?,
   selected: Color
 ): AnnotatedString {
   val base = HadithHighlight.annotate(text, query, mark)
@@ -332,7 +458,7 @@ private fun styled(
         addStyle(SpanStyle(background = Color(h.color.argb).copy(alpha = if (theme.dark) 0.35f else 0.45f)), start, end)
       }
     }
-    if (selection != null) addStyle(SpanStyle(background = selected), selection.start, selection.end.coerceAtMost(text.length))
+    if (selection != null && !selection.isEmpty()) addStyle(SpanStyle(background = selected), selection.first, (selection.last + 1).coerceAtMost(text.length))
   }
 }
 
