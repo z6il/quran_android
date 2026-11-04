@@ -231,7 +231,7 @@ private fun PdfPage(
   val currentSelection by rememberUpdatedState(selection)
   val currentTap by rememberUpdatedState(onTap)
   val selectionColor = theme.accentColor.copy(alpha = 0.3f)
-  val matchColor = theme.accentColor.copy(alpha = 0.3f)
+  val matchColor = theme.textColor.copy(alpha = 0.2f)
   var dragging by remember { mutableStateOf(false) }
   var lens by remember { mutableStateOf<Offset?>(null) }
   val density = androidx.compose.ui.platform.LocalDensity.current
@@ -285,8 +285,8 @@ private fun PdfPage(
         if (h.noteUid.isNotEmpty()) {
           // quoted into the research: tinted and underlined
           h.boxes.forEach { w ->
-            drawWord(w, theme.accentColor.copy(alpha = 0.16f))
-            drawRect(theme.accentColor, Offset(w.left * size.width, w.bottom * size.height - 2.dp.toPx()), Size((w.right - w.left) * size.width, 2.dp.toPx()))
+            drawWord(w, Color(0x33808080))
+            drawRect(Color(0xCC606060), Offset(w.left * size.width, w.bottom * size.height - 2.dp.toPx()), Size((w.right - w.left) * size.width, 2.dp.toPx()))
           }
         } else {
           h.boxes.forEach { drawWord(it, Color(h.color.argb).copy(alpha = 0.4f)) }

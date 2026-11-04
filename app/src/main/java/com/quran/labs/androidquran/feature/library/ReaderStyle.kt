@@ -41,20 +41,32 @@ import androidx.core.content.edit
 import com.quran.labs.androidquran.R
 
 /** The page's colours: a book reads best on paper, or dark at night. */
-/** [accent] is the verses' colour, [hadith] the Prophet's words ﷺ */
-enum class PageTheme(val title: Int, val background: Long, val text: Long, val accent: Long, val dark: Boolean, val hadith: Long) {
-  WHITE(R.string.library_theme_white, 0xFFFFFFFF, 0xFF1E1E1E, 0xFF1F6B52, false, 0xFF9A5B13),
-  PAPER(R.string.library_theme_paper, 0xFFF7F1E3, 0xFF3D3328, 0xFF7A4B12, false, 0xFF245C7A),
-  SEPIA(R.string.library_theme_sepia, 0xFFEBDDC3, 0xFF3B2C1D, 0xFF8A4B1C, false, 0xFF2E5E6E),
-  MINT(R.string.library_theme_mint, 0xFFE6EFE7, 0xFF1F3327, 0xFF1F6B52, false, 0xFF8A4B12),
-  GRAY(R.string.library_theme_gray, 0xFF34363A, 0xFFDCDAD5, 0xFF9CCFB8, true, 0xFFE7C27D),
-  NIGHT(R.string.library_theme_night, 0xFF16171A, 0xFFCBC7BE, 0xFFD9B26E, true, 0xFF8FC3D9),
-  BLACK(R.string.library_theme_black, 0xFF000000, 0xFFB9B5AC, 0xFFD9B26E, true, 0xFF8FC3D9);
+/**
+ * [accent] is the bars' and the handles' colour; [verse] the Quran's, green; [hadith] the Prophet's
+ * words ﷺ, orange: far apart from each other, from the highlights, and from the page.
+ */
+enum class PageTheme(
+  val title: Int,
+  val background: Long,
+  val text: Long,
+  val accent: Long,
+  val dark: Boolean,
+  val hadith: Long,
+  val verse: Long
+) {
+  WHITE(R.string.library_theme_white, 0xFFFFFFFF, 0xFF1E1E1E, 0xFF1F6B52, false, 0xFFB4460F, 0xFF1E7B3C),
+  PAPER(R.string.library_theme_paper, 0xFFF7F1E3, 0xFF3D3328, 0xFF7A4B12, false, 0xFFB4460F, 0xFF2C7A34),
+  SEPIA(R.string.library_theme_sepia, 0xFFEBDDC3, 0xFF3B2C1D, 0xFF8A4B1C, false, 0xFFA8400E, 0xFF2A6B2E),
+  MINT(R.string.library_theme_mint, 0xFFE6EFE7, 0xFF1F3327, 0xFF1F6B52, false, 0xFFB4460F, 0xFF0F6233),
+  GRAY(R.string.library_theme_gray, 0xFF34363A, 0xFFDCDAD5, 0xFF9CCFB8, true, 0xFFF2A65A, 0xFF7ED69C),
+  NIGHT(R.string.library_theme_night, 0xFF16171A, 0xFFCBC7BE, 0xFFD9B26E, true, 0xFFF2A65A, 0xFF7ED69C),
+  BLACK(R.string.library_theme_black, 0xFF000000, 0xFFB9B5AC, 0xFFD9B26E, true, 0xFFE89A4E, 0xFF6CC98B);
 
   val backgroundColor get() = Color(background)
   val textColor get() = Color(text)
   val accentColor get() = Color(accent)
   val hadithColor get() = Color(hadith)
+  val verseColor get() = Color(verse)
   /** the bars over the page: a shade of the page itself */
   val chromeColor get() = if (dark) Color(background).copy(alpha = 0.96f).compositeOverWhiteish(0.06f) else Color(background).darken(0.04f)
 }

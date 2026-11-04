@@ -80,7 +80,8 @@ data class BookHighlight(
 
 enum class HighlightColor(val argb: Long, val title: Int) {
   YELLOW(0xFFFFD54F, R.string.library_color_yellow),
-  GREEN(0xFF81C784, R.string.library_color_green),
+  /** shown purple: green is the verses' colour; the name stays for the highlights already saved */
+  GREEN(0xFFB39DDB, R.string.library_color_purple),
   BLUE(0xFF64B5F6, R.string.library_color_blue),
   PINK(0xFFF48FB1, R.string.library_color_pink)
 }

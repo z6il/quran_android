@@ -128,6 +128,13 @@ internal fun TextReader(
     }.toSet()
   }
   val volumes = remember(list) { list.any { it is TextBlock.Paragraph && it.page.isNotEmpty() && !it.page.startsWith("1:") } }
+  // each paragraph's hadith, those that run on from the one before included
+  val hadith = remember(list) {
+    var open = false
+    list.map { b ->
+      if (b is TextBlock.Paragraph) hadithQuotes(b.text, open).also { open = it.openAtEnd }.ranges else emptyList<IntRange>().also { open = false }
+    }
+  }
 
   LaunchedEffect(list) {
     state.total = list.size
@@ -166,7 +173,8 @@ internal fun TextReader(
   }
 
   val font = readerFontFamily(style.font)
-  val mark = theme.accentColor.copy(alpha = 0.28f)
+  // what's searched for: a shade of the text, so it's none of the colours that mean something
+  val mark = theme.textColor.copy(alpha = 0.16f)
   val query = find.query.takeIf { find.results != null }
   val byPosition = remember(highlights) { highlights.groupBy { it.position } }
   val size = 20 * style.scale
@@ -251,7 +259,7 @@ internal fun TextReader(
               fontSize = (when (block.level) { 1 -> 25; 2 -> 22; else -> 20 } * style.scale).sp,
               lineHeight = (when (block.level) { 1 -> 40; 2 -> 36; else -> 32 } * style.scale).sp,
               textAlign = if (block.level == 1) TextAlign.Center else TextAlign.Start,
-              color = theme.accentColor
+              color = theme.textColor
             ),
             modifier = Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 10.dp)
           )
@@ -265,7 +273,7 @@ internal fun TextReader(
             }
             Paragraph(
               index = i, text = block.text, style = body, theme = theme, query = query, mark = mark,
-              highlights = byPosition[i].orEmpty(), selected = selection?.rangeIn(i, block.text.length),
+              highlights = byPosition[i].orEmpty(), selected = selection?.rangeIn(i, block.text.length), hadith = hadith[i],
               selecting = selection != null, laid = laid,
               onHold = { range ->
                 anchor = i to range
@@ -352,6 +360,7 @@ private fun Paragraph(
   mark: Color,
   highlights: List<BookHighlight>,
   selected: IntRange?,
+  hadith: List<IntRange>,
   selecting: Boolean,
   laid: HashMap<Int, Laid>,
   onHold: (TextRange) -> Unit,
@@ -367,7 +376,7 @@ private fun Paragraph(
   val currentTap by rememberUpdatedState(onTap)
   val currentHoldDrag by rememberUpdatedState(onHoldDrag)
   val tint = theme.accentColor.copy(alpha = 0.3f)
-  val styled = remember(text, query, highlights, selected, theme) { styled(text, query, theme, mark, highlights, selected, tint) }
+  val styled = remember(text, query, highlights, selected, theme, hadith) { styled(text, query, theme, mark, highlights, selected, tint, hadith) }
   // known to the selection layer while it's laid out
   val l = layout
   val c = coords
@@ -432,30 +441,30 @@ private fun styled(
   mark: Color,
   highlights: List<BookHighlight>,
   selection: IntRange?,
-  selected: Color
+  selected: Color,
+  hadith: List<IntRange>
 ): AnnotatedString {
   val base = HadithHighlight.annotate(text, query, mark)
-  val hadith = hadithQuotes(text)
   if ('﴿' !in text && hadith.isEmpty() && highlights.isEmpty() && selection == null) return base
   return buildAnnotatedString {
     append(base)
-    hadith.forEach { addStyle(SpanStyle(color = theme.hadithColor), it.first, it.last + 1) }
+    hadith.forEach { addStyle(SpanStyle(color = theme.hadithColor), it.first, (it.last + 1).coerceAtMost(text.length)) }
     var from = 0
     while (true) {
       val start = text.indexOf('﴿', from)
       if (start < 0) break
       val end = text.indexOf('﴾', start).let { if (it < 0) text.length else it + 1 }
-      addStyle(SpanStyle(color = theme.accentColor), start, end)
+      addStyle(SpanStyle(color = theme.verseColor), start, end)
       from = end
     }
     highlights.forEach { h ->
       val start = h.start.coerceIn(0, text.length)
       val end = h.end.coerceIn(start, text.length)
       if (h.noteUid.isNotEmpty()) {
-        // quoted into the research: in the accent, on its tint
-        addStyle(SpanStyle(background = theme.accentColor.copy(alpha = 0.16f), color = theme.accentColor), start, end)
+        // quoted into the research: underlined on a gray tint, its colours left as they are
+        addStyle(SpanStyle(background = theme.textColor.copy(alpha = 0.12f), textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline), start, end)
       } else {
-        addStyle(SpanStyle(background = Color(h.color.argb).copy(alpha = if (theme.dark) 0.35f else 0.45f)), start, end)
+        addStyle(SpanStyle(background = Color(h.color.argb).copy(alpha = if (theme.dark) 0.42f else 0.5f)), start, end)
       }
     }
     if (selection != null && !selection.isEmpty()) addStyle(SpanStyle(background = selected), selection.first, (selection.last + 1).coerceAtMost(text.length))
@@ -465,22 +474,53 @@ private fun styled(
 /** what attributes words to the Prophet ﷺ just before a quote */
 private val PROPHET = Regex("(صلى الله عليه وسلم|ﷺ|عليه الصلاة والسلام|عليه السلام|رسول الله|النبي|قال رسول|قال النبي)[^«»]{0,40}$")
 
+/** a paragraph's hadith: where they are, and whether one is still open at its end, running on into the next */
+internal class HadithSpans(val ranges: List<IntRange>, val openAtEnd: Boolean)
+
 /**
- * the «…» quotes that are the Prophet's words ﷺ: attributed to him in the forty letters before
- * them. Other quotes, a book's title or a scholar's words, stay as they are.
+ * the quotes that are the Prophet's words ﷺ: «…», "…" or “…” attributed to him in the eighty
+ * letters before them. A book's title, or a scholar's words, stays as it is. [openAtStart]: the
+ * paragraph before ended inside one, as a hadith does that runs over a printed page.
  */
-internal fun hadithQuotes(text: String): List<IntRange> {
-  if ('«' !in text) return emptyList()
+internal fun hadithQuotes(text: String, openAtStart: Boolean = false): HadithSpans {
   val out = mutableListOf<IntRange>()
-  var from = 0
-  while (true) {
-    val start = text.indexOf('«', from)
-    if (start < 0) break
-    val end = text.indexOf('»', start).let { if (it < 0) return out else it }
-    if (PROPHET.containsMatchIn(text.substring(maxOf(0, start - 80), start))) out += start..end
-    from = end + 1
+  var i = 0
+  if (openAtStart) {
+    val close = closing(text, 0, null)
+    if (close < 0) return HadithSpans(listOf(text.indices), true)
+    out += 0..close
+    i = close + 1
   }
-  return out
+  while (i < text.length) {
+    val c = text[i]
+    val opens = c == '«' || c == '“' || c == '"'
+    if (!opens) {
+      i++
+      continue
+    }
+    val close = closing(text, i + 1, c)
+    val prophetic = PROPHET.containsMatchIn(text.substring(maxOf(0, i - 80), i))
+    if (close < 0) {
+      // open to the paragraph's end
+      if (prophetic) return HadithSpans(out + listOf(i until text.length), true)
+      break
+    }
+    if (prophetic) out += i..close
+    i = close + 1
+  }
+  return HadithSpans(out, false)
+}
+
+/** where the quote opened by [open] (or any, for one carried over) closes, or -1 */
+private fun closing(text: String, from: Int, open: Char?): Int {
+  val close = when (open) {
+    '«' -> "»"
+    '“' -> "”"
+    '"' -> "\""
+    else -> "»”\""
+  }
+  for (k in from until text.length) if (text[k] in close) return k
+  return -1
 }
 
 private fun pageLabel(context: Context, page: String, volumes: Boolean): String {
@@ -614,15 +654,15 @@ private fun epubCss(theme: PageTheme, style: ReaderStyle, top: Float, bottom: Fl
       "font-family:$face;overflow-wrap:break-word;${if (style.justify) "text-align:justify;" else ""}}"
   )
   append("p{margin:0 0 0.6em 0;}")
-  append("h1,h2,h3,h4{color:${hex(theme.accentColor)} !important;line-height:1.5;}")
+  append("h1,h2,h3,h4{color:${hex(theme.textColor)} !important;line-height:1.5;}")
   append("a{color:${hex(theme.accentColor)} !important;}")
   append("img,svg,video,table{max-width:100% !important;height:auto !important;}")
   // a book's own colours would be unreadable on a dark page
   if (theme.dark) append("*{color:inherit !important;background-color:transparent !important;border-color:${hex(theme.textColor)}33 !important;}")
   HighlightColor.entries.forEach { c ->
-    append("mark.hl-${c.name}{background:${rgba(Color(c.argb), if (theme.dark) 0.35f else 0.45f)} !important;color:inherit !important;}")
+    append("mark.hl-${c.name}{background:${rgba(Color(c.argb), if (theme.dark) 0.42f else 0.5f)} !important;color:inherit !important;}")
   }
-  append("mark.research{background:${rgba(theme.accentColor, 0.14f)} !important;color:inherit !important;border-bottom:2px solid ${hex(theme.accentColor)};}")
+  append("mark.research{background:${rgba(theme.textColor, 0.12f)} !important;color:inherit !important;border-bottom:2px solid ${hex(theme.textColor)}99;}")
   append("a.__next{display:block;margin:48px auto 0;padding:14px 18px;text-align:center;border-radius:24px;")
   append("border:1px solid ${hex(theme.accentColor)}66;text-decoration:none;font-weight:bold;}")
   if (style.bookPages && width > 0 && height > 0) append(bookCss(theme, style, top, bottom, width, height))

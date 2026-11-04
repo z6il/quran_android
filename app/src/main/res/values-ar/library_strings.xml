@@ -158,4 +158,5 @@
   <string name="library_book_pages">تقليب الصفحات كالكتاب</string>
   <string name="library_better_edition">نسخة أدق من هذا الكتاب</string>
   <string name="library_better_edition_detail">نسخة المكتبة الشاملة: مضبوطة بعلامات الترقيم والتنصيص، وكل آية فيها معلَّمة. ينتقل إليها موضعك وعلاماتك وتظليلاتك.</string>
+  <string name="library_color_purple">بنفسجي</string>
 </resources>

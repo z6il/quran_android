@@ -87,9 +87,16 @@ class LibraryTest {
   @Test
   fun theProphetsWordsAreHadithOtherQuotesAreNot() {
     val text = "قال رسول الله صلى الله عليه وسلم: «إنما الأعمال بالنيات» وفي كتاب «الأذكار» للنووي"
-    val quotes = hadithQuotes(text).map { text.substring(it.first, it.last + 1) }
+    val quotes = hadithQuotes(text).ranges.map { text.substring(it.first, it.last + 1) }
     assertThat(quotes).containsExactly("«إنما الأعمال بالنيات»")
-    assertThat(hadithQuotes("عن النبي ﷺ قال: «الدين النصيحة»")).hasSize(1)
-    assertThat(hadithQuotes("قال ابن القيم في «مدارج السالكين»")).isEmpty()
+    assertThat(hadithQuotes("عن النبي ﷺ قال: «الدين النصيحة»").ranges).hasSize(1)
+    assertThat(hadithQuotes("قال ابن القيم في «مدارج السالكين»").ranges).isEmpty()
+    // Riyad as-Salihin quotes with plain marks, and a hadith can run on over a page
+    val riyad = hadithQuotes("سمعت رسول الله صلى الله عليه وسلم يقول: \"انطلق ثلاثة نفر")
+    assertThat(riyad.ranges).hasSize(1)
+    assertThat(riyad.openAtEnd).isTrue()
+    val next = hadithQuotes("فانفرجت الصخرة\" متفق عليه.", openAtStart = true)
+    assertThat(next.ranges.single()).isEqualTo(0..14)
+    assertThat(next.openAtEnd).isFalse()
   }
 }
